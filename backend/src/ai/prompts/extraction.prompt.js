@@ -1,34 +1,56 @@
-module.exports = {
-  getExtractionPrompt: (text, projectContext) => `
-You are an expert Requirements Extraction Agent.
-Extract all atomic functional and non-functional requirements from the following text based on IEEE 830 and ISO/IEC/IEEE 29148 standards.
+function getExtractionPrompt(param1, param2) {
+  let projectContext = {};
+  let userText = '';
 
-Project: ${projectContext.projectName}
-Scope: ${projectContext.scope}
+  if (typeof param1 === 'string') {
+    userText = param1;
+    projectContext = param2 || {};
+  } else {
+    projectContext = param1 || {};
+    userText = param2 || '';
+  }
 
-Text to extract from:
+  return `
+You are an AI Software Requirements Engineer conforming to ISO/IEC/IEEE 29148:2018 and IEEE 830 standards.
+
+PROJECT NAME:
+${projectContext?.projectName || 'Software Platform'}
+
+PROJECT SCOPE / DESCRIPTION:
+${projectContext?.scope || projectContext?.description || 'Not provided'}
+
+USER INPUT TO EXTRACT REQUIREMENTS FROM:
 """
-${text}
+${userText}
 """
 
-Rules:
-1. Each requirement must be unambiguous, atomic, and testable.
-2. Functional requirements describe WHAT the system shall do.
-3. Non-functional requirements describe HOW WELL (performance, security, usability).
-4. Do not fabricate requirements not implied by the text.
+TASK:
+Extract atomic, verifiable, testable software requirements from the user's input.
+Standardize all requirement descriptions into formal phrasing ("The system shall...").
 
-Return JSON:
+Return ONLY valid, parseable JSON matching this structure:
 {
   "requirements": [
     {
-      "title": "Short title",
-      "description": "The system shall...",
-      "type": "FUNCTIONAL" | "NON_FUNCTIONAL",
-      "category": "Core" | "Security" | "Performance" | "Interface",
+      "title": "Short descriptive requirement title",
+      "description": "The system shall allow...",
+      "type": "FUNCTIONAL" | "NON_FUNCTIONAL" | "CONSTRAINT" | "ASSUMPTION" | "INTERFACE" | "STAKEHOLDER",
+      "nfrSubcategory": "PERFORMANCE" | "SECURITY" | "SCALABILITY" | "AVAILABILITY" | "N/A",
+      "category": "Core Features",
       "priority": "HIGH" | "MEDIUM" | "LOW",
-      "confidence": 0.95
+      "completenessScore": 85,
+      "isAtomic": true
     }
   ]
 }
-`
+
+RULES:
+- Do not invent requirements not implied by the user input.
+- Keep each requirement strictly atomic (one testable behavior per requirement).
+- Always use formal phrasing ("The system shall...").
+`;
+}
+
+module.exports = {
+  getExtractionPrompt
 };
