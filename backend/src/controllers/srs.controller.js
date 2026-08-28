@@ -8,6 +8,7 @@ const srsReviewAgent = require('../ai/agents/SRSReviewAgent');
 const srsUpdateAgent = require('../ai/agents/SRSUpdateAgent');
 const ragService = require('../services/ragService');
 const traceabilityService = require('../services/traceabilityService');
+const { normalizeRequirementStatement } = require('../services/requirementGrammarValidator');
 
 exports.generateSRS = async (req, res, next) => {
   try {
@@ -15,9 +16,10 @@ exports.generateSRS = async (req, res, next) => {
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-    const requirements = await Requirement.find({ projectId });
+    // Only query active requirements (exclude DEPRECATED)
+    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
     if (requirements.length === 0) {
-      return res.status(400).json({ success: false, message: 'Cannot generate SRS without requirements' });
+      return res.status(400).json({ success: false, message: 'Cannot generate SRS without active requirements' });
     }
 
     const issues = await RequirementIssue.find({ projectId, status: 'OPEN' });
@@ -39,7 +41,7 @@ exports.generateSRS = async (req, res, next) => {
       });
     }
 
-    // Generate traceability links
+    // Generate traceability links and RAG indexing
     await traceabilityService.generateLinksForProject(projectId, srs);
     await ragService.indexProjectKnowledge(projectId);
 
@@ -78,7 +80,8 @@ exports.reviewSRS = async (req, res, next) => {
     const srs = await SRS.findById(req.params.id);
     if (!srs) return res.status(404).json({ success: false, message: 'SRS not found' });
 
-    const requirements = await Requirement.find({ projectId: srs.projectId });
+    // Only audit active requirements
+    const requirements = await Requirement.find({ projectId: srs.projectId, status: { $ne: 'DEPRECATED' } });
     const reviewResult = await srsReviewAgent.reviewSRS(srs, requirements);
 
     srs.reviewNotes = reviewResult.recommendations;
@@ -130,7 +133,7 @@ exports.incrementalSRSUpdate = async (req, res, next) => {
     const srs = await SRS.findOne({ projectId });
     if (!srs) return res.status(400).json({ success: false, message: 'Generate initial SRS baseline first.' });
 
-    const requirements = await Requirement.find({ projectId });
+    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
     const ragContext = await ragService.retrieveContext(projectId, changeText, 5);
 
     // AI Incremental Change Analysis & Update
@@ -139,10 +142,11 @@ exports.incrementalSRSUpdate = async (req, res, next) => {
     // Apply or update requirement
     let targetReq = await Requirement.findOne({ projectId, requirementId: updatePlan.affectedRequirementId });
     let isNew = updatePlan.isNewRequirement;
+    const normalizedDesc = normalizeRequirementStatement(updatePlan.proposedRequirement.description);
 
     if (targetReq) {
       targetReq.title = updatePlan.proposedRequirement.title || targetReq.title;
-      targetReq.description = updatePlan.proposedRequirement.description;
+      targetReq.description = normalizedDesc;
       targetReq.status = 'MODIFIED';
       targetReq.version = '1.1';
       await targetReq.save();
@@ -151,7 +155,7 @@ exports.incrementalSRSUpdate = async (req, res, next) => {
         projectId,
         requirementId: updatePlan.affectedRequirementId,
         title: updatePlan.proposedRequirement.title || 'New Requirement',
-        description: updatePlan.proposedRequirement.description,
+        description: normalizedDesc,
         type: updatePlan.proposedRequirement.type || 'FUNCTIONAL',
         category: updatePlan.proposedRequirement.category || 'Core Features',
         priority: updatePlan.proposedRequirement.priority || 'HIGH',
@@ -170,7 +174,7 @@ exports.incrementalSRSUpdate = async (req, res, next) => {
     srs.revisionHistory.push({
       version: newVersionStr,
       date: new Date().toISOString().split('T')[0],
-      author: req.user?.name || 'IntelliSDLC AI Reviewer',
+      author: req.user?.name || 'Requirements Engineering Team',
       reasonForChanges: reason || updatePlan.reasonForChanges || `Requirement update: ${changeText}`
     });
 

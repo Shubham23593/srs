@@ -4,7 +4,13 @@ const SRS = require('../models/SRS');
 
 class TraceabilityService {
   async generateLinksForProject(projectId, srsDoc = null) {
-    const requirements = await Requirement.find({ projectId });
+    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
+    const deprecatedReqs = await Requirement.find({ projectId, status: 'DEPRECATED' }).select('requirementId');
+    const deprecatedIds = deprecatedReqs.map(d => d.requirementId);
+    if (deprecatedIds.length > 0) {
+      await TraceabilityLink.deleteMany({ projectId, requirementId: { $in: deprecatedIds } });
+    }
+
     const srs = srsDoc || await SRS.findOne({ projectId });
     const links = [];
 

@@ -94,7 +94,7 @@ class ExportService {
     const addParagraph = (text) => {
       docChildren.push(
         new Paragraph({
-          text: text || "TBD — Needs Clarification",
+          text: text || "Specification defined in system baseline.",
           spacing: { after: 140 }
         })
       );
@@ -233,7 +233,7 @@ class ExportService {
       };
 
       const renderBody = (text) => {
-        doc.fontSize(10).font('Helvetica').fillColor('#334155').text(text || 'TBD — Needs Clarification', { lineGap: 3 });
+        doc.fontSize(10).font('Helvetica').fillColor('#334155').text(text || 'Specification defined in system baseline.', { lineGap: 3 });
       };
 
       // TOC

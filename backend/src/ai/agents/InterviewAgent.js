@@ -1,6 +1,7 @@
 const { getAIProvider } = require('../index');
 const { getInterviewQuestionPrompt } = require('../prompts/interview.prompt');
 const embeddingService = require('../EmbeddingService');
+const { normalizeRequirementStatement } = require('../../services/requirementGrammarValidator');
 
 class InterviewAgent {
   /**
@@ -77,12 +78,12 @@ class InterviewAgent {
       };
     }
 
-    // Greetings
+    // Greetings & Casual Chatter
     const greetingPatterns = [
-      /^(hello|hi|hey|heya|namaste|hola|greetings|wassup|yo)[!?. ,]*$/i,
-      /^good\s+(morning|afternoon|evening|night)[!?. ,]*$/i,
-      /^(kaise\s+ho|kya\s+hal\s+hai|kya\s+chal\s+raha\s+hai)[!?. ,]*$/i,
-      /^(ok|okay|k|cool|sure|thanks|thank\s+you|dhanyawad|bye|exit|test|testing)[!?. ,]*$/i
+      /^(hello|hi|hey|heya|namaste|hola|greetings|wassup|yo|sup)(\s+(bro|bhai|sir|buddy|friend|there|all|everyone|guys|team|developer|bot|ai|assistant|man|dude))?[!?. ,]*$/i,
+      /^good\s+(morning|afternoon|evening|night|day)[!?. ,]*$/i,
+      /^(kaise\s+ho|kya\s+hal\s+hai|kya\s+chal\s+raha\s+hai|sab\s+badhiya|aur\s+batao|kya\s+haal|how\s+are\s+you)[!?. ,]*$/i,
+      /^(ok|okay|k|cool|sure|thanks|thank\s+you|dhanyawad|bye|goodbye|exit|test|testing|check|checking|ha|haan|yes|no|nahi)[!?. ,]*$/i
     ];
 
     if (greetingPatterns.some((pattern) => pattern.test(lower))) {
@@ -359,76 +360,37 @@ class InterviewAgent {
     let result = null;
 
     try {
-      result =
-        await ai.generateStructuredJSON(prompt);
+      result = await ai.generateStructuredJSON(prompt);
     } catch (error) {
-      console.warn(
-        '[InterviewAgent] AI generation failed:',
-        error.message
-      );
+      console.warn('[InterviewAgent] AI generation failed or timed out:', error.message);
+    }
+
+    let candidateExtracted = [];
+
+    if (result?.extractedRequirements && Array.isArray(result.extractedRequirements) && result.extractedRequirements.length > 0) {
+      // Decompose any compound requirements from LLM
+      const { decomposeAndNormalizeRequirements } = require('../../services/atomicRequirementDecomposer');
+      candidateExtracted = decomposeAndNormalizeRequirements(result.extractedRequirements, projectContext, currentSectionConfig);
+    }
+
+    // Heuristic & Semantic Decomposition Fallback (if LLM returned empty or failed)
+    if (candidateExtracted.length === 0 && lastUserMessage && lastUserMessage.trim().length >= 8) {
+      const { decomposeRawTextToAtomicRequirements } = require('../../services/atomicRequirementDecomposer');
+      candidateExtracted = decomposeRawTextToAtomicRequirements(lastUserMessage, currentSectionConfig, projectContext);
     }
 
     const validExtracted = [];
 
-    if (
-      result?.extractedRequirements &&
-      Array.isArray(result.extractedRequirements)
-    ) {
-      for (const requirement of result.extractedRequirements) {
-        if (
-          !requirement ||
-          !requirement.title ||
-          !requirement.description
-        ) {
-          continue;
-        }
+    for (const requirement of candidateExtracted) {
+      if (!requirement || !requirement.title || !requirement.description) continue;
 
-        const isDuplicate =
-          await this._isDuplicateRequirement(
-            requirement,
-            existingRequirements
-          );
-
-        if (!isDuplicate) {
-          validExtracted.push(
-            this._enforceRequirementQuality(
-              requirement,
-              currentSectionConfig
-            )
-          );
-        }
+      const isDuplicate = await this._isDuplicateRequirement(requirement, existingRequirements);
+      if (!isDuplicate) {
+        validExtracted.push(this._enforceRequirementQuality(requirement, currentSectionConfig));
       }
     }
 
-    // Heuristic fallback
-    if (
-      validExtracted.length === 0 &&
-      lastUserMessage &&
-      lastUserMessage.trim().length >= 8
-    ) {
-      const autoRequirement =
-        this._heuristicExtractRequirement(
-          lastUserMessage,
-          currentSectionConfig,
-          projectContext
-        );
-
-      if (autoRequirement) {
-        const duplicate =
-          await this._isDuplicateRequirement(
-            autoRequirement,
-            existingRequirements
-          );
-
-        if (!duplicate) {
-          validExtracted.push(autoRequirement);
-        }
-      }
-    }
-
-    const totalSectionRequirements =
-      sectionRequirementsCount +
-      validExtracted.length;
+    const totalSectionRequirements = sectionRequirementsCount + validExtracted.length;
 
     const isDetailedAnswer =
       lastUserMessage.length >= 60 ||
@@ -496,7 +458,22 @@ class InterviewAgent {
   ) {
     const text = userText.trim();
 
-    if (text.length < 8) {
+    // Reject out-of-scope queries, greetings, or conversational chatter
+    if (this.isOutOfScopeQuery(text).isOutOfScope) {
+      return null;
+    }
+
+    if (text.length < 15) {
+      return null;
+    }
+
+    const wordCount = text.split(/\s+/).length;
+    if (wordCount < 3) {
+      return null;
+    }
+
+    // Reject greetings followed by short casual chatter
+    if (/^(hello|hi|hey|heya|yo|sup|namaste|ok|thanks|bye|cool|yes|no|ha|haan|kya|bhai|bro|sir|testing|test)\b/i.test(text) && wordCount < 6) {
       return null;
     }
 
@@ -674,38 +651,10 @@ class InterviewAgent {
     rawRequirement,
     sectionConfig
   ) {
-    let description =
-      (rawRequirement.description || '').trim();
-
-    if (!description) {
-      description =
-        'The system shall support the specified requirement.';
-    }
-
-    const validPrefixes = [
-      'the system shall',
-      'users shall',
-      'administrators shall'
-    ];
-
-    const hasValidPrefix =
-      validPrefixes.some((prefix) =>
-        description
-          .toLowerCase()
-          .startsWith(prefix)
-      );
-
-    if (!hasValidPrefix) {
-      description =
-        `The system shall ${
-          description.charAt(0).toLowerCase() +
-          description.slice(1)
-        }`;
-    }
-
-    if (!description.endsWith('.')) {
-      description += '.';
-    }
+    const { validateRequirementStatementQuality } = require('../../services/requirementGrammarValidator');
+    const rawDesc = (rawRequirement.description || '').trim();
+    const description = normalizeRequirementStatement(rawDesc || 'The system shall support the specified requirement.');
+    const quality = validateRequirementStatementQuality(description);
 
     let type =
       rawRequirement.type ||
@@ -739,6 +688,9 @@ class InterviewAgent {
       type = 'STAKEHOLDER';
     }
 
+    const status = rawRequirement.status || (quality.needsClarification ? 'NEEDS_CLARIFICATION' : 'PROPOSED');
+    const validationStatus = quality.isValid ? 'VALID' : 'NEEDS_REVIEW';
+
     return {
       title:
         rawRequirement.title?.trim() ||
@@ -768,8 +720,15 @@ class InterviewAgent {
           : 'MEDIUM',
 
       completenessScore:
-        rawRequirement.completenessScore ||
-        85,
+        quality.needsClarification ? 60 : (rawRequirement.completenessScore || 85),
+
+      status,
+
+      validationStatus,
+
+      validationIssues: quality.issues || [],
+
+      suggestedImprovement: quality.clarificationQuestion || '',
 
       isAtomic: true
     };

@@ -6,5 +6,6 @@ const { protect } = require('../middleware/auth.middleware');
 router.get('/', protect, requirementController.getRequirements);
 router.post('/', protect, requirementController.createRequirement);
 router.post('/extract', protect, requirementController.extractFromText);
+router.post('/merge', protect, requirementController.mergeRequirements);
 
 module.exports = router;

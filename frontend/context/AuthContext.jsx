@@ -18,20 +18,27 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const res = await authAPI.getMe();
-          if (res.data?.success) {
-            setUser(res.data.data);
+        if (typeof window !== 'undefined') {
+          // Clean legacy persistent tokens so user is not automatically logged in on app startup
+          localStorage.removeItem('token');
+
+          const token = sessionStorage.getItem('token');
+          if (token) {
+            const res = await authAPI.getMe();
+            if (res.data?.success) {
+              setUser(res.data.data);
+            } else {
+              sessionStorage.removeItem('token');
+              setUser(null);
+            }
           } else {
-            localStorage.removeItem('token');
             setUser(null);
           }
-        } else {
-          setUser(null);
         }
       } catch (err) {
-        localStorage.removeItem('token');
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('token');
+        }
         setUser(null);
       } finally {
         setLoading(false);
@@ -43,7 +50,10 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await authAPI.login({ email, password });
     if (res.data?.success) {
-      localStorage.setItem('token', res.data.data.token);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('token', res.data.data.token);
+        localStorage.removeItem('token');
+      }
       setUser(res.data.data);
       return res.data.data;
     } else {
@@ -54,7 +64,10 @@ export function AuthProvider({ children }) {
   const register = async (name, email, password, organization) => {
     const res = await authAPI.register({ name, email, password, organization });
     if (res.data?.success) {
-      localStorage.setItem('token', res.data.data.token);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('token', res.data.data.token);
+        localStorage.removeItem('token');
+      }
       setUser(res.data.data);
       return res.data.data;
     } else {
@@ -63,11 +76,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
     if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('token');
+      localStorage.removeItem('token');
       window.location.href = '/login';
     }
+    setUser(null);
   };
 
   return (

@@ -125,7 +125,9 @@ export default function RequirementsPage() {
     }
   };
 
-  const filteredReqs = requirements.filter(r => {
+  const activeReqs = requirements.filter(r => r.status !== 'DEPRECATED');
+
+  const filteredReqs = activeReqs.filter(r => {
     if (filterType !== 'ALL' && r.type !== filterType) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -138,8 +140,11 @@ export default function RequirementsPage() {
     return true;
   });
 
-  const frCount = requirements.filter(r => r.type === 'FUNCTIONAL').length;
-  const nfrCount = requirements.filter(r => r.type === 'NON_FUNCTIONAL').length;
+  const frCount = activeReqs.filter(r => r.type === 'FUNCTIONAL').length;
+  const nfrCount = activeReqs.filter(r => r.type === 'NON_FUNCTIONAL').length;
+  const conCount = activeReqs.filter(r => r.type === 'CONSTRAINT').length;
+  const asmCount = activeReqs.filter(r => r.type === 'ASSUMPTION').length;
+  const intCount = activeReqs.filter(r => r.type === 'INTERFACE').length;
 
   return (
     <div className="flex min-h-screen bg-slate-950">
@@ -188,7 +193,7 @@ export default function RequirementsPage() {
                 onClick={() => setFilterType('ALL')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'ALL' ? 'bg-brand-500/10 text-brand-300 border border-brand-500/30' : 'text-slate-400 hover:text-slate-200'}`}
               >
-                All ({requirements.length})
+                All ({activeReqs.length})
               </button>
               <button
                 onClick={() => setFilterType('FUNCTIONAL')}
@@ -206,21 +211,20 @@ export default function RequirementsPage() {
                 onClick={() => setFilterType('CONSTRAINT')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'CONSTRAINT' ? 'bg-orange-500/10 text-orange-300 border border-orange-500/30' : 'text-slate-400 hover:text-slate-200'}`}
               >
-                Constraints ({requirements.filter(r => r.type === 'CONSTRAINT').length})
+                Constraints ({conCount})
               </button>
               <button
                 onClick={() => setFilterType('ASSUMPTION')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'ASSUMPTION' ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30' : 'text-slate-400 hover:text-slate-200'}`}
               >
-                Assumptions ({requirements.filter(r => r.type === 'ASSUMPTION').length})
+                Assumptions ({asmCount})
               </button>
               <button
                 onClick={() => setFilterType('INTERFACE')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'INTERFACE' ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
               >
-                Interfaces ({requirements.filter(r => r.type === 'INTERFACE').length})
+                Interfaces ({intCount})
               </button>
-
             </div>
 
             <div className="relative w-full md:w-64">

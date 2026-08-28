@@ -22,7 +22,7 @@ class RAGService {
     });
 
     // 2. Index Requirements
-    const reqs = await Requirement.find({ projectId });
+    const reqs = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
     for (const req of reqs) {
       documentsToIndex.push({
         sourceType: 'REQUIREMENT',

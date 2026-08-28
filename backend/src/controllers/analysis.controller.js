@@ -3,11 +3,12 @@ const RequirementIssue = require('../models/RequirementIssue');
 const requirementAnalysisAgent = require('../ai/agents/RequirementAnalysisAgent');
 const classificationAgent = require('../ai/agents/ClassificationAgent');
 const validationAgent = require('../ai/agents/ValidationAgent');
+const requirementMergeService = require('../services/requirementMergeService');
 
 exports.analyzeProjectRequirements = async (req, res, next) => {
   try {
     const projectId = req.params.id;
-    const requirements = await Requirement.find({ projectId });
+    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
 
     if (requirements.length === 0) {
       return res.json({ success: true, message: 'No requirements to analyze', data: [] });
@@ -49,7 +50,7 @@ exports.classifySingleRequirement = async (req, res, next) => {
 exports.validateProjectRequirements = async (req, res, next) => {
   try {
     const projectId = req.params.id;
-    const requirements = await Requirement.find({ projectId });
+    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
 
     const validationResults = [];
     for (const reqItem of requirements) {
@@ -89,14 +90,78 @@ exports.getProjectIssues = async (req, res, next) => {
 
 exports.resolveIssue = async (req, res, next) => {
   try {
-    const { status, resolutionNotes } = req.body; // 'RESOLVED' | 'IGNORED' | 'MERGED'
-    const issue = await RequirementIssue.findByIdAndUpdate(
-      req.params.id,
-      { status: status || 'RESOLVED', resolutionNotes: resolutionNotes || '' },
-      { new: true }
-    );
-    if (!issue) return res.status(404).json({ success: false, message: 'Issue not found' });
+    const issueId = req.params.id;
+    const { status, resolutionNotes, primaryRequirementId, secondaryRequirementId } = req.body;
+
+    const issue = await RequirementIssue.findById(issueId);
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Issue not found' });
+    }
+
+    if (status === 'MERGED') {
+      let pId = primaryRequirementId;
+      let sId = secondaryRequirementId;
+
+      if (!pId || !sId) {
+        if (issue.relatedRequirementIds && issue.relatedRequirementIds.length >= 2) {
+          pId = issue.relatedRequirementIds[0];
+          sId = issue.relatedRequirementIds[1];
+        }
+      }
+
+      if (!pId || !sId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot merge requirements: Issue does not have at least two related requirement IDs.'
+        });
+      }
+
+      const mergeResult = await requirementMergeService.mergeRequirements({
+        projectId: issue.projectId,
+        primaryRequirementId: pId,
+        secondaryRequirementId: sId,
+        issueId: issue._id,
+        resolutionNotes
+      });
+
+      return res.json({
+        success: true,
+        message: mergeResult.message,
+        data: mergeResult.issue,
+        mergeDetails: mergeResult
+      });
+    }
+
+    // Standard resolution
+    issue.status = status || 'RESOLVED';
+    issue.resolutionNotes = resolutionNotes || '';
+    issue.updatedAt = new Date();
+    await issue.save();
+
+    // Auto-sync SRS Appendix C
+    const srsSyncService = require('../services/srsSyncService');
+    await srsSyncService.syncProjectSRS(issue.projectId, `Resolved issue ${issue.issueId}`);
+
     res.json({ success: true, data: issue });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.mergeRequirements = async (req, res, next) => {
+  try {
+    const projectId = req.params.id;
+    const { primaryRequirementId, secondaryRequirementId, issueId, resolutionNotes } = req.body;
+
+    const result = await requirementMergeService.mergeRequirements({
+      projectId,
+      primaryRequirementId,
+      secondaryRequirementId,
+      issueId,
+      resolutionNotes
+    });
+
+    res.json(result);
   } catch (error) {
     next(error);
   }

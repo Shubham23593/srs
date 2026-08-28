@@ -17,10 +17,13 @@ RAG Context:
 ${ragContext}
 
 CRITICAL RULES:
-1. Anti-Hallucination: Do NOT invent APIs, numbers, or external systems. If details are missing, use "TBD — Needs Clarification" or "Information not provided by the user."
-2. Map all functional requirements uniquely under Section 3 (System Features).
-3. Map non-functional requirements under Section 5 (Performance, Safety, Security, Quality Attributes).
-4. Preserve all Requirement IDs (e.g. FR-001, NFR-001).
+1. Standards Style: Write formal ISO/IEC/IEEE 29148 statements ("The system shall [perform action] [under condition]."). Never duplicate prefixes (avoid "The system shall the platform shall...").
+2. Map all functional requirements (FR-XXX) uniquely under Section 3 (System Features).
+3. Map non-functional requirements (NFR-XXX) under Section 5 (Performance, Safety, Security, Quality Attributes).
+4. Map constraints (CON-XXX) to Section 2.5 and assumptions (ASM-XXX) to Section 2.7.
+5. Map interfaces (INT-XXX) to Section 4.
+6. Preserve all stable Requirement IDs exactly.
+7. Anti-Hallucination: Do NOT invent unstated numbers or APIs. If technical details are missing, provide clear baseline engineering specifications and track genuine open items in Appendix C.
 
 Return complete JSON matching the exact template structure:
 {

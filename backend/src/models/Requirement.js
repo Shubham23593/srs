@@ -66,8 +66,20 @@ const RequirementSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['PROPOSED', 'APPROVED', 'REJECTED', 'MODIFIED', 'DEPRECATED', 'LOCKED'],
+    enum: ['DRAFT', 'PROPOSED', 'NEEDS_CLARIFICATION', 'ACTIVE', 'APPROVED', 'REJECTED', 'MODIFIED', 'DEPRECATED', 'LOCKED'],
     default: 'PROPOSED'
+  },
+  mergedInto: {
+    type: String,
+    default: null
+  },
+  deprecatedReason: {
+    type: String,
+    default: ''
+  },
+  deprecatedAt: {
+    type: Date,
+    default: null
   },
   validationStatus: {
     type: String,

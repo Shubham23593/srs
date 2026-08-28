@@ -7,5 +7,6 @@ router.post('/analyze', protect, analysisController.analyzeProjectRequirements);
 router.post('/classify', protect, analysisController.classifySingleRequirement);
 router.post('/validate', protect, analysisController.validateProjectRequirements);
 router.get('/issues', protect, analysisController.getProjectIssues);
+router.post('/merge', protect, analysisController.mergeRequirements);
 
 module.exports = router;

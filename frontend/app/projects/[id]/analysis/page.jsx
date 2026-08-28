@@ -33,7 +33,9 @@ export default function AnalysisPage() {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [activeIssue, setActiveIssue] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -73,18 +75,42 @@ export default function AnalysisPage() {
       }
     } catch (err) {
       console.error('Analysis error:', err);
+      setNotification({ type: 'error', message: 'Analysis failed: ' + (err.response?.data?.message || err.message) });
     } finally {
       setAnalyzing(false);
     }
   };
 
-  const handleResolveIssue = async (issueId, status, resolutionNotes) => {
+  const handleResolveIssue = async (issueId, status, resolutionNotes, primaryRequirementId, secondaryRequirementId) => {
     try {
-      await analysisAPI.resolveIssue(issueId, { status, resolutionNotes });
-      setIssues(prev => prev.map(iss => iss._id === issueId ? { ...iss, status, resolutionNotes } : iss));
-      setActiveIssue(null);
+      setResolving(true);
+      const res = await analysisAPI.resolveIssue(issueId, {
+        status,
+        resolutionNotes,
+        primaryRequirementId,
+        secondaryRequirementId
+      });
+
+      if (res.data?.success) {
+        const updatedIssue = res.data.data;
+        setIssues(prev => prev.map(iss => iss._id === issueId ? (updatedIssue || { ...iss, status, resolutionNotes }) : iss));
+        setActiveIssue(null);
+
+        const successMsg = res.data.message || (status === 'MERGED'
+          ? `${primaryRequirementId || 'FR-001'} and ${secondaryRequirementId || 'FR-002'} were successfully merged into ${primaryRequirementId || 'FR-001'}.`
+          : 'Issue resolved successfully.');
+
+        setNotification({ type: 'success', message: successMsg });
+        setTimeout(() => setNotification(null), 7000);
+      } else {
+        setNotification({ type: 'error', message: res.data?.message || 'Failed to resolve issue.' });
+      }
     } catch (err) {
       console.error('Error resolving issue:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Error occurred while resolving issue.';
+      setNotification({ type: 'error', message: errorMsg });
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -127,6 +153,31 @@ export default function AnalysisPage() {
         <ProjectStepper projectId={projectId} currentStatus={project?.status} />
 
         <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+          {/* Notification Banner */}
+          {notification && (
+            <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200 ${
+              notification.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                {notification.type === 'success' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                )}
+                <span className="text-xs font-semibold">{notification.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotification(null)}
+                className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 rounded bg-slate-850 hover:bg-slate-800 transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* Metrics summary */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
@@ -237,6 +288,7 @@ export default function AnalysisPage() {
         onClose={() => setActiveIssue(null)}
         issue={activeIssue}
         onResolve={handleResolveIssue}
+        isResolving={resolving}
       />
     </div>
   );

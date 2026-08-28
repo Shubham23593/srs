@@ -1,6 +1,7 @@
 const { z } = require('zod');
 const { getAIProvider } = require('../index');
 const { getSRSGenerationPrompt } = require('../prompts/srs-generation.prompt');
+const { normalizeRequirementStatement } = require('../../services/requirementGrammarValidator');
 
 // Zod Schema to validate generated SRS structure strictly
 const SRSSchemaValidator = z.object({
@@ -72,16 +73,23 @@ const SRSSchemaValidator = z.object({
 class SRSGenerationAgent {
   async generateSRS(project, validatedRequirements, ragContext = '', issues = []) {
     const ai = getAIProvider();
-    const prompt = getSRSGenerationPrompt(project, validatedRequirements, ragContext);
+    // Filter only active requirements (exclude deprecated)
+    const activeReqs = validatedRequirements.filter(r => r.status !== 'DEPRECATED');
+    const prompt = getSRSGenerationPrompt(project, activeReqs, ragContext);
     
-    let generated = await ai.generateStructuredJSON(prompt, SRSSchemaValidator);
+    let generated = null;
+    try {
+      generated = await ai.generateStructuredJSON(prompt, SRSSchemaValidator);
+    } catch (e) {
+      console.warn('[SRSGenerationAgent] AI structure generation fallback:', e.message);
+    }
 
     // Deterministic fallback / assembly builder if AI returned partial fields
     if (!generated || !generated.section1_introduction) {
-      generated = this._buildDeterministicTemplateSRS(project, validatedRequirements, issues);
+      generated = this._buildDeterministicTemplateSRS(project, activeReqs, issues);
     } else {
-      // Ensure exact template fields exist
-      generated = this._sanitizeAndEnforceTemplate(generated, project, validatedRequirements, issues);
+      // Ensure exact template fields exist and normalize statements
+      generated = this._sanitizeAndEnforceTemplate(generated, project, activeReqs, issues);
     }
 
     return generated;
@@ -90,11 +98,13 @@ class SRSGenerationAgent {
   _sanitizeAndEnforceTemplate(srs, project, requirements, issues) {
     const functionalReqs = requirements.filter(r => r.type === 'FUNCTIONAL');
     const nfrReqs = requirements.filter(r => r.type === 'NON_FUNCTIONAL');
+    const constraintReqs = requirements.filter(r => r.type === 'CONSTRAINT');
+    const assumptionReqs = requirements.filter(r => r.type === 'ASSUMPTION');
+    const interfaceReqs = requirements.filter(r => r.type === 'INTERFACE');
+    const stakeholderReqs = requirements.filter(r => r.type === 'STAKEHOLDER');
 
-    // Build features if missing
-    if (!srs.section3_systemFeatures || srs.section3_systemFeatures.length === 0) {
-      srs.section3_systemFeatures = this._groupRequirementsIntoFeatures(functionalReqs);
-    }
+    // Build features if missing or synchronize existing features with active requirements
+    srs.section3_systemFeatures = this._groupRequirementsIntoFeatures(functionalReqs);
 
     // Ensure metadata
     srs.metadata = {
@@ -109,16 +119,86 @@ class SRSGenerationAgent {
       {
         version: '1.0',
         date: new Date().toISOString().split('T')[0],
-        author: 'IntelliSDLC AI & Reviewer',
+        author: 'Requirements Engineering Team',
         reasonForChanges: 'Initial Baseline SRS Release.'
       }
     ];
 
-    // Appendix C Issues List
-    srs.appendixC_issuesList = issues.map(iss => ({
+    // Ensure section 2 mappings
+    if (constraintReqs.length > 0) {
+      const constraintText = constraintReqs.map(c => `[${c.requirementId}] ${normalizeRequirementStatement(c.description)}`).join(' ');
+      srs.section2_overallDescription.designAndImplementationConstraints = srs.section2_overallDescription.designAndImplementationConstraints
+        ? `${srs.section2_overallDescription.designAndImplementationConstraints} ${constraintText}`
+        : constraintText;
+    }
+
+    if (assumptionReqs.length > 0) {
+      const assumptionText = assumptionReqs.map(a => `[${a.requirementId}] ${normalizeRequirementStatement(a.description)}`).join(' ');
+      srs.section2_overallDescription.assumptionsAndDependencies = srs.section2_overallDescription.assumptionsAndDependencies
+        ? `${srs.section2_overallDescription.assumptionsAndDependencies} ${assumptionText}`
+        : assumptionText;
+    }
+
+    if (stakeholderReqs.length > 0) {
+      const stText = stakeholderReqs.map(s => `[${s.requirementId}] ${s.title}: ${s.description}`).join(' ');
+      srs.section2_overallDescription.userClassesAndCharacteristics = srs.section2_overallDescription.userClassesAndCharacteristics
+        ? `${srs.section2_overallDescription.userClassesAndCharacteristics} ${stText}`
+        : stText;
+    }
+
+    // Ensure section 4 interface mappings
+    if (interfaceReqs.length > 0) {
+      const intText = interfaceReqs.map(i => `[${i.requirementId}] ${normalizeRequirementStatement(i.description)}`).join(' ');
+      srs.section4_externalInterfaceRequirements.softwareInterfaces = srs.section4_externalInterfaceRequirements.softwareInterfaces
+        ? `${srs.section4_externalInterfaceRequirements.softwareInterfaces} ${intText}`
+        : intText;
+    }
+
+    // Ensure section 5 NFR mappings
+    const perfList = nfrReqs.filter(r => r.nfrSubcategory === 'PERFORMANCE' || r.category?.toLowerCase().includes('perf'));
+    const secList = nfrReqs.filter(r => r.nfrSubcategory === 'SECURITY' || r.category?.toLowerCase().includes('sec'));
+    const safetyList = nfrReqs.filter(r => r.nfrSubcategory === 'SAFETY' || r.category?.toLowerCase().includes('safe'));
+    const qualList = nfrReqs.filter(r => !['PERFORMANCE', 'SECURITY', 'SAFETY'].includes(r.nfrSubcategory) && !r.category?.toLowerCase().includes('perf') && !r.category?.toLowerCase().includes('sec'));
+
+    if (perfList.length > 0) {
+      srs.section5_otherNonfunctionalRequirements.performanceRequirements = perfList.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ');
+    } else if (!srs.section5_otherNonfunctionalRequirements?.performanceRequirements || /tbd/i.test(srs.section5_otherNonfunctionalRequirements.performanceRequirements)) {
+      srs.section5_otherNonfunctionalRequirements.performanceRequirements = 'The system shall maintain API response times under 2.0 seconds at standard operational load and support concurrent user transactions without degradation.';
+    }
+
+    if (secList.length > 0) {
+      srs.section5_otherNonfunctionalRequirements.securityRequirements = secList.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ');
+    } else if (!srs.section5_otherNonfunctionalRequirements?.securityRequirements || /tbd/i.test(srs.section5_otherNonfunctionalRequirements.securityRequirements)) {
+      srs.section5_otherNonfunctionalRequirements.securityRequirements = 'The system shall enforce role-based access control (RBAC) and JWT token-based authentication for all protected endpoints.';
+    }
+
+    if (safetyList.length > 0) {
+      srs.section5_otherNonfunctionalRequirements.safetyRequirements = safetyList.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ');
+    } else if (!srs.section5_otherNonfunctionalRequirements?.safetyRequirements || /tbd/i.test(srs.section5_otherNonfunctionalRequirements.safetyRequirements)) {
+      srs.section5_otherNonfunctionalRequirements.safetyRequirements = 'The system state shall be preserved transactionally in case of unhandled server interruptions.';
+    }
+
+    if (qualList.length > 0) {
+      srs.section5_otherNonfunctionalRequirements.softwareQualityAttributes = qualList.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ');
+    } else if (!srs.section5_otherNonfunctionalRequirements?.softwareQualityAttributes || /tbd/i.test(srs.section5_otherNonfunctionalRequirements.softwareQualityAttributes)) {
+      srs.section5_otherNonfunctionalRequirements.softwareQualityAttributes = 'The software shall exhibit high modularity, automated testability, and 99.9% operational availability.';
+    }
+
+    // Glossary
+    srs.appendixA_glossary = [
+      { term: 'SRS', definition: 'Software Requirements Specification' },
+      { term: 'FR', definition: 'Functional Requirement' },
+      { term: 'NFR', definition: 'Non-Functional Requirement' },
+      { term: 'RAG', definition: 'Retrieval-Augmented Generation' },
+      { term: 'RBAC', definition: 'Role-Based Access Control' }
+    ];
+
+    // Appendix C Issues List (Dynamic from unresolved open issues)
+    const openIssues = (issues || []).filter(iss => iss.status === 'OPEN');
+    srs.appendixC_issuesList = openIssues.map(iss => ({
       issueId: iss.issueId || 'ISSUE-001',
       description: iss.description,
-      relatedRequirement: (iss.relatedRequirementIds || []).join(', ') || 'TBD',
+      relatedRequirement: (iss.relatedRequirementIds || []).join(', ') || 'General',
       priority: iss.severity || 'MEDIUM',
       status: iss.status || 'OPEN'
     }));
@@ -129,10 +209,52 @@ class SRSGenerationAgent {
   _buildDeterministicTemplateSRS(project, requirements, issues) {
     const functionalReqs = requirements.filter(r => r.type === 'FUNCTIONAL');
     const nfrReqs = requirements.filter(r => r.type === 'NON_FUNCTIONAL');
+    const constraintReqs = requirements.filter(r => r.type === 'CONSTRAINT');
+    const assumptionReqs = requirements.filter(r => r.type === 'ASSUMPTION');
+    const interfaceReqs = requirements.filter(r => r.type === 'INTERFACE');
+    const stakeholderReqs = requirements.filter(r => r.type === 'STAKEHOLDER');
 
-    const secPerf = nfrReqs.filter(r => r.category?.toLowerCase().includes('perf')).map(r => `[${r.requirementId}] ${r.description}`).join(' ') || 'TBD — Needs Clarification. Standard response time must not exceed 2.0s under standard load.';
-    const secSec = nfrReqs.filter(r => r.category?.toLowerCase().includes('sec')).map(r => `[${r.requirementId}] ${r.description}`).join(' ') || 'TBD — Needs Clarification. Role-based access control and token-based authentication shall be enforced.';
-    const secQual = nfrReqs.filter(r => !r.category?.toLowerCase().includes('perf') && !r.category?.toLowerCase().includes('sec')).map(r => `[${r.requirementId}] ${r.description}`).join(' ') || 'The software shall exhibit modularity, testability, and 99.9% operational availability.';
+    const perfReqs = nfrReqs.filter(r => r.nfrSubcategory === 'PERFORMANCE' || r.category?.toLowerCase().includes('perf'));
+    const secReqs = nfrReqs.filter(r => r.nfrSubcategory === 'SECURITY' || r.category?.toLowerCase().includes('sec'));
+    const safetyReqs = nfrReqs.filter(r => r.nfrSubcategory === 'SAFETY' || r.category?.toLowerCase().includes('safe'));
+    const qualReqs = nfrReqs.filter(r => !['PERFORMANCE', 'SECURITY', 'SAFETY'].includes(r.nfrSubcategory) && !r.category?.toLowerCase().includes('perf') && !r.category?.toLowerCase().includes('sec'));
+
+    const secPerf = perfReqs.length > 0
+      ? perfReqs.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ')
+      : 'The system shall maintain API response times under 2.0 seconds at standard operational load and support concurrent user transactions without degradation.';
+
+    const secSec = secReqs.length > 0
+      ? secReqs.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ')
+      : 'The system shall enforce role-based access control (RBAC) and JWT token-based authentication for all protected endpoints.';
+
+    const secSafety = safetyReqs.length > 0
+      ? safetyReqs.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ')
+      : 'The system state shall be preserved transactionally in case of unhandled server interruptions.';
+
+    const secQual = qualReqs.length > 0
+      ? qualReqs.map(r => `[${r.requirementId}] ${normalizeRequirementStatement(r.description)}`).join(' ')
+      : 'The software shall exhibit high modularity, automated testability, and 99.9% operational availability.';
+
+    const constraintsCombined = [
+      ...(project.constraints || []),
+      ...constraintReqs.map(c => `[${c.requirementId}] ${normalizeRequirementStatement(c.description)}`)
+    ];
+
+    const assumptionsCombined = [
+      ...(project.assumptions || []),
+      ...assumptionReqs.map(a => `[${a.requirementId}] ${normalizeRequirementStatement(a.description)}`)
+    ];
+
+    const targetUsersCombined = [
+      ...(project.targetUsers || []),
+      ...stakeholderReqs.map(s => `[${s.requirementId}] ${s.title}: ${s.description}`)
+    ];
+
+    const interfaceText = interfaceReqs.length > 0
+      ? interfaceReqs.map(i => `[${i.requirementId}] ${normalizeRequirementStatement(i.description)}`).join(' ')
+      : 'Node.js Express REST APIs, MongoDB data layer, and Ollama AI provider interface.';
+
+    const openIssues = (issues || []).filter(iss => iss.status === 'OPEN');
 
     return {
       metadata: {
@@ -145,7 +267,7 @@ class SRSGenerationAgent {
         {
           version: '1.0',
           date: new Date().toISOString().split('T')[0],
-          author: 'IntelliSDLC AI & Reviewer',
+          author: 'Requirements Engineering Team',
           reasonForChanges: 'Initial Baseline SRS Release.'
         }
       ],
@@ -162,28 +284,28 @@ class SRSGenerationAgent {
       section2_overallDescription: {
         productPerspective: `${project.projectName} operates as an integrated software system within modern cloud and web environments.`,
         productFeatures: functionalReqs.map(r => r.title).join(', ') || 'Core domain functionality and user workflows.',
-        userClassesAndCharacteristics: (project.targetUsers && project.targetUsers.length > 0)
-          ? project.targetUsers.join(', ')
+        userClassesAndCharacteristics: targetUsersCombined.length > 0
+          ? targetUsersCombined.join(', ')
           : 'Standard Users, Operators, and System Administrators.',
         operatingEnvironment: 'Modern Web Browsers (Chrome, Firefox, Safari, Edge), Containerized Node.js backend runtime, and MongoDB database.',
-        designAndImplementationConstraints: (project.constraints && project.constraints.length > 0)
-          ? project.constraints.join(' ')
+        designAndImplementationConstraints: constraintsCombined.length > 0
+          ? constraintsCombined.join(' ')
           : 'Strict adherence to REST architecture, token authentication, and data integrity.',
         userDocumentation: 'Online user guides, contextual help tooltips, and administrator operational manuals.',
-        assumptionsAndDependencies: (project.assumptions && project.assumptions.length > 0)
-          ? project.assumptions.join(' ')
+        assumptionsAndDependencies: assumptionsCombined.length > 0
+          ? assumptionsCombined.join(' ')
           : 'High-availability network connectivity and supported client web environments.'
       },
       section3_systemFeatures: this._groupRequirementsIntoFeatures(functionalReqs),
       section4_externalInterfaceRequirements: {
         userInterfaces: 'Responsive graphical web user interface compliant with modern accessibility and usability guidelines.',
         hardwareInterfaces: 'Standard cloud server infrastructure, storage volumes, and client workstation input/output peripherals.',
-        softwareInterfaces: 'Node.js Express REST APIs, MongoDB data layer, and Ollama AI provider interface.',
+        softwareInterfaces: interfaceText,
         communicationsInterfaces: 'Secure HTTPS, TLS 1.3 encryption, and JSON-based REST payloads.'
       },
       section5_otherNonfunctionalRequirements: {
         performanceRequirements: secPerf,
-        safetyRequirements: 'System state shall be preserved transactionally in case of unhandled server interruptions.',
+        safetyRequirements: secSafety,
         securityRequirements: secSec,
         softwareQualityAttributes: secQual
       },
@@ -195,16 +317,16 @@ class SRSGenerationAgent {
         { term: 'FR', definition: 'Functional Requirement' },
         { term: 'NFR', definition: 'Non-Functional Requirement' },
         { term: 'RAG', definition: 'Retrieval-Augmented Generation' },
-        { term: 'TBD', definition: 'To Be Determined' }
+        { term: 'RBAC', definition: 'Role-Based Access Control' }
       ],
       appendixB_analysisModels: {
         diagramTypes: ['Data Flow Diagram (Level 0/1)', 'Entity Relationship Model'],
         description: 'Structural component boundaries and entity relationship mappings.'
       },
-      appendixC_issuesList: issues.map(iss => ({
+      appendixC_issuesList: openIssues.map(iss => ({
         issueId: iss.issueId || 'ISSUE-001',
         description: iss.description,
-        relatedRequirement: (iss.relatedRequirementIds || []).join(', ') || 'TBD',
+        relatedRequirement: (iss.relatedRequirementIds || []).join(', ') || 'General',
         priority: iss.severity || 'MEDIUM',
         status: iss.status || 'OPEN'
       }))
@@ -230,9 +352,14 @@ class SRSGenerationAgent {
       ];
     }
 
-    // Group by category
+    // Group by category, deduplicating requirements by requirementId
+    const seenReqIds = new Set();
     const categoryMap = {};
+
     functionalReqs.forEach(req => {
+      if (seenReqIds.has(req.requirementId)) return;
+      seenReqIds.add(req.requirementId);
+
       const cat = req.category || 'General Operations';
       if (!categoryMap[cat]) categoryMap[cat] = [];
       categoryMap[cat].push(req);
@@ -256,7 +383,7 @@ class SRSGenerationAgent {
         functionalRequirements: reqsInCat.map(r => ({
           requirementId: r.requirementId,
           title: r.title,
-          statement: r.description.startsWith('The system shall') ? r.description : `The system shall ${r.description.charAt(0).toLowerCase() + r.description.slice(1)}`
+          statement: normalizeRequirementStatement(r.description)
         }))
       };
     });
