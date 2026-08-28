@@ -1,0 +1,51 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const env = require('./src/config/env');
+const { connectDB } = require('./src/config/db');
+const routes = require('./src/routes');
+const { errorHandler } = require('./src/middleware/errorHandler.middleware');
+
+const app = express();
+
+// Security and middleware
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({ origin: '*', credentials: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+if (env.nodeEnv === 'development') {
+  app.use(morgan('dev'));
+}
+
+// API Routes
+app.use('/api', routes);
+
+// Global Error Handler
+app.use(errorHandler);
+
+const PORT = env.port || 5000;
+
+const startServer = async () => {
+  try {
+    await connectDB();
+
+    app.listen(PORT, () => {
+      console.log(`====================================================`);
+      console.log(` IntelliSDLC AI Requirements Engineering Platform `);
+      console.log(` Backend Server running on port: ${PORT}`);
+      console.log(` Environment: ${env.nodeEnv}`);
+      console.log(` AI Provider: ${env.ai.provider} (${env.ai.ollamaModel})`);
+      console.log(` Embedding Model: ${env.ai.embeddingModel}`);
+      console.log(`====================================================`);
+    });
+  } catch (error) {
+    console.error('Fatal startup error:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+module.exports = app;
