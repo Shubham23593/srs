@@ -303,19 +303,6 @@ Transition Function $\delta(S_i, \text{Input})$:
 
 ---
 
-### 3.8 Semantic Atomic Decomposition & Clause Extraction Algorithm
-
-To prevent monolithic paragraph copying and satisfy ISO/IEC/IEEE 29148:2018 atomicity guidelines, the platform employs a multi-pass Semantic Decomposition Engine (`atomicRequirementDecomposer.js`):
-
-1. **Boilerplate Elimination**: Strips conversational and introductory prefixes (*"We need a platform where"*, *"The software should provide"*, *"Our goal is to"*).
-2. **Syntactic Boundary Splitting**: Partitions coordinated clauses across linebreaks, semicolons, bullet points, and conjunction boundaries (`, and `, `, as well as `, `, along with `, `, additionally `, `, plus `).
-3. **Multi-Action Decomposition**: Identifies coordinated verb phrases (e.g. *"users can search and manage projects"*) and splits them into distinct sub-capabilities:
-   $$\text{Clause} \longrightarrow \{\text{Action}_1(\text{Entity}), \text{Action}_2(\text{Entity})\}$$
-4. **Clause Classification & Normalization**: Maps each extracted atomic clause to `FUNCTIONAL`, `NON_FUNCTIONAL` (Security, Performance, Scalability, Availability), `CONSTRAINT`, `ASSUMPTION`, `INTERFACE`, or `STAKEHOLDER`.
-5. **Standardized ISO Phrasing**: Passes each clause to `normalizeRequirementStatement` to synthesize crisp `"The system shall [action]."` statements.
-
----
-
 ## 4. System Flowcharts & Visual Architecture
 
 ### 4.1 High-Level System Architecture

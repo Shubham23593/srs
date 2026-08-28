@@ -11,7 +11,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = sessionStorage.getItem('token');
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -45,8 +45,7 @@ export const requirementAPI = {
   create: (projectId, data) => api.post(`/projects/${projectId}/requirements`, data),
   update: (id, data) => api.put(`/requirements/${id}`, data),
   delete: (id) => api.delete(`/requirements/${id}`),
-  extract: (projectId, text) => api.post(`/projects/${projectId}/requirements/extract`, { text }),
-  merge: (projectId, data) => api.post(`/projects/${projectId}/requirements/merge`, data)
+  extract: (projectId, text) => api.post(`/projects/${projectId}/requirements/extract`, { text })
 };
 
 export const analysisAPI = {
@@ -54,8 +53,7 @@ export const analysisAPI = {
   classify: (projectId, data) => api.post(`/projects/${projectId}/requirements/classify`, data),
   validate: (projectId) => api.post(`/projects/${projectId}/requirements/validate`),
   getIssues: (projectId) => api.get(`/projects/${projectId}/requirements/issues`),
-  resolveIssue: (issueId, data) => api.put(`/issues/${issueId}/resolve`, data),
-  mergeRequirements: (projectId, data) => api.post(`/projects/${projectId}/requirements/merge`, data)
+  resolveIssue: (issueId, data) => api.put(`/issues/${issueId}/resolve`, data)
 };
 
 export const srsAPI = {

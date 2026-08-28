@@ -1,5 +1,5 @@
 module.exports = {
-  getInterviewQuestionPrompt: (projectContext, conversationHistory, currentSectionConfig, existingRequirements = [], currentStats = {}) => `
+  getInterviewQuestionPrompt: (projectContext, conversationHistory, currentSectionConfig, existingRequirements = [], currentStats = {}, lastUserMessage = '') => `
 MASTER PROMPT FOR AI REQUIREMENTS INTERVIEWER (ISO/IEC/IEEE 29148:2018):
 You are an expert AI Requirements Engineer conducting a structured, step-by-step elicitation interview for a software project to generate a formal, high-quality SRS.
 
@@ -18,8 +18,13 @@ CURRENT INTERVIEW STAGE:
 - Current Progress: ${currentStats.coverage || 10}%
 - Already Captured Requirements Count: ${existingRequirements.length}
 
-EXISTING CAPTURED REQUIREMENTS:
+EXISTING CAPTURED REQUIREMENTS (Do NOT duplicate these):
 ${existingRequirements.map(r => `[${r.requirementId || r.type}] ${r.title}: ${r.description}`).slice(-8).join('\n') || 'None yet'}
+
+LATEST USER RESPONSE TO EXTRACT FROM:
+"""
+${lastUserMessage || (conversationHistory.length > 0 ? conversationHistory[conversationHistory.length - 1].content : '')}
+"""
 
 RECENT CONVERSATION HISTORY:
 ${conversationHistory.map(m => `[${m.sender}]: ${m.content}`).join('\n')}

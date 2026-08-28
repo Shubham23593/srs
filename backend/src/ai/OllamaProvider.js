@@ -204,6 +204,14 @@ IMPORTANT RULES:
       }
     }
 
+    if (p.includes('software requirements specification') || p.includes('section1_introduction') || p.includes('srs generation') || (p.includes('section3_systemfeatures') && p.includes('appendix'))) {
+      const { sanitizeAndValidateSRS } = require('../services/srsSanitizerAndValidator');
+      const nameMatch = prompt.match(/Name:\s*([^\n\r]+)/i);
+      const projName = nameMatch ? nameMatch[1].trim() : 'Software System';
+      const { sanitizedSRS } = sanitizeAndValidateSRS({}, { projectName: projName }, []);
+      return JSON.stringify(sanitizedSRS);
+    }
+
     if (p.includes('extract') || p.includes('extraction')) {
       const atomicReqs = extractedUserText 
         ? decomposeRawTextToAtomicRequirements(extractedUserText, { name: 'Core Features' })

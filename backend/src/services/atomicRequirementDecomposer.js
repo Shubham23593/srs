@@ -133,8 +133,9 @@ function generateAtomicTitle(phrase) {
   if (/\b(manage.*profile|profile\s+management)\b/i.test(clean)) return 'Profile Management';
   if (/\b(send\s+notifications?|receive\s+notifications?|notif)\b/i.test(clean)) return 'Notifications';
   if (/\b(export|download).*(report|pdf|csv|excel)\b/i.test(clean) || /\b(export\s+project\s+reports?)\b/i.test(clean)) return 'Report Export';
-  if (/search.*project/i.test(clean)) return 'Project Search';
-  if (/manage.*project/i.test(clean)) return 'Project Management';
+  if (/\b(project\s+search|search.*project)\b/i.test(clean)) return 'Project Search';
+  if (/\b(project\s+manage|manage.*project)\b/i.test(clean)) return 'Project Management';
+  if (/\b(create.*requirement|requirement\s+creation)\b/i.test(clean)) return 'Requirement Creation';
   if (/(create|update|manage).*requirement/i.test(clean)) return 'Requirement Management';
   if (/collaborat/i.test(clean)) return 'Team Collaboration';
   if (/version\s+history/i.test(clean)) return 'Version History';
@@ -148,6 +149,8 @@ function generateAtomicTitle(phrase) {
     .replace(/^(allow|enable|support|provide|ensure\s+that|maintain)\s+(users|authorized\s+users|students|admins|team\s+members)?\s*(to)?\s*/i, '')
     .replace(/^(the\s+system|the\s+platform|the\s+application)\s+(should|must|shall|will|needs\s+to)\s+(be\s+able\s+to\s+)?/i, '')
     .replace(/^(users|authorized\s+users|students|admins)\s+(should\s+be\s+able\s+to|can|must)\s+/i, '')
+    .replace(/^(users?\s+ko|user\s+ko)\s+/i, '')
+    .replace(/\s+(karna\s+hai|karega|hona\s+chahiye|hoga)$/i, '')
     .replace(/[.\s]+$/, '');
 
   // Extract key verbs and nouns
@@ -186,8 +189,8 @@ function splitCompoundTextIntoClauses(rawText) {
       working = working.replace(/(?:and\s+)?ensure\s+(?:that\s+)?(?:the\s+system\s+is\s+)?scalable/i, 
         'ensure system scalability');
 
-      // Split on major coordination boundaries:
-      const coordRegex = /,\s*(?:and\s+also|as\s+well\s+as|along\s+with|additionally|and\s+ensure\s+that|and\s+the\s+system\s+must|and\s+)\s*|(?<=[^,]),\s*(?=(?:users\s+can|create|update|manage|search|collaborate|receive|maintain|send|view|delete|track|export|import|notify|enforce|satisfy|support|provide|ensure|authenticate|generate|assign|attach|filter)\b)|\.\s+/i;
+      // Split on major coordination boundaries (including Hinglish "aur"):
+      const coordRegex = /,\s*(?:and\s+also|as\s+well\s+as|along\s+with|additionally|and\s+ensure\s+that|and\s+the\s+system\s+must|and\s+|aur\s+bhi|aur\s+)\s*|\s+aur\s+|\s+tatha\s+|(?<=[^,]),\s*(?=(?:users\s+can|users\s+ko|create|update|manage|search|collaborate|receive|maintain|send|view|delete|track|export|import|notify|enforce|satisfy|support|provide|ensure|authenticate|generate|assign|attach|filter)\b)|\.\s+/i;
       
       const subClauses = working.split(coordRegex).map(s => s.trim()).filter(Boolean);
       for (const sc of subClauses) {
@@ -202,24 +205,24 @@ function splitCompoundTextIntoClauses(rawText) {
   const refinedClauses = [];
   for (const clause of rawClauses) {
     // Check "users can log in and reset password"
-    const loginResetMatch = clause.match(/^(?:users\s+can\s+|users\s+should\s+be\s+able\s+to\s+)?(log\s*in|login|sign\s*in|signin)\s+and\s+(reset\s+passwords?|forgot\s+passwords?)/i);
+    const loginResetMatch = clause.match(/^(?:users\s+can\s+|users\s+should\s+be\s+able\s+to\s+|users\s+ko\s+)?(log\s*in|login|sign\s*in|signin)\s+(?:and|aur)\s+(reset\s+passwords?|forgot\s+passwords?)/i);
     if (loginResetMatch) {
       refinedClauses.push('users can log in');
       refinedClauses.push('users can reset password');
       continue;
     }
 
-    // Check "search and manage projects"
-    const searchManageMatch = clause.match(/^users\s+can\s+search\s+and\s+manage\s+(.*)/i);
+    // Check "search and manage projects" / "project search karna hai aur project manage karna hai"
+    const searchManageMatch = clause.match(/^(?:users\s+can\s+|users\s+ko\s+)?search\s+(?:and|aur)\s+manage\s+(.*)/i);
     if (searchManageMatch) {
-      const entity = searchManageMatch[1].trim();
+      const entity = searchManageMatch[1].trim().replace(/\s+(karna\s+hai|karega)$/i, '');
       refinedClauses.push(`users can search for ${entity}`);
       refinedClauses.push(`authorized users can manage ${entity}`);
       continue;
     }
 
     // Check "fast and secure"
-    const fastSecureMatch = clause.match(/^(?:system\s+is\s+|system\s+should\s+be\s+)?(fast|secure|scalable)\s+and\s+(fast|secure|scalable)(.*)/i);
+    const fastSecureMatch = clause.match(/^(?:system\s+is\s+|system\s+should\s+be\s+)?(fast|secure|scalable)\s+(?:and|aur)\s+(fast|secure|scalable)(.*)/i);
     if (fastSecureMatch) {
       refinedClauses.push(`${fastSecureMatch[1]} ${fastSecureMatch[3]}`.trim());
       refinedClauses.push(`${fastSecureMatch[2]} ${fastSecureMatch[3]}`.trim());
@@ -241,10 +244,22 @@ function formatClauseToRequirementStatement(clause, classification) {
     .replace(/^(the\s+system|the\s+platform|the\s+application)\s+(must|should|shall|will|needs\s+to)\s+(be\s+able\s+to\s+)?/i, '')
     .replace(/^users\s+should\s+be\s+able\s+to\s+/i, 'allow users to ')
     .replace(/^users\s+can\s+/i, 'allow users to ')
+    .replace(/^users?\s+ko\s+/i, '')
     .replace(/^authorized\s+users\s+can\s+/i, 'allow authorized users to ')
     .replace(/^students\s+can\s+/i, 'allow students to ')
     .replace(/^admins?\s+can\s+/i, 'allow administrators to ')
-    .replace(/^and\s+/i, '');
+    .replace(/^and\s+/i, '')
+    .replace(/\s+(karna\s+hai|karega|hona\s+chahiye|hoga)$/i, '')
+    .trim();
+
+  // Normalize specific Hinglish / common shorthand phrases
+  if (/^project\s+search$/i.test(text) || /search\s+project/i.test(text) || /search\s+for\s+projects/i.test(text)) {
+    text = 'allow authorized users to search for projects';
+  } else if (/^project\s+manage$/i.test(text) || /manage\s+project/i.test(text) || /manage\s+projects/i.test(text)) {
+    text = 'allow authorized users to manage projects';
+  } else if (/^login$/i.test(text) || /^log\s+in$/i.test(text)) {
+    text = 'allow registered users to log in';
+  }
 
   if (classification.type === 'NON_FUNCTIONAL') {
     if (classification.nfrSubcategory === 'SECURITY') {

@@ -18,27 +18,25 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        // Clear legacy persistent localStorage tokens to ensure fresh sessions
         if (typeof window !== 'undefined') {
-          // Clean legacy persistent tokens so user is not automatically logged in on app startup
           localStorage.removeItem('token');
+        }
 
-          const token = sessionStorage.getItem('token');
-          if (token) {
-            const res = await authAPI.getMe();
-            if (res.data?.success) {
-              setUser(res.data.data);
-            } else {
-              sessionStorage.removeItem('token');
-              setUser(null);
-            }
+        const token = sessionStorage.getItem('token');
+        if (token) {
+          const res = await authAPI.getMe();
+          if (res.data?.success) {
+            setUser(res.data.data);
           } else {
+            sessionStorage.removeItem('token');
             setUser(null);
           }
+        } else {
+          setUser(null);
         }
       } catch (err) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('token');
-        }
+        sessionStorage.removeItem('token');
         setUser(null);
       } finally {
         setLoading(false);
@@ -50,10 +48,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await authAPI.login({ email, password });
     if (res.data?.success) {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('token', res.data.data.token);
-        localStorage.removeItem('token');
-      }
+      sessionStorage.setItem('token', res.data.data.token);
       setUser(res.data.data);
       return res.data.data;
     } else {
@@ -64,10 +59,7 @@ export function AuthProvider({ children }) {
   const register = async (name, email, password, organization) => {
     const res = await authAPI.register({ name, email, password, organization });
     if (res.data?.success) {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('token', res.data.data.token);
-        localStorage.removeItem('token');
-      }
+      sessionStorage.setItem('token', res.data.data.token);
       setUser(res.data.data);
       return res.data.data;
     } else {
@@ -76,11 +68,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('token');
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('token');
     setUser(null);
   };
 
@@ -91,4 +80,6 @@ export function AuthProvider({ children }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  return useContext(AuthContext);
+}

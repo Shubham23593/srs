@@ -491,56 +491,24 @@ export default function SRSWorkbenchPage() {
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
               <div>
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Standard Alignment Score</span>
-                <span className="text-2xl font-black text-emerald-400">
-                  {reviewResult.scores?.overallAlignmentScore !== undefined
-                    ? `${reviewResult.scores.overallAlignmentScore}%`
-                    : `${(reviewResult.complianceScore * 100).toFixed(0)}%`}
-                </span>
+                <span className="text-2xl font-black text-emerald-400">{(reviewResult.complianceScore * 100).toFixed(0)}%</span>
               </div>
               <ShieldCheck className="w-8 h-8 text-emerald-400" />
             </div>
 
-            {/* Score Breakdown Cards */}
-            {reviewResult.scores && (
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                  <span className="text-slate-400 block text-[11px]">Structural Compliance</span>
-                  <span className="text-sm font-bold text-white">{reviewResult.scores.structuralCompliance}%</span>
-                </div>
-                <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                  <span className="text-slate-400 block text-[11px]">Requirement Mapping</span>
-                  <span className="text-sm font-bold text-white">{reviewResult.scores.requirementMapping}%</span>
-                </div>
-                <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                  <span className="text-slate-400 block text-[11px]">Completeness</span>
-                  <span className="text-sm font-bold text-white">{reviewResult.scores.requirementCompleteness}%</span>
-                </div>
-                <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                  <span className="text-slate-400 block text-[11px]">Placeholder Score</span>
-                  <span className="text-sm font-bold text-white">{reviewResult.scores.placeholderScore}%</span>
-                </div>
-              </div>
-            )}
-
             <div>
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Findings & Observations</h4>
-              {(!reviewResult.findings || reviewResult.findings.length === 0) ? (
-                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 text-xs text-slate-400">
-                  No structural or quality defects identified.
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {reviewResult.findings.map((f, i) => (
-                    <div key={i} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-xs space-y-1">
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={f.severity} size="xs" />
-                        <span className="font-semibold text-white">{f.section}</span>
-                      </div>
-                      <p className="text-slate-300">{f.comment}</p>
+              <div className="space-y-2">
+                {(reviewResult.findings || []).map((f, i) => (
+                  <div key={i} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-xs space-y-1">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={f.severity} size="xs" />
+                      <span className="font-semibold text-white">{f.section}</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <p className="text-slate-300">{f.comment}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div>

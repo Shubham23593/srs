@@ -349,12 +349,18 @@ class InterviewAgent {
       };
     }
 
+    const effectiveHistory = [...(conversationHistory || [])];
+    if (lastUserMessage && (!effectiveHistory.length || effectiveHistory[effectiveHistory.length - 1].content !== lastUserMessage)) {
+      effectiveHistory.push({ sender: 'USER', content: lastUserMessage });
+    }
+
     const prompt = getInterviewQuestionPrompt(
       projectContext,
-      conversationHistory,
+      effectiveHistory,
       currentSectionConfig,
       existingRequirements,
-      currentStats
+      currentStats,
+      lastUserMessage
     );
 
     let result = null;
