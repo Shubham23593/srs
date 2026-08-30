@@ -168,7 +168,7 @@ class OllamaProvider extends AIProvider {
             }
           },
           {
-            timeout: options.timeout || 6000
+            timeout: options.timeout || env.ai?.ollamaTimeout || 45000
           }
         );
 
@@ -194,7 +194,7 @@ class OllamaProvider extends AIProvider {
   /**
    * Generate structured JSON conforming to schema
    */
-  async generateStructuredJSON(prompt, zodSchema = null) {
+  async generateStructuredJSON(prompt, zodSchema = null, options = {}) {
     const isLive = await this.isHealthy();
     const startTime = Date.now();
     let rawText = '';
@@ -227,7 +227,7 @@ IMPORTANT RULES:
             }
           },
           {
-            timeout: 6000
+            timeout: options.timeout || env.ai?.ollamaTimeout || 45000
           }
         );
 
