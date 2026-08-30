@@ -4,13 +4,7 @@ const SRS = require('../models/SRS');
 
 class TraceabilityService {
   async generateLinksForProject(projectId, srsDoc = null) {
-    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
-    const deprecatedReqs = await Requirement.find({ projectId, status: 'DEPRECATED' }).select('requirementId');
-    const deprecatedIds = deprecatedReqs.map(d => d.requirementId);
-    if (deprecatedIds.length > 0) {
-      await TraceabilityLink.deleteMany({ projectId, requirementId: { $in: deprecatedIds } });
-    }
-
+    const requirements = await Requirement.find({ projectId });
     const srs = srsDoc || await SRS.findOne({ projectId });
     const links = [];
 
@@ -38,7 +32,9 @@ class TraceabilityService {
           requirementTitle: req.title,
           sourceType: req.sourceMessageId ? 'INTERVIEW_MESSAGE' : 'USER_INPUT',
           sourceReference: req.sourceMessageId || 'User Specification',
-          sourceTextSnippet: (req.sourceText || req.description).substring(0, 150),
+          // Trace back to the RAW source evidence (the interview answer),
+          // never the normalized statement.
+          sourceTextSnippet: (req.rawSourceText || req.sourceText || '').substring(0, 150),
           systemFeatureId: featId,
           srsSection: srsSec,
           srsVersion: srs?.currentVersion || '1.0',

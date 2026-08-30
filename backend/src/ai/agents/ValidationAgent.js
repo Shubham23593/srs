@@ -1,19 +1,20 @@
 const { getAIProvider } = require('../index');
 const { getValidationPrompt } = require('../prompts/validation.prompt');
 
-const { normalizeRequirementStatement, validateRequirementStatementQuality } = require('../../services/requirementGrammarValidator');
-
 class ValidationAgent {
   async validateRequirement(requirement) {
     const ai = getAIProvider();
     
-    // Heuristic pre-validation using ISO 29148 Grammar & Quality Validator
-    const quality = validateRequirementStatementQuality(requirement.description);
-    if (!quality.isValid) {
+    // Heuristic pre-validation
+    const vagueWords = ['fast', 'user-friendly', 'flexible', 'robust', 'seamless'];
+    const hasVague = vagueWords.some(w => new RegExp(`\\b${w}\\b`, 'i').test(requirement.description));
+    const isVeryShort = requirement.description.trim().split(' ').length < 4;
+
+    if (hasVague || isVeryShort) {
       return {
         validationStatus: 'NEEDS_REVIEW',
-        issues: quality.issues,
-        suggestedImprovement: quality.normalizedStatement
+        issues: hasVague ? ['Contains ambiguous/non-quantified language.'] : ['Description is underspecified.'],
+        suggestedImprovement: `The system shall ensure that ${requirement.title.toLowerCase()} executes with verified compliance metrics.`
       };
     }
 
@@ -26,13 +27,13 @@ class ValidationAgent {
           ? result.validationStatus
           : 'VALID',
         issues: result.issues || [],
-        suggestedImprovement: normalizeRequirementStatement(result.suggestedImprovement || requirement.description)
+        suggestedImprovement: result.suggestedImprovement || requirement.description
       };
     } catch (err) {
       return {
         validationStatus: 'VALID',
         issues: [],
-        suggestedImprovement: normalizeRequirementStatement(requirement.description)
+        suggestedImprovement: requirement.description
       };
     }
   }

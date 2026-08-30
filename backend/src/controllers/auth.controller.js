@@ -38,7 +38,12 @@ exports.login = async (req, res, next) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (user && (await user.matchPassword(password))) {
+    const passwordOk = user
+      ? (typeof user.matchPassword === 'function'
+        ? await user.matchPassword(password)
+        : await User.matchPasswordFor(user, password))
+      : false;
+    if (user && passwordOk) {
       return res.json({
         success: true,
         data: {

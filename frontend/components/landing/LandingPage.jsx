@@ -2,17 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import Lenis from 'lenis';
 import { useAuth } from '../../context/AuthContext';
 import Hero3D from './Hero3D';
 import LiveDemo from './LiveDemo';
-
-// Register ScrollTrigger plugin once
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger);
-}
 
 const PRELOADER_STATUSES = [
   'Initializing AI core…',
@@ -33,6 +25,16 @@ export default function LandingPage() {
     const root = rootRef.current;
     if (!root || typeof window === 'undefined') return;
 
+    let gsap, ScrollTrigger, Lenis;
+    try {
+      gsap = require('gsap');
+      ScrollTrigger = require('gsap/ScrollTrigger').ScrollTrigger;
+      Lenis = require('lenis').default;
+    } catch (e) {
+      return;
+    }
+
+    gsap.registerPlugin(ScrollTrigger);
     window.gsap = gsap; // shared with Hero3D's intro
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
@@ -47,7 +49,6 @@ export default function LandingPage() {
     let headerHandler = null;
     let mobileStageHandler = null;
     let cursorAlive = false;
-    let rotIv = null;
     if (!reduced) {
       lenis = new Lenis({ duration: 1.15 });
       lenis.on('scroll', ScrollTrigger.update);
@@ -197,7 +198,8 @@ export default function LandingPage() {
           });
         };
         showWord(0);
-        rotIv = setInterval(() => { wi = (wi + 1) % words.length; showWord(wi); }, 2800);
+        const rotIv = setInterval(() => { wi = (wi + 1) % words.length; showWord(wi); }, 2800);
+        ctx.rotIv = rotIv;
       }
 
       /* ---------------- preloader ---------------- */
@@ -378,7 +380,6 @@ export default function LandingPage() {
       window.removeEventListener('load', onLoad);
       if (headerHandler) window.removeEventListener('scroll', headerHandler);
       if (mobileStageHandler) window.removeEventListener('scroll', mobileStageHandler);
-      if (rotIv) clearInterval(rotIv);
       ctx.revert();
       if (lenis) lenis.destroy();
       if (tickFn) gsap.ticker.remove(tickFn);

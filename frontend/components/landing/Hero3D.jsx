@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import gsap from 'gsap';
 
 /**
  * Hero3D — the glowing "neural core" rendered behind the hero text.
@@ -211,6 +210,9 @@ export default function Hero3D() {
     }
 
     /* ---------- intro (triggered by the preloader) ---------- */
+    let gsap = null;
+    try { gsap = require('gsap'); } catch (e) { gsap = null; }
+
     const onReady = () => {
       if (!introTween && gsap && !reduced) {
         introTween = gsap.timeline({ defaults: { ease: 'power3.out' } })

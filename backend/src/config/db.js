@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 const env = require('./env');
+const dataStore = require('../db/dataStore');
 
 let isConnected = false;
 
 const connectDB = async () => {
-  if (isConnected) return;
+  if (isConnected) return mongoose;
 
   try {
     const conn = await mongoose.connect(env.mongodbUri, {
@@ -12,10 +13,17 @@ const connectDB = async () => {
       autoIndex: true
     });
     isConnected = true;
+    dataStore.setPersistMode('mongodb', true);
     console.log(`[Database] MongoDB Connected successfully: ${conn.connection.host}`);
   } catch (error) {
-    console.warn(`[Database] Live MongoDB connection failed (${error.message}). Running in mock/standalone mode if configured, or retrying...`);
+    isConnected = false;
+    dataStore.setPersistMode('inmemory', false);
+    console.warn(
+      `[Database] MongoDB unavailable (${error.message}).` +
+      ` Falling back to in-process persistence (inMemoryDB) so the full pipeline remains runnable.`
+    );
   }
+  return mongoose;
 };
 
-module.exports = { connectDB, mongoose };
+module.exports = { connectDB, mongoose, isConnected: () => isConnected };

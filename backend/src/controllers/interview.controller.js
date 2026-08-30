@@ -2,20 +2,11 @@ const InterviewSession = require('../models/InterviewSession');
 const InterviewMessage = require('../models/InterviewMessage');
 const Project = require('../models/Project');
 const Requirement = require('../models/Requirement');
+const RequirementIssue = require('../models/RequirementIssue');
 const interviewAgent = require('../ai/agents/InterviewAgent');
+const pipeline = require('../ai/pipeline/requirementsPipeline');
 const ragService = require('../services/ragService');
-
-const SECTIONS_CONFIG = [
-  { id: 'PROJECT_INFORMATION', name: 'Project Information', stepIndex: 1, description: 'Project name, problem solved, primary objective, and high-level scope.' },
-  { id: 'STAKEHOLDERS_AND_USERS', name: 'Stakeholders & Users', stepIndex: 2, description: 'Primary and secondary stakeholders, user categories, admins, managers, and clients.' },
-  { id: 'USER_ROLES_AND_PERMISSIONS', name: 'User Roles & Permissions', stepIndex: 3, description: 'Role hierarchy, access control rules, permission boundaries, and restrictions.' },
-  { id: 'FUNCTIONAL_REQUIREMENTS', name: 'Functional Requirements', stepIndex: 4, description: 'Core capabilities, workflows, actions, and atomic system behaviors (FR-XXX).' },
-  { id: 'NON_FUNCTIONAL_REQUIREMENTS', name: 'Non-Functional Requirements', stepIndex: 5, description: 'Performance targets, security standards, scalability, and availability (NFR-XXX).' },
-  { id: 'EXTERNAL_INTERFACES', name: 'External Interfaces', stepIndex: 6, description: 'APIs, payment gateways, database integrations, email/SMS services, and third-party systems.' },
-  { id: 'CONSTRAINTS', name: 'Constraints', stepIndex: 7, description: 'Technology stack, budget, timeline, regulatory compliance, and legal limitations.' },
-  { id: 'ASSUMPTIONS_AND_DEPENDENCIES', name: 'Assumptions & Dependencies', stepIndex: 8, description: 'Operational assumptions, external software dependencies, and network requirements.' },
-  { id: 'REVIEW_AND_CONFIRMATION', name: 'Review & Confirmation', stepIndex: 9, description: 'Final requirements summary review, coverage validation, and lock confirmation before SRS generation.' }
-];
+const { SECTIONS_CONFIG } = require('../constants/interviewSections');
 
 function calculateCoverage(sectionsState, totalRequirementsCount) {
   const completedCount = sectionsState.filter(s => s.status === 'COMPLETED' && s.id !== 'REVIEW_AND_CONFIRMATION').length;
@@ -114,13 +105,25 @@ exports.startInterview = async (req, res, next) => {
 exports.sendMessage = async (req, res, next) => {
   try {
     const projectId = req.params.id;
-    const { content, action } = req.body; // action: 'ANSWER' | 'SKIP_SECTION' | 'CONFIRM_AND_LOCK' | 'REOPEN'
+    const { content, action, sectionId } = req.body; // action: 'ANSWER' | 'SKIP_SECTION' | 'CONFIRM_AND_LOCK' | 'REOPEN'
 
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
     let session = await InterviewSession.findOne({ projectId });
     if (!session) return res.status(400).json({ success: false, message: 'No active interview session found. Please start interview first.' });
+
+    // Optional: caller may state which elicitation section the answer belongs to
+    // (used when answers arrive out of band). The interview UI drives the
+    // current section; this hint just aligns semantic classification context.
+    if (sectionId && !action) {
+      const idx = SECTIONS_CONFIG.findIndex((s) => s.id === sectionId);
+      if (idx >= 0) {
+        session.sectionIndex = idx;
+        session.currentSection = SECTIONS_CONFIG[idx].id;
+        session.currentTopic = SECTIONS_CONFIG[idx].name;
+      }
+    }
 
     // Handle Lock / Reopen actions
     if (action === 'CONFIRM_AND_LOCK') {
@@ -237,59 +240,32 @@ exports.sendMessage = async (req, res, next) => {
       });
     }
 
-    // Save newly extracted atomic requirements
-    const extractedIds = [];
-    if (turnResult.extractedRequirements && turnResult.extractedRequirements.length > 0) {
-      const allExisting = await Requirement.find({ projectId });
-      let frCount = allExisting.filter(r => r.type === 'FUNCTIONAL').length;
-      let nfrCount = allExisting.filter(r => r.type === 'NON_FUNCTIONAL').length;
-      let conCount = allExisting.filter(r => r.type === 'CONSTRAINT').length;
-      let asmCount = allExisting.filter(r => r.type === 'ASSUMPTION').length;
-      let intCount = allExisting.filter(r => r.type === 'INTERFACE').length;
-      let stkCount = allExisting.filter(r => r.type === 'STAKEHOLDER').length;
+    // === Persist via the SINGLE AUTHORITATIVE PIPELINE WRITE PATH ===
+    // The pipeline assigns stable IDs, embeddings, and guarantees that only
+    // NORMALIZED requirements are stored (raw text lives only in rawSourceText).
+    let persistResult = { saved: [], skippedDuplicates: [] };
+    let extractedIds = [];
+    if (turnResult.analysis && turnResult.analysis.requirements && turnResult.analysis.requirements.length > 0) {
+      persistResult = await pipeline.persistRequirements(projectId, turnResult.analysis, {
+        sourceMessageId: userMsg.messageId
+      });
+      extractedIds = persistResult.saved.map(r => r.requirementId);
 
-      for (const cr of turnResult.extractedRequirements) {
-        let reqId;
-        if (cr.type === 'NON_FUNCTIONAL') {
-          nfrCount++;
-          reqId = `NFR-${String(nfrCount).padStart(3, '0')}`;
-        } else if (cr.type === 'CONSTRAINT') {
-          conCount++;
-          reqId = `CON-${String(conCount).padStart(3, '0')}`;
-        } else if (cr.type === 'ASSUMPTION') {
-          asmCount++;
-          reqId = `ASM-${String(asmCount).padStart(3, '0')}`;
-        } else if (cr.type === 'INTERFACE') {
-          intCount++;
-          reqId = `INT-${String(intCount).padStart(3, '0')}`;
-        } else if (cr.type === 'STAKEHOLDER') {
-          stkCount++;
-          reqId = `STK-${String(stkCount).padStart(3, '0')}`;
-        } else {
-          frCount++;
-          reqId = `FR-${String(frCount).padStart(3, '0')}`;
+      // Record any duplicate / conflict / ambiguity issues raised for this answer
+      if (turnResult.analysis.issues && turnResult.analysis.issues.length > 0) {
+        for (const iss of turnResult.analysis.issues) {
+          await RequirementIssue.create({ projectId, ...iss });
         }
-
-        const newReq = await Requirement.create({
-          projectId,
-          requirementId: reqId,
-          title: cr.title,
-          description: cr.description,
-          type: cr.type || 'FUNCTIONAL',
-          nfrSubcategory: cr.nfrSubcategory || 'N/A',
-          category: cr.category || currentSectionConfig.name,
-          priority: cr.priority || 'MEDIUM',
-          completenessScore: cr.completenessScore || 85,
-          isAtomic: true,
-          sourceMessageId: userMsg.messageId,
-          sourceText: content,
-          status: 'PROPOSED',
-          validationStatus: 'VALID'
-        });
-        extractedIds.push(newReq.requirementId);
       }
     }
 
+    // Store the structured Phase-13 analysis result on the message (evidence)
+    userMsg.analysisResult = {
+      language: turnResult.analysis?.language?.language || detectedLang,
+      informationQuality: turnResult.analysis?.informationQuality || null,
+      clarificationQuestion: turnResult.analysis?.clarificationQuestion || null,
+      skippedDuplicates: persistResult.skippedDuplicates
+    };
     userMsg.extractedRequirementIds = extractedIds;
     await userMsg.save();
 

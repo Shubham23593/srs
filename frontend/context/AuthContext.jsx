@@ -18,25 +18,20 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Clear legacy persistent localStorage tokens to ensure fresh sessions
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
-
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token');
         if (token) {
           const res = await authAPI.getMe();
           if (res.data?.success) {
             setUser(res.data.data);
           } else {
-            sessionStorage.removeItem('token');
+            localStorage.removeItem('token');
             setUser(null);
           }
         } else {
           setUser(null);
         }
       } catch (err) {
-        sessionStorage.removeItem('token');
+        localStorage.removeItem('token');
         setUser(null);
       } finally {
         setLoading(false);
@@ -48,7 +43,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await authAPI.login({ email, password });
     if (res.data?.success) {
-      sessionStorage.setItem('token', res.data.data.token);
+      localStorage.setItem('token', res.data.data.token);
       setUser(res.data.data);
       return res.data.data;
     } else {
@@ -59,7 +54,7 @@ export function AuthProvider({ children }) {
   const register = async (name, email, password, organization) => {
     const res = await authAPI.register({ name, email, password, organization });
     if (res.data?.success) {
-      sessionStorage.setItem('token', res.data.data.token);
+      localStorage.setItem('token', res.data.data.token);
       setUser(res.data.data);
       return res.data.data;
     } else {
@@ -68,9 +63,11 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    sessionStorage.removeItem('token');
     localStorage.removeItem('token');
     setUser(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   return (
@@ -80,6 +77,4 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);

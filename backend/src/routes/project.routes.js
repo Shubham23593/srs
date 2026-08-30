@@ -4,6 +4,7 @@ const projectController = require('../controllers/project.controller');
 const { protect } = require('../middleware/auth.middleware');
 
 router.post('/', protect, projectController.createProject);
+router.post('/seed-demo', protect, projectController.seedDemo);
 router.get('/', protect, projectController.getProjects);
 router.get('/:id', protect, projectController.getProjectById);
 router.put('/:id', protect, projectController.updateProject);

@@ -2,8 +2,6 @@ const { getAIProvider } = require('../index');
 const { getSRSUpdatePrompt } = require('../prompts/srs-update.prompt');
 const embeddingService = require('../EmbeddingService');
 
-const { normalizeRequirementStatement } = require('../../services/requirementGrammarValidator');
-
 class SRSUpdateAgent {
   async processIncrementalChange(currentSRS, changedInputText, existingRequirements, ragContext = '') {
     const ai = getAIProvider();
@@ -46,7 +44,9 @@ class SRSUpdateAgent {
         proposedRequirement: {
           requirementId: targetId,
           title: isNew ? 'Additional System Feature' : (affectedReq ? affectedReq.title : 'Event Registration with Admin Approval'),
-          description: normalizeRequirementStatement(changedInputText),
+          description: changedInputText.startsWith('The system shall') || changedInputText.startsWith('Students shall') || changedInputText.startsWith('Administrators shall')
+            ? changedInputText
+            : `The system shall ensure that ${changedInputText.toLowerCase()}`,
           type: 'FUNCTIONAL',
           category: affectedReq ? affectedReq.category : 'Core Features',
           priority: 'HIGH'
@@ -56,8 +56,6 @@ class SRSUpdateAgent {
         reasonForChanges: `Requirement modified: ${changedInputText}`,
         summaryOfChanges: `Updated ${targetId} and synchronized Section 3 system features.`
       };
-    } else if (updatePlan.proposedRequirement?.description) {
-      updatePlan.proposedRequirement.description = normalizeRequirementStatement(updatePlan.proposedRequirement.description);
     }
 
     return updatePlan;

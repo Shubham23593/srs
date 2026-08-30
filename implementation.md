@@ -1,624 +1,1926 @@
-# IntelliSDLC AI — Complete Technical Implementation & Architecture Guide
+You are a senior full-stack software architect, AI engineer, and
+Software Requirements Engineering expert.
 
-> **Enterprise AI-Powered Software Requirements Engineering Platform**  
-> *Aligned with ISO/IEC/IEEE 29148:2018 and IEEE 830-1998 Standards*
+Build a production-quality AI-powered Software Requirements Engineering
+platform called:
 
----
+"IntelliSDLC AI"
 
-## Table of Contents
+============================================================
+IMPORTANT PROJECT SCOPE
+============================================================
 
-1. [System Overview & Architecture](#1-system-overview--architecture)
-2. [End-to-End Operational Workflow (How the Website Works)](#2-end-to-end-operational-workflow-how-the-website-works)
-3. [Core Algorithms & Mathematical Models](#3-core-algorithms--mathematical-models)
-   - 3.1 [Dense Vector Embedding & Cosine Similarity Algorithm](#31-dense-vector-embedding--cosine-similarity-algorithm)
-   - 3.2 [ISO/IEC/IEEE 29148 Grammar Normalization Engine](#32-isoicieee-29148-grammar-normalization-engine)
-   - 3.3 [Retrieval-Augmented Generation (RAG) Context Engine](#33-retrieval-augmented-generation-rag-context-engine)
-   - 3.4 [Multi-Dimensional Compliance Scoring Algorithm](#34-multi-dimensional-compliance-scoring-algorithm)
-   - 3.5 [Idempotent SRS Synchronization & Graph Propagation](#35-idempotent-srs-synchronization--graph-propagation)
-   - 3.6 [AI Requirement Merge & Historical Deprecation Algorithm](#36-ai-requirement-merge--historical-deprecation-algorithm)
-   - 3.7 [Finite State Machine Stage-Gate Interview Agent](#37-finite-state-machine-stage-gate-interview-agent)
-   - 3.8 [Semantic Atomic Decomposition & Clause Extraction Algorithm](#38-semantic-atomic-decomposition--clause-extraction-algorithm)
-4. [System Flowcharts & Visual Architecture](#4-system-flowcharts--visual-architecture)
-   - 4.1 [High-Level System Architecture](#41-high-level-system-architecture)
-   - 4.2 [End-to-End User Journey Workflow](#42-end-to-end-user-journey-workflow)
-   - 4.3 [AI Interview & Context Guard State Machine](#43-ai-interview--context-guard-state-machine)
-   - 4.4 [Duplicate Detection & Merge Resolution Engine](#44-duplicate-detection--merge-resolution-engine)
-   - 4.5 [Exact-Template SRS Generation & Audit Pipeline](#45-exact-template-srs-generation--audit-pipeline)
-5. [Database Schema & Data Models](#5-database-schema--data-models)
-6. [API Route Hierarchy & Micro-Services](#6-api-route-hierarchy--micro-services)
-7. [How to Run, Test, and Deploy the System](#7-how-to-run-test-and-deploy-the-system)
+The project scope MUST END at a complete, validated, traceable,
+version-controlled and continuously updateable Software Requirements
+Specification (SRS).
 
----
+The complete flow is:
 
-## 1. System Overview & Architecture
+PROJECT IDEA
+→ AI REQUIREMENT INTERVIEW
+→ REQUIREMENT COLLECTION
+→ REQUIREMENT EXTRACTION
+→ REQUIREMENT ANALYSIS
+→ AMBIGUITY / DUPLICATE / CONFLICT DETECTION
+→ FR/NFR CLASSIFICATION
+→ REQUIREMENT VALIDATION
+→ RAG CONTEXT RETRIEVAL
+→ SRS SECTION MAPPING
+→ SRS GENERATION
+→ SRS REVIEW
+→ USER APPROVAL
+→ TRACEABILITY
+→ SRS VERSION 1.0
+→ REQUIREMENT CHANGE
+→ CHANGE DETECTION
+→ RAG RETRIEVAL
+→ AFFECTED REQUIREMENT DETECTION
+→ AFFECTED SRS SECTION DETECTION
+→ INCREMENTAL SRS UPDATE
+→ USER APPROVAL
+→ SRS VERSION 1.1
+→ PDF/DOCX EXPORT
 
-IntelliSDLC AI is a full-stack platform designed to automate and formalize the Software Requirements Engineering lifecycle. It transforms unstructured stakeholder ideas into structured, atomic, duplicate-free, and IEEE/ISO-compliant Software Requirements Specifications (SRS).
+STOP THE CURRENT PROJECT AFTER SRS GENERATION, REVIEW,
+TRACEABILITY, VERSIONING AND SRS UPDATE.
 
-### Technology Stack
-- **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS, Lucide Icons, Axios.
-- **Backend**: Node.js, Express.js REST API layer, JWT & bcrypt authentication.
-- **Database**: MongoDB (Mongoose ODM) with replica support for transactional persistence.
-- **AI & Embedding Engines**:
-  - Local LLM: Ollama (`codellama:7b-instruct` / `llama3`).
-  - Local Vector Embeddings: HuggingFace Transformers (`@xenova/transformers` - `all-MiniLM-L6-v2` 384-dimensional dense vectors).
-- **Export Engines**: `docx` (Word Documents), `pdfkit` (Adobe PDF Generator).
+DO NOT implement:
 
-```
-+-----------------------------------------------------------------------------------+
-|                                 FRONTEND (Next.js 14)                             |
-|  [Landing Page] -> [Auth: Session-Scoped] -> [Dashboard] -> [Project Workbench]   |
-|  - AI Interview Chat (Stage-Gated)  - Requirements Catalog & Normalizer           |
-|  - Quality Audit & Duplicate Merge  - Interactive SRS Viewer & PDF/DOCX Export    |
-+------------------------------------------+----------------------------------------+
-                                           | HTTP / REST (JWT in SessionStorage)
-+------------------------------------------v----------------------------------------+
-|                             BACKEND API LAYER (Express.js)                        |
-|  - Auth & Project Controller        - Requirement & Sync Controller               |
-|  - Interview Session Controller     - Analysis & Merge Controller                 |
-|  - SRS & Version Controller         - Export Service (PDF/DOCX)                   |
-+------------------------------------------+----------------------------------------+
-                                           |
-      +------------------------------------+-----------------------------------+
-      |                                    |                                   |
-+-----v-------------------+      +---------v--------------+      +-------------v----+
-|   AI AGENT PIPELINE     |      |   DATA & VECTOR LAYER  |      | GRAMMAR & AUDIT  |
-| - InterviewAgent        |      | - MongoDB Collections  |      | - GrammarNormalizer
-| - ExtractionAgent       |      | - Dense Vector Embed   |      | - ComplianceAudit|
-| - RequirementAnalysis   |      | - RAG Vector Memory    |      | - Traceability   |
-| - SRSGenerationAgent    |      | - Version Snapshots    |      | - IdempotentSync |
-| - SRSUpdateAgent        |      +------------------------+      +------------------+
-+-------------------------+
-```
+- Developer Agent
+- Code Generation
+- Project Planning
+- Task Planning
+- Development Assistance
+- Autonomous QA
+- Code Review
+- CI/CD
+- Deployment
+- Jira integration
+- Slack integration
+- GitHub automation
+- Complete SDLC automation
+- Production deployment automation
 
----
 
-## 2. End-to-End Operational Workflow (How the Website Works)
+============================================================
+1. TECHNOLOGY STACK
+============================================================
 
-### Step 1: User Registration & Session-Scoped Authentication
-1. When a user opens `http://localhost:3000`, the application starts in a logged-out state.
-2. The user clicks **Register** (`/register`) to create an account or **Sign In** (`/login`).
-3. Tokens are stored in `sessionStorage` (preventing unwanted persistent auto-logins across fresh browser sessions).
+FRONTEND:
 
-### Step 2: Project Definition & Scope Initialization
-1. From the **Dashboard** (`/dashboard`), the user clicks **New Project** (`/projects/new`).
-2. The user specifies:
-   - **Project Name** (e.g., `Campus Event & Resource Management System`)
-   - **Project Description** & **Scope**
-   - **Target Users**, **Constraints**, and **Assumptions**.
-3. A new project record is initialized with status `DRAFT`.
+- Latest stable Next.js
+- App Router
+- React
+- JavaScript
+- JSX ONLY
+- Tailwind CSS
+- Responsive design
 
-### Step 3: Interactive Stage-Gated AI Interview (`/projects/[id]/interview`)
-1. The user enters the AI Interview workspace.
-2. The system executes a **9-Stage Deterministic State Machine**:
-   - `PROJECT_INFORMATION` $\rightarrow$ `STAKEHOLDERS_AND_USERS` $\rightarrow$ `USER_ROLES_AND_PERMISSIONS` $\rightarrow$ `FUNCTIONAL_REQUIREMENTS` $\rightarrow$ `NON_FUNCTIONAL_REQUIREMENTS` $\rightarrow$ `EXTERNAL_INTERFACES` $\rightarrow$ `CONSTRAINTS` $\rightarrow$ `ASSUMPTIONS_AND_DEPENDENCIES` $\rightarrow$ `REVIEW_AND_CONFIRMATION`.
-3. **Context Guard**: If the user sends conversational greetings (e.g., `"hello bro"`, `"what is the weather"`), the Context Guard flags the query as out-of-scope, prevents creating junk requirements, and politely redirects the user to the current section question.
-4. Multilingual support natively handles English, Hindi, and Hinglish.
+IMPORTANT:
 
-### Step 4: Atomic Requirement Extraction & ISO 29148 Normalization
-1. Real-time extraction runs on user responses.
-2. Extracted requirements are assigned standard IDs:
-   - Functional: `FR-001`, `FR-002`, ...
-   - Non-Functional: `NFR-001`, `NFR-002`, ...
-   - Constraints: `CON-001`, ...
-   - Assumptions: `ASM-001`, ...
-   - Interfaces: `INT-001`, ...
-   - Stakeholders: `STK-001`, ...
-3. Each statement is automatically passed through the **ISO 29148 Grammar Normalizer** to enforce `"The system shall [action] [condition]."`.
+Use .jsx files for React components.
 
-### Step 5: Requirements Catalog Management (`/projects/[id]/requirements`)
-1. Users view all active requirements in a filtered catalog.
-2. Features include manual creation, live editing, deletion, batch AI extraction from raw text documents, and priority configuration.
-3. Every mutation triggers the **Automatic SRS Synchronization Service**.
+DO NOT create .tsx files.
 
-### Step 6: Quality Analysis, Duplicate Detection & AI Merging (`/projects/[id]/analysis`)
-1. The user clicks **Run Quality Audit**.
-2. The system performs:
-   - **Ambiguity Detection**: Flags vague, non-measurable adjectives (`fast`, `user-friendly`, `seamless`).
-   - **Semantic Duplicate Detection**: Calculates 384-dimensional dense vector embeddings and pairwise cosine similarity. Pairs with similarity $\ge 75\%$ are flagged as `DUPLICATE` issues.
-3. **Interactive Merge**:
-   - The user opens the duplicate comparison modal and clicks **Merge Requirements**.
-   - The AI synthesizes both descriptions into one comprehensive statement.
-   - Primary requirement (e.g. `FR-001`) receives the combined description.
-   - Secondary requirement (e.g. `FR-002`) receives metadata `{ status: 'DEPRECATED', mergedInto: 'FR-001', deprecatedReason: '...', deprecatedAt: timestamp }` and is removed from active views.
+DO NOT use TypeScript unless absolutely required by a dependency.
 
-### Step 7: Exact-Template SRS Generation (`/projects/[id]/srs`)
-1. The user clicks **Generate Baseline SRS**.
-2. The AI Generation Agent constructs a complete document strictly matching the IEEE template:
-   - **Section 1**: Introduction (Purpose, Conventions, Audience, Scope, References)
-   - **Section 2**: Overall Description (Perspective, Features, Stakeholders, Environment, Constraints, User Docs, Assumptions)
-   - **Section 3**: System Features (Hierarchical grouping with Stimulus/Response sequences and Functional Requirements)
-   - **Section 4**: External Interface Requirements (UI, Hardware, Software, Communications)
-   - **Section 5**: Other Nonfunctional Requirements (5.1 Performance, 5.2 Safety, 5.3 Security, 5.4 Quality Attributes)
-   - **Section 6**: Other Requirements
-   - **Appendix A**: Glossary
-   - **Appendix B**: Analysis Models (Data Flow & ER diagrams)
-   - **Appendix C**: Dynamic Issues List (populated directly from active open issues).
+All frontend components should preferably be:
 
-### Step 8: Multi-Dimensional ISO/IEC/IEEE 29148 Compliance Audit
-1. The user clicks **Compliance Audit Report**.
-2. The system audits structural completeness, requirement section mappings, text completeness, and checks for unresolved placeholders.
-3. Displays a dynamic 4-metric score breakdown with 100% standard alignment.
+.jsx
 
-### Step 9: Incremental Updates & Continuous Versioning (v1.0 $\rightarrow$ v1.1)
-1. In the SRS workbench, the user enters a change request (e.g., *"Add two-factor SMS authentication for Admin login"*).
-2. The AI Update Agent analyzes the diff, modifies the affected requirement, bumps the version from `1.0` to `1.1`, updates Section 3, adds a row to Revision History, and creates an immutable version snapshot in `SRSVersion`.
+Examples:
 
-### Step 10: Traceability & Document Export
-1. Traceability links map `Requirement` $\longleftrightarrow$ `SRS Section` $\longleftrightarrow$ `Validation Status`.
-2. One-click export generates formatted **PDF** and **DOCX** files ready for stakeholder sign-off.
+app/page.jsx
+app/dashboard/page.jsx
+components/Sidebar.jsx
+components/SRSViewer.jsx
 
----
 
-## 3. Core Algorithms & Mathematical Models
+BACKEND:
 
-### 3.1 Dense Vector Embedding & Cosine Similarity Algorithm
+- Node.js
+- Express.js
+- JavaScript
+- REST API architecture
 
-To detect semantic duplicates without relying on naive keyword matching, text is mapped to a 384-dimensional continuous vector space using the `all-MiniLM-L6-v2` transformer model.
+Use .js files for backend code.
 
-#### Mathematical Formulation:
-For two requirement text strings $T_A$ and $T_B$, the model computes dense embedding vectors $\mathbf{u}, \mathbf{v} \in \mathbb{R}^{384}$:
 
-$$\mathbf{u} = f_{\text{MiniLM}}(T_A), \quad \mathbf{v} = f_{\text{MiniLM}}(T_B)$$
+DATABASE:
 
-The cosine similarity metric $S_C(\mathbf{u}, \mathbf{v})$ is calculated as:
+- MongoDB
+- Mongoose
 
-$$S_C(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2} = \frac{\sum_{i=1}^{384} u_i v_i}{\sqrt{\sum_{i=1}^{384} u_i^2} \sqrt{\sum_{i=1}^{384} v_i^2}}$$
 
-#### Decision Rule:
-$$\text{Audit Finding} = \begin{cases} 
-\text{CRITICAL DUPLICATE (Flag for Merge)}, & \text{if } S_C \ge 0.85 \\
-\text{POTENTIAL OVERLAP (Warning)}, & \text{if } 0.75 \le S_C < 0.85 \\
-\text{DISTINCT REQUIREMENTS}, & \text{if } S_C < 0.75 
-\end{cases}$$
+============================================================
+2. AI MODEL
+============================================================
 
----
+Use Ollama as the PRIMARY AI provider.
 
-### 3.2 ISO/IEC/IEEE 29148 Grammar Normalization Engine
+Environment variables:
 
-Enforces atomic, active-voice, normative phrasing conforming to ISO 29148 Clause 5.2:
+AI_PROVIDER=ollama
 
-```javascript
-function normalizeRequirementStatement(statement) {
-  // 1. Remove malformed doubled AI prefixes
-  text = text.replace(/^(the\s+(system|platform|application|software)\s+shall\s+)+/gi, '');
-  
-  // 2. Remove internal nested "the platform shall" phrases
-  text = text.replace(/\bthe\s+(platform|system|application|software)\s+(shall|must)\s+/gi, '');
-  
-  // 3. Remove chained redundant verbs ("allow support", "enable provide")
-  text = text.replace(/\b(allow|support|enable)\s+(allow|support|enable|provide)\b/gi, '$1');
-  
-  // 4. Transform Actor constructs ("Students shall register" -> "allow students to register")
-  if (actorMatch) {
-    text = `allow ${actor} to ${action}`;
-  }
-  
-  // 5. Clean duplicate consecutive words ("the the", "shall shall")
-  text = cleanDuplicatedWords(text);
-  
-  // 6. Synthesize final normative statement
-  return `The system shall ${text.trim()}.`;
+OLLAMA_BASE_URL=http://localhost:11434
+
+OLLAMA_MODEL=codellama:7b-instruct
+
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+
+
+IMPORTANT:
+
+The application must NOT depend on Hugging Face as the primary
+LLM provider.
+
+Use the local Ollama model:
+
+codellama:7b-instruct
+
+The AI provider architecture must still be abstract so that another
+LLM can be added later.
+
+Create:
+
+AIProvider
+ ├── OllamaProvider
+ └── Optional future providers
+
+
+The application should read:
+
+process.env.AI_PROVIDER
+process.env.OLLAMA_BASE_URL
+process.env.OLLAMA_MODEL
+
+Do not hard-code these values.
+
+
+============================================================
+3. EMBEDDING MODEL
+============================================================
+
+Use:
+
+BAAI/bge-small-en-v1.5
+
+for embeddings.
+
+Create a separate embedding service:
+
+EmbeddingService
+
+Do not directly call the embedding model from controllers.
+
+Pipeline:
+
+Text
+ ↓
+EmbeddingService
+ ↓
+Vector
+ ↓
+MongoDB
+
+
+============================================================
+4. RAG
+============================================================
+
+RAG IS A CORE FEATURE.
+
+Use RAG for:
+
+1. SRS generation
+2. SRS update
+3. Requirement context retrieval
+4. Previous SRS context retrieval
+5. Project knowledge retrieval
+
+Use MongoDB Vector Search when available.
+
+Keep vector storage behind an abstraction:
+
+VectorStore
+ └── MongoDBVectorStore
+
+
+RAG must retrieve existing project information.
+
+RAG MUST NOT invent requirements.
+
+
+Index the following:
+
+- project description
+- project scope
+- stakeholders
+- project objectives
+- interview messages
+- extracted requirements
+- validated requirements
+- requirement issues
+- assumptions
+- constraints
+- SRS sections
+- previous SRS versions
+- glossary
+- project references
+
+
+RAG PIPELINE:
+
+Text
+ ↓
+Chunking
+ ↓
+Embedding
+ ↓
+Vector Storage
+ ↓
+Semantic Search
+ ↓
+Relevant Context
+ ↓
+LLM
+ ↓
+Validated Output
+
+
+============================================================
+5. RESEARCH FOUNDATION
+============================================================
+
+The architecture should be research-informed by the three
+provided research papers.
+
+PAPER 1:
+
+"Using LLMs in Software Requirements Specifications:
+An Empirical Evaluation"
+
+Use relevant concepts such as:
+
+- LLM-based SRS generation
+- requirement validation
+- requirement correction
+- prompt engineering
+- context tuning
+- human review
+
+
+PAPER 2:
+
+"REQINONE: A Large Language Model-Based Agent for
+Software Requirements Specification Generation"
+
+Use relevant concepts such as:
+
+- requirement extraction
+- functional requirement classification
+- non-functional requirement classification
+- NFR categorization
+- structured SRS generation
+- trace-to-source
+
+
+PAPER 3:
+
+"A Framework for Structurally Deterministic Pipeline Based
+Drafting and Quality Improvement of SRS Using Language Models
+and Reinforcement Learning"
+
+Use relevant concepts such as:
+
+- sentence embeddings
+- requirement grouping
+- similarity
+- section mapping
+- structured SRS generation
+- incremental SRS update
+- continuous quality improvement
+
+
+IMPORTANT:
+
+Do not claim that IntelliSDLC AI exactly reproduces any paper.
+
+Use the papers as research inspiration.
+
+Clearly distinguish:
+
+Research Paper Concept
+vs
+Our Implementation
+vs
+Our Contribution
+
+
+============================================================
+6. IEEE / REQUIREMENTS ENGINEERING FOUNDATION
+============================================================
+
+Use verified IEEE / ISO/IEC/IEEE requirements engineering
+standards and research references to guide:
+
+- SRS organization
+- requirement quality
+- requirement validation
+- requirement verification
+- requirement traceability
+- functional requirements
+- non-functional requirements
+- ambiguity
+- completeness
+- consistency
+- testability
+
+IMPORTANT:
+
+Do NOT claim:
+
+"IEEE Certified"
+
+or
+
+"IEEE Certified SRS Generator"
+
+Instead use:
+
+"IEEE/ISO/IEC/IEEE-aligned requirements engineering practices"
+
+Only use verified references.
+
+Never invent:
+- authors
+- paper names
+- DOI
+- publication year
+- IEEE details
+
+
+============================================================
+7. SRS TEMPLATE — VERY IMPORTANT
+============================================================
+
+THE UPLOADED SRS TEMPLATE IS THE SOURCE OF TRUTH.
+
+The uploaded file:
+
+"srs_template (1)(1).doc"
+
+MUST be used as the exact SRS template.
+
+DO NOT replace it with a generic SRS template.
+
+DO NOT create your own section structure.
+
+DO NOT remove sections.
+
+DO NOT change the section order.
+
+DO NOT change numbering unnecessarily.
+
+Preserve the structure and terminology of the uploaded template.
+
+The template contains:
+
+Software Requirements Specification for <Project>
+
+Version
+Prepared by
+Organization
+Date
+
+Table of Contents
+
+Revision History
+
+
+1. Introduction
+
+1.1 Purpose
+
+1.2 Document Conventions
+
+1.3 Intended Audience and Reading Suggestions
+
+1.4 Project Scope
+
+1.5 References
+
+
+2. Overall Description
+
+2.1 Product Perspective
+
+2.2 Product Features
+
+2.3 User Classes and Characteristics
+
+2.4 Operating Environment
+
+2.5 Design and Implementation Constraints
+
+2.6 User Documentation
+
+2.7 Assumptions and Dependencies
+
+
+3. System Features
+
+3.1 System Feature 1
+
+3.1.1 Description and Priority
+
+3.1.2 Stimulus/Response Sequences
+
+3.1.3 Functional Requirements
+
+3.2 System Feature 2
+
+3.2.1 Description and Priority
+
+3.2.2 Stimulus/Response Sequences
+
+3.2.3 Functional Requirements
+
+
+4. External Interface Requirements
+
+4.1 User Interfaces
+
+4.2 Hardware Interfaces
+
+4.3 Software Interfaces
+
+4.4 Communications Interfaces
+
+
+5. Other Nonfunctional Requirements
+
+5.1 Performance Requirements
+
+5.2 Safety Requirements
+
+5.3 Security Requirements
+
+5.4 Software Quality Attributes
+
+
+6. Other Requirements
+
+
+Appendix A: Glossary
+
+Appendix B: Analysis Models
+
+Appendix C: Issues List
+
+
+The uploaded template explicitly requires functional requirements
+to be uniquely identified and states that requirements should be
+concise, complete, unambiguous, verifiable and necessary. Use these
+principles in the validation and SRS generation workflow. 
+The template also supports TBD placeholders when required
+information is not available. 
+
+
+============================================================
+8. SRS TEMPLATE RULES
+============================================================
+
+When information is missing:
+
+Use:
+
+"TBD — Needs Clarification"
+
+or:
+
+"Information not provided by the user."
+
+DO NOT invent missing information.
+
+Do not create fake:
+
+- performance numbers
+- security mechanisms
+- APIs
+- integrations
+- databases
+- business rules
+- stakeholders
+- hardware
+- external systems
+
+
+The uploaded template contains an Issues List specifically for
+unresolved requirements, TBDs, pending decisions and conflicts.
+
+Use Appendix C for these issues.
+
+
+============================================================
+9. USER FLOW
+============================================================
+
+START
+ ↓
+Login/Register
+ ↓
+Dashboard
+ ↓
+Create Project
+ ↓
+Project Information
+ ↓
+AI Requirement Interview
+ ↓
+Requirement Extraction
+ ↓
+Requirement Analysis
+ ↓
+FR/NFR Classification
+ ↓
+Requirement Validation
+ ↓
+RAG Context Retrieval
+ ↓
+SRS Section Mapping
+ ↓
+SRS Generation
+ ↓
+SRS Review
+ ↓
+User Approval
+ ↓
+Traceability
+ ↓
+SRS v1.0
+
+
+If user changes requirements:
+
+SRS v1.0
+ ↓
+New Requirement / Requirement Change
+ ↓
+Change Detection
+ ↓
+RAG Retrieval
+ ↓
+Affected Requirement Detection
+ ↓
+Affected SRS Section
+ ↓
+AI Proposed Update
+ ↓
+Validation
+ ↓
+Old vs New
+ ↓
+User Approval
+ ↓
+SRS v1.1
+ ↓
+Version History
+
+
+============================================================
+10. PROJECT CREATION
+============================================================
+
+Create project fields:
+
+- projectId
+- projectName
+- description
+- scope
+- domain
+- targetUsers
+- stakeholders
+- objectives
+- constraints
+- assumptions
+- dependencies
+- status
+- createdAt
+- updatedAt
+
+
+============================================================
+11. AI REQUIREMENT INTERVIEW
+============================================================
+
+The AI must understand the project before generating SRS.
+
+Ask focused questions about:
+
+- system purpose
+- users
+- stakeholders
+- features
+- business rules
+- inputs
+- outputs
+- authentication
+- authorization
+- notifications
+- integrations
+- data
+- performance
+- security
+- availability
+- scalability
+- usability
+- constraints
+- assumptions
+- dependencies
+
+Do not repeat questions.
+
+Do not ask unnecessary questions.
+
+Allow:
+
+- Answer
+- Edit
+- Skip
+- Back
+- Add Requirement
+- Finish Interview
+
+
+============================================================
+12. REQUIREMENT EXTRACTION
+============================================================
+
+Extract structured requirements from:
+
+- project information
+- interview conversation
+- user-entered requirements
+
+Each requirement:
+
+{
+  requirementId,
+  projectId,
+  title,
+  description,
+  type,
+  category,
+  priority,
+  sourceMessageId,
+  sourceText,
+  confidence,
+  status,
+  validationStatus,
+  version,
+  createdAt,
+  updatedAt
 }
-```
-
----
-
-### 3.3 Retrieval-Augmented Generation (RAG) Context Engine
-
-The RAG engine indexes project artifacts, existing requirements, and project scope into a local vector knowledge store.
-
-```
-[User Change Query] 
-        |
-        v
-[Generate Query Embedding (384-d)]
-        |
-        v
-[Cosine Distance Ranking over Project Knowledge Base]
-        |
-        v
-[Top-K (k=5) Relevant Context Chunks Retrieved]
-        |
-        v
-[Augmented LLM Prompt with Grounded Historical Context]
-        |
-        v
-[Hallucination-Free SRS Output]
-```
-
----
-
-### 3.4 Multi-Dimensional Compliance Scoring Algorithm
-
-The ISO/IEC/IEEE 29148 Standard Alignment Score is calculated through a dynamic 4-variable weighted objective function:
-
-$$\text{Overall Alignment Score} = w_1 S_{\text{struct}} + w_2 S_{\text{map}} + w_3 S_{\text{comp}} + w_4 S_{\text{ph}}$$
-
-Where:
-- $w_1 = 0.35$ (Structural Compliance: Verification of Sections 1–6 and Appendices A–C).
-- $w_2 = 0.35$ (Requirement Mapping: Verification that 100% of active FRs/NFRs are placed in correct SRS sections).
-- $w_3 = 0.20$ (Requirement Completeness: Average completeness score across active catalog).
-- $w_4 = 0.10$ (Placeholder Penalty: $1.0 - 0.10 \times N_{\text{TBD}}$).
-
----
-
-### 3.5 Idempotent SRS Synchronization & Graph Propagation
-
-When any requirement mutation occurs (Create, Update, Delete, Merge), `srsSyncService.syncProjectSRS(projectId)` executes an idempotent graph propagation:
-
-1. Loads all active requirements (`status: { $ne: 'DEPRECATED' }`).
-2. Deduplicates Section 3 features by `requirementId` using an in-memory Set:
-   $$\text{Sec3}_{\text{updated}} = \bigcup_{r \in \text{ActiveFRs}} \text{GroupToFeature}(r)$$
-3. Maps active NFRs to Section 5, Constraints to Section 2.5, Assumptions to Section 2.7, Interfaces to Section 4.
-4. Generates dynamic Appendix C from open `RequirementIssue` records.
-5. Updates Bi-Directional Traceability Links.
-6. Re-indexes the RAG vector store.
-7. **Idempotency Guarantee**: $\text{Sync}(\text{Sync}(S)) = \text{Sync}(S)$. Repeated sync executions produce identical deterministic state without duplicate items.
-
----
-
-### 3.6 AI Requirement Merge & Historical Deprecation Algorithm
-
-When two duplicate requirements $R_{\text{primary}}$ and $R_{\text{secondary}}$ are merged:
-
-```
-                  [Merge Request (FR-001 & FR-002)]
-                                  |
-                                  v
-              [AI Merge Agent Synthesizes Descriptions]
-                                  |
-            +---------------------+---------------------+
-            |                                           |
-            v                                           v
-   [Update FR-001 (Surviving)]               [Deprecate FR-002 (Secondary)]
-   - Title: Merged Title                     - Status: 'DEPRECATED'
-   - Description: Combined Text              - mergedInto: 'FR-001'
-   - Status: 'APPROVED'                      - deprecatedReason: Notes
-   - Version: '1.1'                          - deprecatedAt: Timestamp
-            |                                           |
-            +---------------------+---------------------+
-                                  |
-                                  v
-            [Re-link All Issues Referring to FR-002 -> FR-001]
-                                  |
-                                  v
-            [Delete Stale Traceability Links for FR-002]
-                                  |
-                                  v
-            [Trigger srsSyncService -> Exclude FR-002 from SRS & Catalog]
-```
-
----
-
-### 3.7 Finite State Machine Stage-Gate Interview Agent
-
-The interview process follows a formal 9-state automaton:
-
-$$Q = \{S_0, S_1, S_2, S_3, S_4, S_5, S_6, S_7, S_8\}$$
-
-Transition Function $\delta(S_i, \text{Input})$:
-- If $\text{ContextGuard}(\text{Input}) = \text{OUT\_OF\_SCOPE} \implies S_i \to S_i$ (Self-loop with redirection).
-- If $\text{RequirementExtracted} \land \text{SectionSatisfied} \implies S_i \to S_{i+1}$ (Advance stage).
-- If $\text{PartialAnswer} \implies S_i \to S_i$ (Follow-up clarification prompt).
-
----
-
-## 4. System Flowcharts & Visual Architecture
-
-### 4.1 High-Level System Architecture
-
-```mermaid
-graph TD
-    Client["Client Browser (Next.js 14)"] -->|REST API + JWT Session| API["Express.js API Gateway"]
-    
-    subgraph Backend_Services["Backend Services & Controllers"]
-        API --> AuthCtrl["Auth & Project Controller"]
-        API --> InterviewCtrl["Interview Controller"]
-        API --> ReqCtrl["Requirement Controller"]
-        API --> AnalysisCtrl["Analysis & Merge Controller"]
-        API --> SRSCtrl["SRS & Version Controller"]
-        API --> ExportSvc["Export Service (PDF/DOCX)"]
-    end
-
-    subgraph AI_Engine["AI & Embedding Subsystem"]
-        InterviewCtrl --> InterviewAgent["Interview Agent + Context Guard"]
-        ReqCtrl --> ExtractionAgent["Requirement Extraction Agent"]
-        AnalysisCtrl --> AnalysisAgent["Analysis Agent (Cosine Embedding)"]
-        AnalysisCtrl --> MergeSvc["Requirement Merge Service"]
-        SRSCtrl --> SRSGenAgent["SRS Generation Agent"]
-        SRSCtrl --> SRSReviewAgent["SRS Review & Compliance Agent"]
-        SRSCtrl --> SRSUpdateAgent["SRS Incremental Update Agent"]
-        AllAgents --> Ollama["Local LLM (Ollama)"]
-        AllAgents --> MiniLM["Transformers (all-MiniLM-L6-v2)"]
-    end
-
-    subgraph Data_Storage["Persistent Storage"]
-        ReqCtrl --> Mongo[("MongoDB Database")]
-        SRSCtrl --> Mongo
-        AnalysisCtrl --> Mongo
-        SRSCtrl --> RAG["RAG Vector Memory"]
-    end
-```
-
----
-
-### 4.2 End-to-End User Journey Workflow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Requirements Engineer
-    participant FE as Frontend UI
-    participant BE as Backend API
-    participant AI as AI Engine & Models
-    participant DB as MongoDB
-
-    User->>FE: Open Platform (http://localhost:3000)
-    FE->>User: Displays Register / Sign In Screen
-    User->>FE: Authenticate / Register
-    FE->>BE: POST /api/auth/login
-    BE-->>FE: JWT Token (Stored in sessionStorage)
-
-    User->>FE: Create New Project Definition
-    FE->>BE: POST /api/projects
-
-    User->>FE: Launch AI Interview
-    loop 9-Stage Interview
-        FE->>BE: POST /api/projects/:id/interview/message
-        BE->>AI: Context Guard & Question Prompt
-        AI-->>BE: Next Stage Question + Extracted Reqs
-        BE->>DB: Save Atomic Requirements (FR/NFR/CON)
-        BE-->>FE: Return AI Response & Extracted Items
-    end
-
-    User->>FE: Run Quality Audit
-    FE->>BE: POST /api/projects/:id/requirements/analyze
-    BE->>AI: Vector Embeddings & Cosine Similarity
-    AI-->>BE: Detect Ambiguities & Duplicates
-    BE-->>FE: Display Issue List (e.g. FR-001 vs FR-002)
-
-    User->>FE: Click "Merge Requirements"
-    FE->>BE: POST /api/projects/:id/requirements/merge
-    BE->>AI: Synthesize Merged Requirement
-    BE->>DB: Update FR-001, Set FR-002 to DEPRECATED
-    BE->>DB: Re-sync SRS Document
-    BE-->>FE: Return Cleaned Requirements Catalog
-
-    User->>FE: Generate Baseline SRS
-    FE->>BE: POST /api/projects/:id/srs/generate
-    BE->>AI: Generate IEEE 830 / ISO 29148 Template Document
-    BE->>DB: Save SRS Baseline & Traceability Links
-    BE-->>FE: Display Interactive SRS Viewer
-
-    User->>FE: Run Compliance Audit
-    FE->>BE: POST /api/srs/:id/review
-    BE->>AI: Section-aware scanner & Scoring
-    BE-->>FE: 100% Structural Score & Clean Breakdown
-
-    User->>FE: Export Specification (PDF / DOCX)
-    FE->>BE: GET /api/projects/:id/srs/export/pdf
-    BE-->>FE: Download Official Specification Document
-```
-
----
-
-### 4.3 AI Interview & Context Guard State Machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> PROJECT_INFORMATION
-    
-    PROJECT_INFORMATION --> CheckGuard1: User Sends Message
-    state CheckGuard1 <<choice>>
-    CheckGuard1 --> PROJECT_INFORMATION: Out of Scope / Greeting ("hello bro") -> Redirection
-    CheckGuard1 --> STAKEHOLDERS_AND_USERS: Valid Answer -> Extract & Advance
-
-    STAKEHOLDERS_AND_USERS --> CheckGuard2: User Sends Message
-    state CheckGuard2 <<choice>>
-    CheckGuard2 --> STAKEHOLDERS_AND_USERS: Out of Scope -> Redirection
-    CheckGuard2 --> USER_ROLES_AND_PERMISSIONS: Valid Answer -> Extract & Advance
-
-    USER_ROLES_AND_PERMISSIONS --> FUNCTIONAL_REQUIREMENTS: Extract Role Reqs & Advance
-    FUNCTIONAL_REQUIREMENTS --> NON_FUNCTIONAL_REQUIREMENTS: Extract Core FRs & Advance
-    NON_FUNCTIONAL_REQUIREMENTS --> EXTERNAL_INTERFACES: Extract NFRs (Perf/Sec) & Advance
-    EXTERNAL_INTERFACES --> CONSTRAINTS: Extract Interface Reqs & Advance
-    CONSTRAINTS --> ASSUMPTIONS_AND_DEPENDENCIES: Extract Constraints & Advance
-    ASSUMPTIONS_AND_DEPENDENCIES --> REVIEW_AND_CONFIRMATION: Extract Assumptions & Advance
-    REVIEW_AND_CONFIRMATION --> [*]: Finalize & Ready for SRS Generation
-```
-
----
-
-### 4.4 Duplicate Detection & Merge Resolution Engine
-
-```mermaid
-flowchart TD
-    Start(["Trigger Quality Audit"]) --> FetchReqs["Fetch Active Requirements (status != 'DEPRECATED')"]
-    FetchReqs --> EmbedGen["Generate 384-d Dense Vector Embeddings via all-MiniLM-L6-v2"]
-    EmbedGen --> PairwiseCosine["Compute Pairwise Cosine Similarity: S_C(u, v) = (u · v) / (||u|| ||v||)"]
-    
-    PairwiseCosine --> CheckSim{"Cosine Similarity >= 75%?"}
-    CheckSim -- No --> MarkDistinct["Mark as Distinct Requirement"]
-    CheckSim -- Yes --> CreateIssue["Create RequirementIssue (type: 'DUPLICATE', severity: 'HIGH')"]
-    
-    CreateIssue --> UserReview["User Views Duplicate in UI Comparison Modal"]
-    UserReview --> UserMerge["User Clicks 'Merge Requirements'"]
-    
-    UserMerge --> AIMergePrompt["AI Merge Agent Combines Titles & Descriptions"]
-    AIMergePrompt --> Normalizer["ISO 29148 Grammar Normalizer Enforces Standard Phrasing"]
-    
-    Normalizer --> UpdatePrimary["Update Primary Req (FR-001): Merged Description, status: 'APPROVED'"]
-    Normalizer --> DeprecateSecondary["Update Secondary Req (FR-002): status: 'DEPRECATED', mergedInto: 'FR-001', deprecatedAt: now"]
-    
-    UpdatePrimary --> UpdateIssues["Update All Related Issues & Set Status to 'MERGED'"]
-    DeprecateSecondary --> UpdateIssues
-    
-    UpdateIssues --> TriggerSync["Invoke srsSyncService.syncProjectSRS(projectId)"]
-    TriggerSync --> ExcludeDeprecated["Exclude FR-002 from Active Catalog, Section 3, and Audits"]
-    ExcludeDeprecated --> Done(["Merge Complete & SRS Re-synchronized"])
-```
-
----
-
-### 4.5 Exact-Template SRS Generation & Audit Pipeline
-
-```mermaid
-flowchart TD
-    ReqsDB[("Active Requirements")] --> Grouping["Categorization & Normalization"]
-    
-    subgraph Mapping["Section Routing"]
-        Grouping -->|FUNCTIONAL| Sec3["Section 3: System Features (Hierarchical 3.1..3.X)"]
-        Grouping -->|NON_FUNCTIONAL| Sec5["Section 5: Other Nonfunctional (5.1-5.4)"]
-        Grouping -->|CONSTRAINT| Sec25["Section 2.5: Design & Implementation Constraints"]
-        Grouping -->|ASSUMPTION| Sec27["Section 2.7: Assumptions & Dependencies"]
-        Grouping -->|INTERFACE| Sec4["Section 4: External Interface Requirements"]
-        Grouping -->|STAKEHOLDER| Sec23["Section 2.3: User Classes & Characteristics"]
-    end
-
-    IssuesDB[("Active Issues")] --> AppC["Appendix C: Dynamic Issues List"]
-    Glossary["Glossary Generator"] --> AppA["Appendix A: Glossary (FR, NFR, SRS, IEEE)"]
-    Models["Analysis Diagrams"] --> AppB["Appendix B: Analysis Models (DFD & ERD)"]
-
-    Sec3 --> AssembleDoc["Assemble IEEE 830 / ISO 29148 Template Specification Document"]
-    Sec5 --> AssembleDoc
-    Sec25 --> AssembleDoc
-    Sec27 --> AssembleDoc
-    Sec4 --> AssembleDoc
-    Sec23 --> AssembleDoc
-    AppC --> AssembleDoc
-    AppA --> AssembleDoc
-    AppB --> AssembleDoc
-
-    AssembleDoc --> Audit["Compliance Audit Agent"]
-    
-    subgraph AuditCheck["Section-by-Section Quality Verification"]
-        Audit --> CheckStruct["Verify Presence of All 9 Mandatory Structural Sections"]
-        Audit --> CheckMap["Verify 100% of Active FRs and NFRs are Present"]
-        Audit --> CheckPlaceholders["Scan for Unresolved TBDs by Section"]
-        Audit --> CheckCompleteness["Calculate Average Requirement Completeness Score"]
-    end
-
-    CheckStruct --> ScoreCalc["Compute Multi-Dimensional Standard Alignment Score"]
-    CheckMap --> ScoreCalc
-    CheckPlaceholders --> ScoreCalc
-    CheckCompleteness --> ScoreCalc
-
-    ScoreCalc --> OutputSRS["Final Approved SRS Document + PDF/DOCX Export Buffers"]
-```
-
----
-
-## 5. Database Schema & Data Models
-
-### 1. `Requirement.js`
-| Field | Type | Description |
-|---|---|---|
-| `projectId` | `ObjectId` | Reference to parent Project |
-| `requirementId` | `String` | Stable ID (e.g. `FR-001`, `NFR-001`, `CON-001`) |
-| `title` | `String` | Short title of requirement |
-| `description` | `String` | Normalized ISO 29148 statement |
-| `type` | `String (Enum)` | `['FUNCTIONAL', 'NON_FUNCTIONAL', 'CONSTRAINT', 'ASSUMPTION', 'INTERFACE', 'STAKEHOLDER']` |
-| `nfrSubcategory` | `String (Enum)` | `['PERFORMANCE', 'SECURITY', 'RELIABILITY', 'AVAILABILITY', 'USABILITY', 'MAINTAINABILITY', 'N/A']` |
-| `priority` | `String (Enum)` | `['HIGH', 'MEDIUM', 'LOW']` |
-| `status` | `String (Enum)` | `['DRAFT', 'PROPOSED', 'ACTIVE', 'APPROVED', 'REJECTED', 'MODIFIED', 'DEPRECATED', 'LOCKED']` |
-| `validationStatus` | `String (Enum)` | `['VALID', 'NEEDS_REVISION', 'CONFLICT', 'DUPLICATE', 'INCOMPLETE', 'UNVALIDATED']` |
-| `mergedInto` | `String` | Primary requirement ID if deprecated via merge (e.g. `FR-001`) |
-| `deprecatedReason` | `String` | Reason for deprecation |
-| `deprecatedAt` | `Date` | Timestamp of deprecation |
-| `embedding` | `[Number]` | 384-dimensional vector embedding |
-
-### 2. `SRS.js`
-Contains structured fields representing Sections 1–6 and Appendices A–C:
-- `projectId`: Reference to Project.
-- `currentVersion`: String (`'1.0'`, `'1.1'`).
-- `revisionHistory`: Array of `{ version, date, author, reasonForChanges }`.
-- `section1_introduction` through `section6_otherRequirements`.
-- `appendixA_glossary`, `appendixB_analysisModels`, `appendixC_issuesList`.
-- `status`: `['DRAFT', 'REVIEW', 'APPROVED', 'DEPRECATED']`.
-
-### 3. `RequirementIssue.js`
-Tracks quality issues: `issueId`, `projectId`, `issueType` (`'AMBIGUITY'`, `'CONFLICT'`, `'DUPLICATE'`, `'INCOMPLETENESS'`), `severity`, `relatedRequirementIds`, `status` (`'OPEN'`, `'RESOLVED'`, `'MERGED'`, `'IGNORED'`).
-
-### 4. `SRSVersion.js`
-Immutable version snapshots: `srsSnapshot`, `version`, `reasonForChanges`, `changedRequirementIds`, `affectedSections`, `diffData`.
-
----
-
-## 6. API Route Hierarchy & Micro-Services
-
-```
-/api
-├── /auth
-│   ├── POST /register               # Register new user account
-│   ├── POST /login                  # Login & obtain session token
-│   └── GET  /me                     # Retrieve authenticated profile
-├── /projects
-│   ├── GET  /                       # List user projects
-│   ├── POST /                       # Create new project
-│   ├── GET  /:id                    # Get project details
-│   ├── PUT  /:id                    # Update project metadata
-│   ├── DELETE /:id                  # Delete project & cascade artifacts
-│   ├── /:id/interview
-│   │   ├── POST /start              # Initialize 9-stage interview
-│   │   ├── POST /message            # Process user answer & extract reqs
-│   │   └── GET  /                   # Retrieve interview history & state
-│   ├── /:id/requirements
-│   │   ├── GET  /                   # Get active requirements catalog
-│   │   ├── POST /                   # Create requirement manually
-│   │   ├── POST /extract            # Batch AI requirement extraction
-│   │   ├── POST /analyze            # Run quality audit & duplicate scan
-│   │   └── POST /merge              # Merge duplicate requirements
-│   ├── /:id/srs
-│   │   ├── POST /generate           # Generate baseline SRS document
-│   │   ├── GET  /                   # Fetch current SRS document
-│   │   ├── POST /update             # Incremental requirement change (v1.1)
-│   │   ├── GET  /versions           # List version snapshot history
-│   │   ├── GET  /export/pdf         # Stream official PDF export
-│   │   └── GET  /export/docx        # Stream official DOCX export
-└── /srs
-    ├── POST /:id/review             # Run ISO/IEC/IEEE 29148 Compliance Audit
-    └── POST /:id/approve            # Lock and approve SRS baseline
-```
-
----
-
-## 7. How to Run, Test, and Deploy the System
-
-### 1. Prerequisites
-- **Node.js**: v18+ or v20+
-- **MongoDB**: Running locally on `mongodb://127.0.0.1:27017/intellisdlc`
-- **Ollama** (Optional for local LLM): `ollama run codellama:7b-instruct`
-
-### 2. Starting the Backend
-```bash
-cd backend
-npm install
-npm run dev
-# Server runs on http://localhost:5000
-```
-
-### 3. Starting the Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-# Web application runs on http://localhost:3000
-```
-
-### 4. Running the Automated Test Suites
-The platform includes end-to-end automated verification scripts:
-
-```bash
-# 1. Run Complete 17-Step Quality & Compliance Verification Test
-node backend/src/scripts/test_quality_compliance_verification.js
-
-# 2. Run Requirements Merge & Duplicate Resolution Test
-node backend/src/scripts/test_merge_requirements.js
-
-# 3. Run Stage Gate & Context Guard Isolation Test
-node backend/src/scripts/test_stage_gate.js
-```
-
----
-
-*Document created by IntelliSDLC AI Engineering Team. Strictly aligned with ISO/IEC/IEEE 29148:2018 Systems and Software Engineering — Requirements Engineering.*
+
+
+Types:
+
+FUNCTIONAL
+NON_FUNCTIONAL
+
+
+============================================================
+13. REQUIREMENT ANALYSIS
+============================================================
+
+Analyze:
+
+- Ambiguity
+- Duplicate
+- Conflict
+- Missing Information
+- Completeness
+- Consistency
+- Correctness
+- Testability
+- Clarity
+- Non-redundancy
+
+Example:
+
+"The system should be fast."
+
+Flag:
+
+AMBIGUOUS
+
+Explain:
+
+"Fast is not measurable."
+
+Suggestion:
+
+"Specify the expected maximum response time."
+
+Never silently modify the requirement.
+
+
+============================================================
+14. DUPLICATE DETECTION
+============================================================
+
+Use:
+
+Embeddings
++
+Cosine Similarity
+
+Pipeline:
+
+Requirement
+ ↓
+Embedding
+ ↓
+Similarity Search
+ ↓
+Potential Duplicate
+ ↓
+User Decision
+
+
+Show:
+
+Requirement A
+Requirement B
+Similarity %
+
+Actions:
+
+Merge
+Keep Both
+Edit
+Ignore
+
+Never automatically delete.
+
+
+============================================================
+15. CONFLICT DETECTION
+============================================================
+
+Example:
+
+REQ-001:
+System allows unlimited login attempts.
+
+REQ-002:
+System locks account after five failed attempts.
+
+Show:
+
+POTENTIAL CONFLICT
+
+Display both requirements.
+
+Allow user to resolve.
+
+Never automatically delete.
+
+
+============================================================
+16. FR / NFR CLASSIFICATION
+============================================================
+
+FUNCTIONAL REQUIREMENT:
+
+Describes WHAT the system should do.
+
+NON-FUNCTIONAL REQUIREMENT:
+
+Describes HOW WELL the system should operate.
+
+NFR categories:
+
+- Performance
+- Security
+- Usability
+- Availability
+- Scalability
+- Maintainability
+- Portability
+- Reliability
+- Fault Tolerance
+- Legal
+- Operational
+- Look and Feel
+
+Allow manual correction.
+
+
+============================================================
+17. REQUIREMENT VALIDATION
+============================================================
+
+Validate:
+
+- clarity
+- correctness
+- completeness
+- consistency
+- testability
+- non-ambiguity
+- non-redundancy
+- traceability
+
+Return:
+
+VALID
+NEEDS_REVIEW
+INVALID
+
+Also provide:
+
+- issue
+- explanation
+- suggested improvement
+
+User approval required for important changes.
+
+
+============================================================
+18. REQUIREMENT IDs
+============================================================
+
+Use stable IDs:
+
+FR-001
+FR-002
+FR-003
+
+NFR-001
+NFR-002
+
+Maintain IDs across versions.
+
+If an existing requirement changes:
+
+Keep its existing ID.
+
+Only create a new ID when it is a genuinely new requirement.
+
+
+============================================================
+19. SRS SECTION MAPPING
+============================================================
+
+Map validated information to the uploaded SRS template.
+
+Project Purpose
+ ↓
+1.1 Purpose
+
+Project Conventions
+ ↓
+1.2 Document Conventions
+
+Audience
+ ↓
+1.3 Intended Audience and Reading Suggestions
+
+Project Scope
+ ↓
+1.4 Project Scope
+
+Research / standards / source references
+ ↓
+1.5 References
+
+
+Project Context
+ ↓
+2.1 Product Perspective
+
+Major Features
+ ↓
+2.2 Product Features
+
+Users
+ ↓
+2.3 User Classes and Characteristics
+
+Environment
+ ↓
+2.4 Operating Environment
+
+Technology / constraints
+ ↓
+2.5 Design and Implementation Constraints
+
+Documentation
+ ↓
+2.6 User Documentation
+
+Assumptions
+ ↓
+2.7 Assumptions and Dependencies
+
+
+Functional Features
+ ↓
+3. System Features
+
+External interfaces
+ ↓
+4. External Interface Requirements
+
+NFRs
+ ↓
+5. Other Nonfunctional Requirements
+
+Other requirements
+ ↓
+6. Other Requirements
+
+Terms
+ ↓
+Appendix A
+
+Models
+ ↓
+Appendix B
+
+Unresolved issues
+ ↓
+Appendix C
+
+
+============================================================
+20. SRS GENERATION
+============================================================
+
+The SRS Generator must:
+
+1. Use only validated requirements.
+2. Use project context.
+3. Use RAG retrieved context.
+4. Use stable requirement IDs.
+5. Follow the uploaded SRS template.
+6. Preserve section numbering.
+7. Preserve requirement meaning.
+8. Maintain traceability.
+9. Never invent information.
+10. Mark missing information as TBD.
+11. Generate section by section.
+12. Validate generated output.
+
+Generate structured JSON first.
+
+Validate using Zod.
+
+Then render:
+
+- SRS Preview
+- DOCX
+- PDF
+
+
+============================================================
+21. SRS REVIEW
+============================================================
+
+Review generated SRS for:
+
+- missing requirements
+- duplicate requirements
+- conflicts
+- incorrect classification
+- wrong section placement
+- missing information
+- unsupported information
+- broken traceability
+- inconsistent terminology
+- incomplete sections
+
+Show issues.
+
+Do not silently fix important requirements.
+
+
+============================================================
+22. TRACEABILITY
+============================================================
+
+Maintain:
+
+User Input
+ ↓
+Interview Message
+ ↓
+Requirement ID
+ ↓
+System Feature
+ ↓
+SRS Section
+ ↓
+SRS Version
+
+
+Example:
+
+USER-MSG-042
+ ↓
+FR-007
+ ↓
+3.1 Event Registration
+ ↓
+3.1.3 Functional Requirements
+ ↓
+SRS v1.0
+
+
+Create a traceability UI.
+
+
+============================================================
+23. SRS VERSIONING
+============================================================
+
+First approved SRS:
+
+v1.0
+
+After requirement change:
+
+v1.1
+
+Never overwrite old versions.
+
+Store:
+
+- version
+- date
+- changed requirements
+- affected sections
+- reason
+- summary
+- createdBy
+
+
+============================================================
+24. SRS UPDATE
+============================================================
+
+CORE FEATURE:
+
+Example:
+
+OLD:
+
+FR-002:
+Students can register for an event.
+
+
+NEW USER INPUT:
+
+Event registration requires administrator approval.
+
+
+System:
+
+1. Detect change.
+2. Identify FR-002.
+3. Retrieve related context using RAG.
+4. Identify affected SRS section.
+5. Generate proposed modification.
+6. Show OLD vs NEW.
+7. Validate.
+8. Ask user approval.
+9. Update affected SRS content.
+10. Create SRS v1.1.
+11. Preserve v1.0.
+12. Update traceability.
+13. Update Revision History.
+
+
+============================================================
+25. INCREMENTAL UPDATE
+============================================================
+
+DO NOT regenerate the entire SRS when only one requirement changes.
+
+Use:
+
+Existing SRS
+ ↓
+Requirement Change
+ ↓
+Change Detection
+ ↓
+Affected Requirement
+ ↓
+RAG Retrieval
+ ↓
+Affected SRS Section
+ ↓
+Proposed Update
+ ↓
+Validation
+ ↓
+User Approval
+ ↓
+New SRS Version
+
+
+============================================================
+26. VERSION COMPARISON
+============================================================
+
+Provide:
+
+v1.0 VS v1.1
+
+Show:
+
+- Added requirements
+- Modified requirements
+- Removed requirements
+- Affected sections
+- Old content
+- New content
+- Reason for change
+
+
+============================================================
+27. REVISION HISTORY
+============================================================
+
+Follow the uploaded template's Revision History.
+
+Store:
+
+Name
+Date
+Reason For Changes
+Version
+
+
+============================================================
+28. APPENDIX A — GLOSSARY
+============================================================
+
+Automatically collect relevant:
+
+- technical terms
+- domain terms
+- acronyms
+- abbreviations
+
+Examples:
+
+SRS
+FR
+NFR
+LLM
+RAG
+
+
+============================================================
+29. APPENDIX B — ANALYSIS MODELS
+============================================================
+
+Optionally support:
+
+- Data Flow Diagram
+- Class Diagram
+- State Transition Diagram
+- ER Diagram
+
+Only generate when enough validated information exists.
+
+Never invent relationships.
+
+
+============================================================
+30. APPENDIX C — ISSUES LIST
+============================================================
+
+Track:
+
+- TBDs
+- pending decisions
+- missing information
+- conflicts
+- unresolved requirements
+- clarification requests
+
+Fields:
+
+Issue ID
+Description
+Related Requirement
+Priority
+Status
+Resolution
+
+
+============================================================
+31. AI ANTI-HALLUCINATION
+============================================================
+
+The AI must NEVER invent:
+
+- requirements
+- stakeholders
+- features
+- APIs
+- integrations
+- performance values
+- security mechanisms
+- business rules
+- legal requirements
+- technical architecture
+- references
+
+If information is missing:
+
+"TBD — Needs Clarification"
+
+
+============================================================
+32. USER APPROVAL
+============================================================
+
+AI can:
+
+- suggest
+- classify
+- detect
+- analyze
+- draft
+- recommend
+
+AI cannot silently:
+
+- delete
+- merge
+- modify approved requirements
+- overwrite approved SRS
+- change requirement meaning
+
+Important changes require user approval.
+
+
+============================================================
+33. DATABASE
+============================================================
+
+Create Mongoose models:
+
+User
+Project
+InterviewSession
+InterviewMessage
+Requirement
+RequirementIssue
+SRS
+SRSVersion
+TraceabilityLink
+DocumentChunk
+EmbeddingMetadata
+ResearchReference
+
+
+============================================================
+34. AI SERVICE ARCHITECTURE
+============================================================
+
+Create:
+
+AIProvider
+ └── OllamaProvider
+
+Agents:
+
+InterviewAgent
+RequirementExtractionAgent
+RequirementAnalysisAgent
+ClassificationAgent
+ValidationAgent
+SRSGenerationAgent
+SRSReviewAgent
+SRSUpdateAgent
+
+
+Controllers must NOT directly call Ollama.
+
+Use service layer.
+
+
+============================================================
+35. PROMPT MANAGEMENT
+============================================================
+
+Create:
+
+/prompts
+
+interview.prompt.js
+extraction.prompt.js
+analysis.prompt.js
+classification.prompt.js
+validation.prompt.js
+srs-generation.prompt.js
+srs-review.prompt.js
+srs-update.prompt.js
+
+
+============================================================
+36. API
+============================================================
+
+Authentication:
+
+POST /api/auth/register
+POST /api/auth/login
+GET /api/auth/me
+
+
+Projects:
+
+POST /api/projects
+GET /api/projects
+GET /api/projects/:id
+PUT /api/projects/:id
+DELETE /api/projects/:id
+
+
+Interview:
+
+POST /api/projects/:id/interview/start
+POST /api/projects/:id/interview/message
+GET /api/projects/:id/interview
+
+
+Requirements:
+
+GET /api/projects/:id/requirements
+POST /api/projects/:id/requirements
+PUT /api/requirements/:id
+DELETE /api/requirements/:id
+
+
+Analysis:
+
+POST /api/projects/:id/requirements/analyze
+POST /api/projects/:id/requirements/classify
+POST /api/projects/:id/requirements/validate
+
+
+SRS:
+
+POST /api/projects/:id/srs/generate
+GET /api/projects/:id/srs
+PUT /api/srs/:id
+POST /api/srs/:id/review
+
+
+Versions:
+
+GET /api/projects/:id/srs/versions
+GET /api/projects/:id/srs/versions/:version
+POST /api/projects/:id/srs/update
+GET /api/projects/:id/srs/compare
+
+
+Traceability:
+
+GET /api/projects/:id/traceability
+
+
+Export:
+
+GET /api/projects/:id/srs/export/pdf
+GET /api/projects/:id/srs/export/docx
+
+
+============================================================
+37. SIDEBAR
+============================================================
+
+Keep sidebar SIMPLE.
+
+Use:
+
+Dashboard
+
+Projects
+
+---------------------
+
+CURRENT PROJECT
+
+Project Overview
+Requirements
+Requirement Analysis
+Validation
+SRS
+
+---------------------
+
+Settings
+Profile
+Logout
+
+
+Inside SRS page use tabs:
+
+SRS Document
+Traceability
+Versions
+Update SRS
+
+
+============================================================
+38. SRS UI
+============================================================
+
+SRS page:
+
+LEFT:
+
+Section navigation
+
+CENTER:
+
+SRS document
+
+RIGHT:
+
+Requirement traceability
+AI suggestions
+Validation information
+
+
+Actions:
+
+Generate SRS
+Save
+Validate
+Approve
+Compare
+Export PDF
+Export DOCX
+
+
+============================================================
+39. SECURITY
+============================================================
+
+Implement:
+
+- JWT
+- bcrypt/bcryptjs
+- authorization
+- input validation
+- rate limiting
+- CORS
+- Helmet
+- environment variables
+
+Never expose:
+
+HF_TOKEN
+MongoDB credentials
+JWT_SECRET
+
+No API keys in frontend.
+
+
+============================================================
+40. ENVIRONMENT VARIABLES
+============================================================
+
+Use:
+
+AI_PROVIDER=ollama
+
+OLLAMA_BASE_URL=http://localhost:11434
+
+OLLAMA_MODEL=codellama:7b-instruct
+
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+
+MONGODB_URI=
+
+JWT_SECRET=
+
+PORT=5000
+
+NODE_ENV=development
+
+
+IMPORTANT:
+
+Do not require OPENAI_API_KEY.
+
+Do not require HF_TOKEN for the primary setup.
+
+The primary LLM must run through local Ollama.
+
+
+============================================================
+41. ERROR HANDLING
+============================================================
+
+Handle:
+
+- Ollama unavailable
+- model not installed
+- AI timeout
+- invalid AI response
+- MongoDB error
+- vector search failure
+- authentication failure
+- invalid project ID
+- document generation error
+
+Show user-friendly errors.
+
+Never expose stack traces in production.
+
+
+============================================================
+42. AI OUTPUT VALIDATION
+============================================================
+
+Validate every AI response using Zod.
+
+If invalid:
+
+1. Retry safely.
+2. Attempt structured repair.
+3. Validate again.
+4. Return controlled error if still invalid.
+
+Never store malformed AI output.
+
+
+============================================================
+43. DOCUMENT EXPORT
+============================================================
+
+Generate:
+
+PDF
+DOCX
+
+Use the uploaded SRS template structure.
+
+The generated document must contain:
+
+- Project name
+- Version
+- Author
+- Organization
+- Date
+- Table of Contents
+- Revision History
+- Sections 1–6
+- Appendix A
+- Appendix B
+- Appendix C
+
+Preserve numbering and structure.
+
+
+============================================================
+44. UI PAGES
+============================================================
+
+Create:
+
+/dashboard
+/projects
+/projects/new
+/projects/[id]
+/projects/[id]/requirements
+/projects/[id]/analysis
+/projects/[id]/validation
+/projects/[id]/srs
+/projects/[id]/versions
+/projects/[id]/traceability
+/projects/[id]/settings
+
+
+Use JSX for all Next.js React pages and components.
+
+
+============================================================
+45. UI/UX
+============================================================
+
+Create a modern professional SaaS UI.
+
+Use:
+
+- clean sidebar
+- cards
+- tables
+- status badges
+- progress indicators
+- requirement filters
+- SRS section navigation
+- AI suggestions
+- traceability panel
+- version comparison
+- confirmation dialogs
+- loading states
+- empty states
+- error states
+- responsive design
+
+Avoid:
+
+- excessive animations
+- unnecessary gradients
+- clutter
+- huge decorative elements
+
+
+============================================================
+46. DEMO PROJECT
+============================================================
+
+Use:
+
+"College Event Management System"
+
+Initial requirements:
+
+FR-001:
+Students shall view events.
+
+FR-002:
+Students shall register for events.
+
+FR-003:
+Administrators shall create events.
+
+NFR-001:
+Only authenticated users shall access protected functions.
+
+
+Generate:
+
+SRS v1.0
+
+
+Then user enters:
+
+"Event registration requires administrator approval."
+
+
+System:
+
+Change Detection
+ ↓
+FR-002
+ ↓
+RAG Retrieval
+ ↓
+Affected SRS Section
+ ↓
+Proposed Update
+ ↓
+Validation
+ ↓
+User Approval
+ ↓
+SRS v1.1
+
+
+Preserve v1.0.
+
+
+============================================================
+47. RESEARCH CONTRIBUTION
+============================================================
+
+The project combines useful research concepts:
+
+Paper 1:
+LLM-based SRS generation and validation.
+
+Paper 2:
+Requirement extraction, FR/NFR classification,
+structured generation and traceability.
+
+Paper 3:
+Embeddings, similarity, requirement grouping,
+section mapping and incremental SRS update.
+
+Our integrated contribution:
+
+1. AI Requirement Interview
+2. Requirement Extraction
+3. Requirement Quality Analysis
+4. FR/NFR Classification
+5. Duplicate and Conflict Detection
+6. Requirement Validation
+7. RAG-based Context Retrieval
+8. Template-aware SRS Generation
+9. Source Traceability
+10. Requirement Change Detection
+11. Affected Section Detection
+12. Incremental SRS Update
+13. Version Control
+14. Old vs New Comparison
+15. PDF/DOCX Export
+
+
+============================================================
+48. DEVELOPMENT STRATEGY
+============================================================
+
+DO NOT build everything at once.
+
+First inspect the existing repository.
+
+Then show:
+
+1. Proposed folder structure
+2. Architecture
+3. Database models
+4. API structure
+5. AI architecture
+6. RAG architecture
+7. SRS generation flow
+
+Then implement incrementally:
+
+STEP 1:
+Project setup
+
+STEP 2:
+Next.js + Tailwind + JSX
+
+STEP 3:
+Express backend
+
+STEP 4:
+MongoDB
+
+STEP 5:
+Authentication
+
+STEP 6:
+Project creation
+
+STEP 7:
+AI Interview using Ollama
+
+STEP 8:
+Requirement extraction
+
+STEP 9:
+Requirement analysis
+
+STEP 10:
+Duplicate/conflict detection
+
+STEP 11:
+FR/NFR classification
+
+STEP 12:
+Requirement validation
+
+STEP 13:
+Embedding service
+
+STEP 14:
+RAG
+
+STEP 15:
+SRS template engine
+
+STEP 16:
+SRS generation
+
+STEP 17:
+SRS review
+
+STEP 18:
+Traceability
+
+STEP 19:
+SRS versioning
+
+STEP 20:
+Requirement change detection
+
+STEP 21:
+Incremental SRS update
+
+STEP 22:
+Old vs New comparison
+
+STEP 23:
+PDF/DOCX export
+
+STEP 24:
+Testing and error handling
+
+
+After every step:
+
+- run the application
+- check errors
+- fix errors
+- preserve existing functionality
+- do not break previous modules
+
+
+============================================================
+49. FINAL PROJECT BOUNDARY
+============================================================
+
+The final project MUST STOP at:
+
+Project
+ ↓
+Requirements
+ ↓
+Analysis
+ ↓
+Validation
+ ↓
+RAG
+ ↓
+SRS Generation
+ ↓
+Review
+ ↓
+Traceability
+ ↓
+Versioning
+ ↓
+Requirement Change
+ ↓
+Incremental SRS Update
+ ↓
+PDF/DOCX
+
+
+DO NOT implement the rest of the SDLC.
+
+
+============================================================
+50. FINAL OBJECTIVE
+============================================================
+
+Build IntelliSDLC AI as a real Software Requirements Engineering
+platform, not a chatbot.
+
+The platform must:
+
+- understand requirements through AI interview
+- extract structured requirements
+- detect ambiguity
+- detect duplicates
+- detect conflicts
+- classify FR/NFR
+- validate requirements
+- retrieve project context using RAG
+- generate SRS using the uploaded SRS template
+- maintain requirement traceability
+- maintain SRS versions
+- detect requirement changes
+- update only affected SRS sections
+- preserve previous versions
+- export final SRS as PDF/DOCX
+
+Use Ollama locally with:
+
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=codellama:7b-instruct
+
+Use:
+
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+
+Use JSX for frontend files.
+
+The uploaded SRS template is the source of truth.
+
+Before coding:
+
+1. Inspect the repository.
+2. Inspect the uploaded SRS template.
+3. Do not delete working code.
+4. Reuse existing components when appropriate.
+5. Show folder structure.
+6. Show architecture.
+7. Start implementation step-by-step.
+8. Test each module.

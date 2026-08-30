@@ -91,10 +91,11 @@ class ExportService {
       );
     };
 
+    const asText = (text) => Array.isArray(text) ? text.filter(Boolean).join(' ') : (text || "TBD — Needs Clarification");
     const addParagraph = (text) => {
       docChildren.push(
         new Paragraph({
-          text: text || "Specification defined in system baseline.",
+          text: asText(text),
           spacing: { after: 140 }
         })
       );
@@ -233,7 +234,8 @@ class ExportService {
       };
 
       const renderBody = (text) => {
-        doc.fontSize(10).font('Helvetica').fillColor('#334155').text(text || 'Specification defined in system baseline.', { lineGap: 3 });
+        const body = Array.isArray(text) ? text.filter(Boolean).join(' ') : (text || 'TBD — Needs Clarification');
+        doc.fontSize(10).font('Helvetica').fillColor('#334155').text(body, { lineGap: 3 });
       };
 
       // TOC

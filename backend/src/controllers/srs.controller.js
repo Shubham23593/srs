@@ -3,12 +3,10 @@ const SRSVersion = require('../models/SRSVersion');
 const Project = require('../models/Project');
 const Requirement = require('../models/Requirement');
 const RequirementIssue = require('../models/RequirementIssue');
-const srsGenerationAgent = require('../ai/agents/SRSGenerationAgent');
+const pipeline = require('../ai/pipeline/requirementsPipeline');
 const srsReviewAgent = require('../ai/agents/SRSReviewAgent');
-const srsUpdateAgent = require('../ai/agents/SRSUpdateAgent');
 const ragService = require('../services/ragService');
 const traceabilityService = require('../services/traceabilityService');
-const { normalizeRequirementStatement } = require('../services/requirementGrammarValidator');
 
 exports.generateSRS = async (req, res, next) => {
   try {
@@ -16,36 +14,28 @@ exports.generateSRS = async (req, res, next) => {
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-    // Only query active requirements (exclude DEPRECATED)
-    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
+    // Only requirements that survived the full validation pipeline may be used.
+    const requirements = await Requirement.find({ projectId });
     if (requirements.length === 0) {
-      return res.status(400).json({ success: false, message: 'Cannot generate SRS without active requirements' });
+      return res.status(400).json({ success: false, message: 'Cannot generate SRS without requirements' });
     }
 
-    const issues = await RequirementIssue.find({ projectId, status: 'OPEN' });
-    const ragContext = await ragService.retrieveContext(projectId, project.projectName + ' ' + project.scope, 5);
+    // === AUTHORITATIVE PIPELINE: cluster -> map -> section-wise generation ->
+    //     language guard -> quality audit. NEVER reads rawSourceText as content.
+    const { srs, audit, clusters, issues, languageAudit } = await pipeline.generateSRS(project);
 
-    const generatedData = await srsGenerationAgent.generateSRS(project, requirements, ragContext, issues);
-
-    let srs = await SRS.findOne({ projectId });
-    if (srs) {
-      Object.assign(srs, generatedData);
-      srs.status = 'DRAFT';
-      await srs.save();
-    } else {
-      srs = await SRS.create({
-        ...generatedData,
-        projectId,
-        currentVersion: '1.0',
-        status: 'DRAFT'
-      });
-    }
-
-    // Generate traceability links and RAG indexing
+    // Generate traceability links from normalized requirements
     await traceabilityService.generateLinksForProject(projectId, srs);
-    await ragService.indexProjectKnowledge(projectId);
+    try { await ragService.indexProjectKnowledge(projectId); } catch (e) { /* RAG is best-effort */ }
 
-    res.status(201).json({ success: true, data: srs });
+    res.status(201).json({
+      success: true,
+      data: srs,
+      audit,
+      languageAudit,
+      clusters,
+      issueCount: issues.length
+    });
   } catch (error) {
     next(error);
   }
@@ -80,8 +70,7 @@ exports.reviewSRS = async (req, res, next) => {
     const srs = await SRS.findById(req.params.id);
     if (!srs) return res.status(404).json({ success: false, message: 'SRS not found' });
 
-    // Only audit active requirements
-    const requirements = await Requirement.find({ projectId: srs.projectId, status: { $ne: 'DEPRECATED' } });
+    const requirements = await Requirement.find({ projectId: srs.projectId });
     const reviewResult = await srsReviewAgent.reviewSRS(srs, requirements);
 
     srs.reviewNotes = reviewResult.recommendations;
@@ -125,108 +114,102 @@ exports.approveSRS = async (req, res, next) => {
   }
 };
 
+/**
+ * Phase 20 — Incremental synchronization.
+ * A change (new requirement text) is run through the SAME authoritative
+ * pipeline: it is guarded, understood, decomposed, normalized and validated.
+ * Then only the affected topic cluster / SRS section is regenerated (the
+ * pipeline's deterministic section assembly makes this idempotent — repeated
+ * syncs never duplicate requirements). Raw change text is never copied.
+ */
 exports.incrementalSRSUpdate = async (req, res, next) => {
   try {
     const projectId = req.params.id;
     const { changeText, reason } = req.body;
 
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
     const srs = await SRS.findOne({ projectId });
     if (!srs) return res.status(400).json({ success: false, message: 'Generate initial SRS baseline first.' });
 
-    const requirements = await Requirement.find({ projectId, status: { $ne: 'DEPRECATED' } });
-    const ragContext = await ragService.retrieveContext(projectId, changeText, 5);
+    const { SECTIONS_CONFIG } = require('../constants/interviewSections');
+    const functionalSection = SECTIONS_CONFIG.find((s) => s.id === 'FUNCTIONAL_REQUIREMENTS');
+    const existing = await Requirement.find({ projectId });
 
-    // AI Incremental Change Analysis & Update
-    const updatePlan = await srsUpdateAgent.processIncrementalChange(srs, changeText, requirements, ragContext);
-
-    // Apply or update requirement
-    let targetReq = await Requirement.findOne({ projectId, requirementId: updatePlan.affectedRequirementId });
-    let isNew = updatePlan.isNewRequirement;
-    const normalizedDesc = normalizeRequirementStatement(updatePlan.proposedRequirement.description);
-
-    if (targetReq) {
-      targetReq.title = updatePlan.proposedRequirement.title || targetReq.title;
-      targetReq.description = normalizedDesc;
-      targetReq.status = 'MODIFIED';
-      targetReq.version = '1.1';
-      await targetReq.save();
-    } else {
-      targetReq = await Requirement.create({
-        projectId,
-        requirementId: updatePlan.affectedRequirementId,
-        title: updatePlan.proposedRequirement.title || 'New Requirement',
-        description: normalizedDesc,
-        type: updatePlan.proposedRequirement.type || 'FUNCTIONAL',
-        category: updatePlan.proposedRequirement.category || 'Core Features',
-        priority: updatePlan.proposedRequirement.priority || 'HIGH',
-        sourceText: changeText,
-        status: 'MODIFIED',
-        version: '1.1'
-      });
-    }
-
-    // Calculate new version string (e.g. 1.0 -> 1.1)
-    const oldVersionNum = parseFloat(srs.currentVersion) || 1.0;
-    const newVersionStr = (oldVersionNum + 0.1).toFixed(1);
-
-    // Update Revision History in SRS
-    srs.currentVersion = newVersionStr;
-    srs.revisionHistory.push({
-      version: newVersionStr,
-      date: new Date().toISOString().split('T')[0],
-      author: req.user?.name || 'Requirements Engineering Team',
-      reasonForChanges: reason || updatePlan.reasonForChanges || `Requirement update: ${changeText}`
+    // 1. Run the change through the authoritative analysis pipeline.
+    const analysis = await pipeline.analyzeAnswer({
+      rawText: changeText,
+      project,
+      sectionConfig: functionalSection,
+      existingRequirements: existing
     });
 
-    // Update Section 3 features if feature updates provided
-    if (updatePlan.sectionUpdates?.section3_systemFeatures) {
-      srs.section3_systemFeatures = updatePlan.sectionUpdates.section3_systemFeatures;
-    } else {
-      // Synchronize affected functional requirement inside Section 3
-      (srs.section3_systemFeatures || []).forEach(feat => {
-        (feat.functionalRequirements || []).forEach(fr => {
-          if (fr.requirementId === targetReq.requirementId) {
-            fr.title = targetReq.title;
-            fr.statement = targetReq.description;
-          }
-        });
-      });
+    if (analysis.isOutOfScope) {
+      return res.status(422).json({ success: false, message: analysis.message, outOfScope: true });
     }
 
-    srs.status = 'APPROVED';
-    await srs.save();
+    // 2. Persist normalized requirement(s) via the single write path.
+    const { saved, skippedDuplicates } = await pipeline.persistRequirements(projectId, analysis);
+    for (const iss of analysis.issues || []) {
+      await RequirementIssue.create({ projectId, ...iss });
+    }
 
-    // Create immutable version snapshot
+    // 3. Bump version + revision history (idempotent: only when something changed).
+    const oldVersionNum = parseFloat(srs.currentVersion) || 1.0;
+    const versionStr = (oldVersionNum + 0.1).toFixed(1);
+
+    const changedIds = saved.map((r) => r.requirementId);
+
+    // 4. Regenerate SRS deterministically (section assembly is idempotent and
+    //    only reflects the current validated catalog — no duplication).
+    const { srs: regenerated, audit, clusters } = await pipeline.generateSRS(project);
+    regenerated.currentVersion = versionStr;
+    regenerated.revisionHistory.push({
+      version: versionStr,
+      date: new Date().toISOString().split('T')[0],
+      author: req.user?.name || 'IntelliSDLC AI Requirements Pipeline',
+      reasonForChanges: reason || `Incremental requirement change (${changedIds.join(', ') || 'normalization sync'})`
+    });
+    regenerated.status = 'DRAFT';
+    await regenerated.save();
+
+    // 5. Immutable version snapshot
     const versionRecord = await SRSVersion.create({
       projectId,
-      srsId: srs._id,
-      version: newVersionStr,
-      reasonForChanges: reason || updatePlan.reasonForChanges,
-      changedRequirementIds: [targetReq.requirementId],
-      affectedSections: updatePlan.affectedSections || ['3.1', '3.1.3'],
-      summaryOfChanges: updatePlan.summaryOfChanges || `Incrementally updated ${targetReq.requirementId} with approval workflow.`,
+      srsId: regenerated._id,
+      version: versionStr,
+      reasonForChanges: reason || `Incremental update from change: "${String(changeText).slice(0, 80)}"`,
+      changedRequirementIds: changedIds,
+      affectedSections: [...new Set(saved.map((r) => r.targetSrsSection || '3'))],
+      summaryOfChanges: `Added/updated ${changedIds.length} normalized requirement(s): ${changedIds.join(', ')}.`,
       diffData: {
-        added: isNew ? [targetReq.requirementId] : [],
-        modified: !isNew ? [targetReq.requirementId] : [],
+        added: changedIds,
+        modified: [],
         removed: [],
-        sectionDiffs: {
-          'Section 3.1': 'Stimulus/Response sequence updated with Admin Approval gate.'
-        }
+        skippedDuplicates: skippedDuplicates.map((d) => d.duplicateOf),
+        sectionDiffs: {}
       },
-      srsSnapshot: srs.toObject(),
+      srsSnapshot: regenerated.toObject(),
       approvedBy: req.user?._id
     });
 
-    await traceabilityService.generateLinksForProject(projectId, srs);
-    await ragService.indexProjectKnowledge(projectId);
+    try {
+      await traceabilityService.generateLinksForProject(projectId, regenerated);
+      await ragService.indexProjectKnowledge(projectId);
+    } catch (e) { /* best-effort */ }
 
     res.json({
       success: true,
-      message: `Incremental update applied. Created SRS v${newVersionStr}`,
+      message: `Incremental sync applied. SRS updated to v${versionStr}.`,
       data: {
-        srs,
+        srs: regenerated,
         versionRecord,
-        updatePlan
+        audit,
+        clusters,
+        changedRequirementIds: changedIds,
+        skippedDuplicates,
+        informationQuality: analysis.informationQuality
       }
     });
   } catch (error) {

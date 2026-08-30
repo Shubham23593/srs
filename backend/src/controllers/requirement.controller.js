@@ -1,23 +1,17 @@
 const Requirement = require('../models/Requirement');
 const Project = require('../models/Project');
-const requirementExtractionAgent = require('../ai/agents/RequirementExtractionAgent');
+const pipeline = require('../ai/pipeline/requirementsPipeline');
 const embeddingService = require('../ai/EmbeddingService');
 const ragService = require('../services/ragService');
-const requirementMergeService = require('../services/requirementMergeService');
-const srsSyncService = require('../services/srsSyncService');
-const { normalizeRequirementStatement } = require('../services/requirementGrammarValidator');
+const { SECTIONS_CONFIG } = require('../constants/interviewSections');
 
 exports.getRequirements = async (req, res, next) => {
   try {
-    const { type, status, category, includeDeprecated } = req.query;
+    const { type, status, category } = req.query;
     const filter = { projectId: req.params.id };
 
     if (type) filter.type = type;
-    if (status) {
-      filter.status = status;
-    } else if (includeDeprecated !== 'true') {
-      filter.status = { $ne: 'DEPRECATED' };
-    }
+    if (status) filter.status = status;
     if (category) filter.category = category;
 
     const requirements = await Requirement.find(filter).sort({ requirementId: 1 });
@@ -32,59 +26,56 @@ exports.createRequirement = async (req, res, next) => {
     const projectId = req.params.id;
     const { title, description, type, nfrSubcategory, category, priority, sourceText } = req.body;
 
+    // Even manually-created requirements are normalized to formal SRS language;
+    // whatever the user typed is kept as rawSourceText evidence, never as the
+    // requirement statement.
+    const { formalNormalize } = require('../ai/pipeline/semanticEngine');
+    const rawSourceText = sourceText || description || '';
+    const normalizedDescription = formalNormalize(description || title || '');
+
     const reqType = type || 'FUNCTIONAL';
-    let prefix = 'FR';
-    if (reqType === 'NON_FUNCTIONAL') prefix = 'NFR';
-    else if (reqType === 'CONSTRAINT') prefix = 'CON';
-    else if (reqType === 'ASSUMPTION') prefix = 'ASM';
-    else if (reqType === 'INTERFACE') prefix = 'INT';
-    else if (reqType === 'STAKEHOLDER') prefix = 'STK';
+    const prefixMap = {
+      FUNCTIONAL: 'FR', NON_FUNCTIONAL: 'NFR', CONSTRAINT: 'CON',
+      ASSUMPTION: 'ASM', DEPENDENCY: 'DEP', INTERFACE: 'INT',
+      STAKEHOLDER: 'STK', BUSINESS_RULE: 'BR'
+    };
+    const prefix = prefixMap[reqType] || 'FR';
+    const count = await Requirement.countDocuments({ projectId, type: reqType });
+    const reqId = req.body.requirementId || `${prefix}-${String(count + 1).padStart(3, '0')}`;
 
-    // Find all existing requirement IDs with this prefix to calculate next numeric ID
-    const existingReqs = await Requirement.find({ projectId, requirementId: new RegExp(`^${prefix}-\\d+`) }).select('requirementId');
-    let maxNum = 0;
-    existingReqs.forEach(r => {
-      const match = r.requirementId.match(new RegExp(`^${prefix}-(\\d+)`));
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
-    });
-
-    const reqId = req.body.requirementId || `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
-    const normalizedDesc = normalizeRequirementStatement(description);
-
-    let embedding = [];
-    try {
-      embedding = await embeddingService.generateEmbedding(`${title}: ${normalizedDesc}`);
-    } catch (e) {}
+    const embedding = await embeddingService.generateEmbedding(normalizedDescription);
+    const embeddingModel = embeddingService.isRealModelActive() ? 'multilingual-e5-small' : 'deterministic-v1';
 
     const requirement = await Requirement.create({
       projectId,
       requirementId: reqId,
       title,
-      description: normalizedDesc,
+      rawSourceText,
+      sourceLanguage: 'English',
+      sourceInterviewStage: 'Manual Entry',
+      normalizedDescription,
+      description: normalizedDescription,
       type: reqType,
       nfrSubcategory: nfrSubcategory || (reqType === 'NON_FUNCTIONAL' ? 'PERFORMANCE' : 'N/A'),
       category: category || (reqType === 'FUNCTIONAL' ? 'Core Features' : `${prefix} Specifications`),
       priority: priority || 'MEDIUM',
-      sourceText: sourceText || 'Manual user input',
       completenessScore: 90,
       isAtomic: true,
       confidence: 1.0,
       status: 'APPROVED',
       validationStatus: 'VALID',
-      embedding
+      embedding,
+      embeddingModel
     });
 
-    // Auto-sync SRS, Traceability, and RAG
-    await srsSyncService.syncProjectSRS(projectId, `Added requirement ${reqId}: ${title}`);
+    try { await ragService.indexProjectKnowledge(projectId); } catch (e) {}
 
     res.status(201).json({ success: true, data: requirement });
   } catch (error) {
     next(error);
   }
 };
+
 
 exports.updateRequirement = async (req, res, next) => {
   try {
@@ -98,20 +89,15 @@ exports.updateRequirement = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Requirement not found' });
     }
 
-    if (req.body.description) {
-      req.body.description = normalizeRequirementStatement(req.body.description);
-    }
-
     if (req.body.title || req.body.description) {
       const title = req.body.title || requirement.title;
       const desc = req.body.description || requirement.description;
-      req.body.embedding = await embeddingService.generateEmbedding(`${title}: ${desc}`);
+      req.body.embedding = await embeddingService.generateEmbedding(desc);
+      req.body.embeddingModel = embeddingService.isRealModelActive() ? 'multilingual-e5-small' : 'deterministic-v1';
     }
 
     const updated = await Requirement.findByIdAndUpdate(requirement._id, req.body, { new: true });
-    
-    // Auto-sync SRS, Traceability, and RAG
-    await srsSyncService.syncProjectSRS(requirement.projectId, `Updated requirement ${requirement.requirementId}`);
+    await ragService.indexProjectKnowledge(requirement.projectId);
 
     res.json({ success: true, data: updated });
   } catch (error) {
@@ -125,10 +111,7 @@ exports.deleteRequirement = async (req, res, next) => {
     if (!requirement) {
       return res.status(404).json({ success: false, message: 'Requirement not found' });
     }
-    
-    // Auto-sync SRS, Traceability, and RAG
-    await srsSyncService.syncProjectSRS(requirement.projectId, `Removed requirement ${requirement.requirementId}`);
-
+    await ragService.indexProjectKnowledge(requirement.projectId);
     res.json({ success: true, message: 'Requirement removed successfully' });
   } catch (error) {
     next(error);
@@ -142,45 +125,39 @@ exports.extractFromText = async (req, res, next) => {
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-    const count = await Requirement.countDocuments({ projectId });
-    const extractedList = await requirementExtractionAgent.extractRequirements(text, project, count + 1);
+    // Route free-text extraction through the SAME authoritative pipeline used
+    // by the interview (guard -> understand -> decompose -> normalize -> QC).
+    const functionalSection = SECTIONS_CONFIG.find((s) => s.id === 'FUNCTIONAL_REQUIREMENTS');
+    const existing = await Requirement.find({ projectId });
 
-    const saved = [];
-    for (const item of extractedList) {
-      const normalizedDesc = normalizeRequirementStatement(item.description);
-      const emb = await embeddingService.generateEmbedding(`${item.title}: ${normalizedDesc}`);
-      const r = await Requirement.create({
-        ...item,
-        description: normalizedDesc,
-        projectId,
-        embedding: emb
-      });
-      saved.push(r);
-    }
-
-    // Auto-sync SRS, Traceability, and RAG
-    await srsSyncService.syncProjectSRS(projectId, `Extracted ${saved.length} requirements via AI`);
-
-    res.status(201).json({ success: true, count: saved.length, data: saved });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.mergeRequirements = async (req, res, next) => {
-  try {
-    const projectId = req.params.id;
-    const { primaryRequirementId, secondaryRequirementId, issueId, resolutionNotes } = req.body;
-
-    const result = await requirementMergeService.mergeRequirements({
-      projectId,
-      primaryRequirementId,
-      secondaryRequirementId,
-      issueId,
-      resolutionNotes
+    const analysis = await pipeline.analyzeAnswer({
+      rawText: text,
+      project,
+      sectionConfig: functionalSection,
+      existingRequirements: existing
     });
 
-    res.json(result);
+    if (analysis.isOutOfScope) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        outOfScope: true,
+        message: analysis.message
+      });
+    }
+
+    const { saved, skippedDuplicates } = await pipeline.persistRequirements(projectId, analysis);
+    try { await ragService.indexProjectKnowledge(projectId); } catch (e) {}
+
+    res.status(201).json({
+      success: true,
+      count: saved.length,
+      data: saved,
+      informationQuality: analysis.informationQuality,
+      skippedDuplicates,
+      clarificationQuestion: analysis.clarificationQuestion
+    });
   } catch (error) {
     next(error);
   }

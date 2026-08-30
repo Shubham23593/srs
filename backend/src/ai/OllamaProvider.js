@@ -15,11 +15,7 @@ class OllamaProvider extends AIProvider {
 
     this.model =
       env.ai.ollamaModel ||
-      'qwen2.5:7b';
-
-    this.timeout =
-      env.ai.ollamaTimeout ||
-      60000;
+      'codellama:7b-instruct';
 
     this._lastHealthCheck = 0;
     this._isHealthyCached = false;
@@ -42,7 +38,7 @@ class OllamaProvider extends AIProvider {
       const response = await axios.get(
         `${this.baseUrl}/api/tags`,
         {
-          timeout: 4000
+          timeout: 3000
         }
       );
 
@@ -80,7 +76,7 @@ class OllamaProvider extends AIProvider {
             }
           },
           {
-            timeout: this.timeout
+            timeout: 30000
           }
         );
 
@@ -130,7 +126,7 @@ IMPORTANT RULES:
             }
           },
           {
-            timeout: this.timeout
+            timeout: 30000
           }
         );
 
@@ -188,57 +184,11 @@ IMPORTANT RULES:
   _generateDeterministicFallback(prompt) {
     const p = (prompt || '').toLowerCase();
 
-    // Extract user source text from prompt if present
-    const { decomposeRawTextToAtomicRequirements } = require('../services/atomicRequirementDecomposer');
-    let extractedUserText = '';
-
-    // Check extraction prompt format: """ text """
-    const tripleQuoteMatch = prompt.match(/"""\s*([\s\S]*?)\s*"""/);
-    if (tripleQuoteMatch) {
-      extractedUserText = tripleQuoteMatch[1].trim();
-    } else {
-      // Check interview prompt format: [USER]: text
-      const userMsgMatches = [...prompt.matchAll(/\[USER\]:\s*([^\n\r]+)/gi)];
-      if (userMsgMatches.length > 0) {
-        extractedUserText = userMsgMatches[userMsgMatches.length - 1][1].trim();
-      }
-    }
-
-    if (p.includes('software requirements specification') || p.includes('section1_introduction') || p.includes('srs generation') || (p.includes('section3_systemfeatures') && p.includes('appendix'))) {
-      const { sanitizeAndValidateSRS } = require('../services/srsSanitizerAndValidator');
-      const nameMatch = prompt.match(/Name:\s*([^\n\r]+)/i);
-      const projName = nameMatch ? nameMatch[1].trim() : 'Software System';
-      const { sanitizedSRS } = sanitizeAndValidateSRS({}, { projectName: projName }, []);
-      return JSON.stringify(sanitizedSRS);
-    }
-
-    if (p.includes('extract') || p.includes('extraction')) {
-      const atomicReqs = extractedUserText 
-        ? decomposeRawTextToAtomicRequirements(extractedUserText, { name: 'Core Features' })
-        : [];
-
-      return JSON.stringify({
-        requirements: atomicReqs.length > 0 ? atomicReqs : [
-          {
-            title: 'Core System Functionality',
-            description: 'The system shall execute primary user actions and validate data.',
-            type: 'FUNCTIONAL',
-            nfrSubcategory: 'N/A',
-            category: 'Core Features',
-            priority: 'HIGH',
-            completenessScore: 90,
-            isAtomic: true
-          }
-        ]
-      });
-    }
-
     if (
       p.includes('interview') ||
       p.includes('elicitation')
     ) {
       let sectionName = 'Project Information';
-      let sectionId = 'PROJECT_INFORMATION';
       let followUpQuestion =
         'What are the secondary objectives and high-level boundaries of this project?';
       let requirementType = 'FUNCTIONAL';
@@ -249,7 +199,6 @@ IMPORTANT RULES:
         p.includes('stakeholders & users')
       ) {
         sectionName = 'Stakeholders & Users';
-        sectionId = 'STAKEHOLDERS_AND_USERS';
         requirementType = 'STAKEHOLDER';
         followUpQuestion =
           'Are there administrators, managers, support staff, or partner organizations who will interact with the system?';
@@ -258,7 +207,6 @@ IMPORTANT RULES:
         p.includes('user roles & permissions')
       ) {
         sectionName = 'User Roles & Permissions';
-        sectionId = 'USER_ROLES_AND_PERMISSIONS';
         requirementType = 'STAKEHOLDER';
         followUpQuestion =
           'What specific permissions, restrictions, and approval workflows should apply to each role?';
@@ -267,7 +215,6 @@ IMPORTANT RULES:
         p.includes('functional requirements')
       ) {
         sectionName = 'Functional Requirements';
-        sectionId = 'FUNCTIONAL_REQUIREMENTS';
         requirementType = 'FUNCTIONAL';
         followUpQuestion =
           'What additional search, filtering, reporting, notification, or data processing operations should users have?';
@@ -276,7 +223,6 @@ IMPORTANT RULES:
         p.includes('non-functional requirements')
       ) {
         sectionName = 'Non-Functional Requirements';
-        sectionId = 'NON_FUNCTIONAL_REQUIREMENTS';
         requirementType = 'NON_FUNCTIONAL';
         subcategory = 'PERFORMANCE';
         followUpQuestion =
@@ -286,7 +232,6 @@ IMPORTANT RULES:
         p.includes('external interfaces')
       ) {
         sectionName = 'External Interfaces';
-        sectionId = 'EXTERNAL_INTERFACES';
         requirementType = 'INTERFACE';
         followUpQuestion =
           'Which APIs or third-party services must be integrated, and what authentication method should be used?';
@@ -295,13 +240,11 @@ IMPORTANT RULES:
         p.includes('assumptions & dependencies')
       ) {
         sectionName = 'Assumptions & Dependencies';
-        sectionId = 'ASSUMPTIONS_AND_DEPENDENCIES';
         requirementType = 'ASSUMPTION';
         followUpQuestion =
           'What external services, infrastructure, devices, or network conditions does this project depend upon?';
       } else if (p.includes('constraints')) {
         sectionName = 'Constraints';
-        sectionId = 'CONSTRAINTS';
         requirementType = 'CONSTRAINT';
         followUpQuestion =
           'Are there technology, budget, timeline, deployment, or compliance limitations for this project?';
@@ -310,20 +253,8 @@ IMPORTANT RULES:
         p.includes('review & confirmation')
       ) {
         sectionName = 'Review & Confirmation';
-        sectionId = 'REVIEW_AND_CONFIRMATION';
         followUpQuestion =
           'Please review the collected requirements and confirm when you are ready to finalize the SRS.';
-      }
-
-      const atomicReqs = extractedUserText 
-        ? decomposeRawTextToAtomicRequirements(extractedUserText, { id: sectionId, name: sectionName })
-        : [];
-
-      // Context-sensitive single focused follow-up question
-      if (atomicReqs.length > 0 && atomicReqs[0].suggestedImprovement) {
-        followUpQuestion = atomicReqs[0].suggestedImprovement;
-      } else if (/\b(log\s*in|login|sign\s*in|signin)\b/i.test(extractedUserText)) {
-        followUpQuestion = 'Which authentication methods should the system support (e.g. email/password, SSO, OAuth)?';
       }
 
       return JSON.stringify({
@@ -332,18 +263,35 @@ IMPORTANT RULES:
         language: 'English',
         progress: 50,
         isOutOfScope: false,
-        sectionCompleted: atomicReqs.length >= 1,
+        sectionCompleted: false,
         interviewCompleted: false,
-        extractedRequirements: atomicReqs,
+        extractedRequirements: [],
         missingInformation: [],
-        notes: 'Decomposed atomic requirements from user response.'
+        notes: 'Deterministic fallback response.'
       });
     }
 
+    if (p.includes('extract') || p.includes('extraction')) {
+      return JSON.stringify({
+        requirements: [
+          {
+            title: 'Core System Functionality',
+            description: 'The system shall execute primary user actions and validate data.',
+            type: 'FUNCTIONAL',
+            nfrSubcategory: 'N/A',
+            category: 'Core',
+            priority: 'HIGH',
+            completenessScore: 85,
+            isAtomic: true
+          }
+        ]
+      });
+    }
+
+    // Generic fallback
     return JSON.stringify({
       status: 'SUCCESS',
       extractedRequirements: [],
-      requirements: [],
       message: 'Processed successfully.'
     });
   }

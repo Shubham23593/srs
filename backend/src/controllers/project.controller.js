@@ -30,6 +30,20 @@ exports.createProject = async (req, res, next) => {
   }
 };
 
+exports.seedDemo = async (req, res, next) => {
+  try {
+    const demoSeedService = require('../services/demoSeedService');
+    const { project } = await demoSeedService.seedDemoProject(req.user || null);
+    res.status(201).json({
+      success: true,
+      message: 'Demo project seeded with pipeline-generated requirements and SRS.',
+      data: project
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getProjects = async (req, res, next) => {
   try {
     const filter = req.user ? { owner: req.user._id } : {};

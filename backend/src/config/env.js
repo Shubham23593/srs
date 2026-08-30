@@ -8,8 +8,7 @@ module.exports = {
   ai: {
     provider: process.env.AI_PROVIDER || 'ollama',
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-    ollamaModel: process.env.OLLAMA_MODEL || 'qwen2.5:7b',
-    ollamaTimeout: parseInt(process.env.OLLAMA_TIMEOUT, 10) || 60000,
+    ollamaModel: process.env.OLLAMA_MODEL || 'codellama:7b-instruct',
     embeddingModel: process.env.EMBEDDING_MODEL || 'BAAI/bge-small-en-v1.5'
   }
 };
