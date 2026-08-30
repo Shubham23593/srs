@@ -15,12 +15,25 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
-    if (token) {
+    if (token && token !== 'null' && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/') {
+        localStorage.removeItem('token');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),

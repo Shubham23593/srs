@@ -23,12 +23,20 @@ const definition = {
 
 const User = registerModel('User', definition);
 
-/**
- * Password verification helper that works for both Mongoose documents and
- * in-memory plain objects.
- */
 User.matchPasswordFor = async function (user, enteredPassword) {
-  if (!user) return false;
+  if (!user || !user.password || !enteredPassword) return false;
+  if (!user.password.startsWith('$2')) {
+    const directMatch = enteredPassword === user.password;
+    if (directMatch) {
+      try {
+        const hashed = await bcrypt.hash(enteredPassword, 10);
+        user.password = hashed;
+        if (typeof user.save === 'function') await user.save();
+        else await User.findByIdAndUpdate(user._id, { password: hashed });
+      } catch (e) {}
+    }
+    return directMatch;
+  }
   return bcrypt.compare(enteredPassword, user.password);
 };
 
