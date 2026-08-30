@@ -52,6 +52,14 @@ function toMongooseSchema(definition) {
 
   const schema = new mongoose.Schema(out, { strict: false });
   for (const idx of definition.indexes || []) {
+    const fieldKeys = Object.keys(idx.fields || {});
+    if (fieldKeys.length === 1) {
+      const fieldName = fieldKeys[0];
+      const fieldSpec = fields[fieldName];
+      if (fieldSpec && typeof fieldSpec === 'object' && (fieldSpec.unique || fieldSpec.index)) {
+        continue; // Already indexed by field definition in Mongoose
+      }
+    }
     if (idx.unique) schema.index(idx.fields, { unique: true });
     else schema.index(idx.fields);
   }
