@@ -231,12 +231,15 @@ class RequirementsPipeline {
       .find((q) => q && q.trim()) || null;
 
     return {
-      valid: requirements.length > 0,
+      valid: true,
       category: 'RELEVANT',
       rawSourceText,
       language,
       relevance,
       requirements,
+      entities: extracted.entities || {},
+      informationType: extracted.informationType || 'REQUIREMENT_EVIDENCE',
+      isRequirementEvidence: extracted.isRequirementEvidence || requirements.length > 0,
       ignoredClauses: extracted.ignoredClauses || [],
       issues: relevantIssues,
       allCatalogIssues: issues,
@@ -246,7 +249,7 @@ class RequirementsPipeline {
       engineUsed,
       message: requirements.length
         ? `Extracted ${requirements.length} atomic requirement(s).`
-        : 'The answer is relevant but no clear atomic requirement could be extracted. Could you describe a specific capability the system should provide?'
+        : 'The answer is relevant. Captured project metadata.'
     };
   }
 
@@ -518,17 +521,31 @@ class RequirementsPipeline {
 }
 
 function buildLlmExtractionPrompt(rawText, project, sectionConfig) {
-  return `You are a requirements engineering assistant following ISO/IEC/IEEE 29148.
+  const stageId = sectionConfig?.id || '';
+  return `You are a Senior Requirements Engineer following ISO/IEC/IEEE 29148.
 The user's interview answer may be in English, Hindi, Marathi, Hinglish, or mixed languages.
-Understand the SEMANTIC MEANING. Do NOT copy the raw sentence. Do NOT invent features the user did not mention (no Google login, OTP, 2FA, biometrics, password reset unless explicitly stated).
+Understand the SEMANTIC INTENT without copying raw text or inventing features.
 
 Project: ${project.projectName}
 Scope: ${project.scope || project.description || ''}
-Current interview section: ${sectionConfig?.name} — ${sectionConfig?.description || ''}
-User answer (raw, possibly non-English):
+Current interview stage: ${sectionConfig?.name} (${stageId}) — ${sectionConfig?.description || ''}
+User answer:
 """
 ${rawText}
 """
+
+STAGE RULES:
+1. If Stage is PROJECT_INFORMATION, STAKEHOLDERS_AND_USERS, or USER_ROLES_AND_PERMISSIONS:
+   - Descriptive statements about users, actors, problem context, or background DO NOT create requirements.
+   - Return {"requirements": []} unless the user explicitly provides an explicit system capability requirement.
+2. If Stage is FUNCTIONAL_REQUIREMENTS:
+   - Extract only explicit functional features ("The system shall allow <actor> to <action>").
+   - Do NOT create fake NFRs (Availability, Performance, etc.).
+3. If Stage is NON_FUNCTIONAL_REQUIREMENTS:
+   - Extract quality attributes. Do NOT invent response times or percentage metrics.
+4. If Stage is CONSTRAINTS, extract technology/deployment/regulatory constraints.
+5. If Stage is ASSUMPTIONS_AND_DEPENDENCIES, extract dependencies or assumptions.
+6. If Stage is REVIEW_AND_CONFIRMATION, return {"requirements": []}.
 
 Return ONLY JSON:
 {
@@ -536,22 +553,17 @@ Return ONLY JSON:
     {
       "title": "short atomic capability title in English",
       "normalizedDescription": "formal English statement starting with 'The system shall ...'",
-      "type": "FUNCTIONAL|NON_FUNCTIONAL|CONSTRAINT|ASSUMPTION|DEPENDENCY|INTERFACE|STAKEHOLDER|BUSINESS_RULE",
+      "type": "FUNCTIONAL|NON_FUNCTIONAL|CONSTRAINT|ASSUMPTION|DEPENDENCY|INTERFACE",
       "nfrSubcategory": "PERFORMANCE|SECURITY|USABILITY|AVAILABILITY|SCALABILITY|RELIABILITY|N/A",
       "category": "short topic",
       "priority": "HIGH|MEDIUM|LOW",
       "needsClarification": boolean,
       "ambiguityFlags": [],
       "clarificationQuestion": "exactly one focused question if needsClarification is true, else empty string",
-      "confidence": 0.0
+      "confidence": 0.9
     }
   ]
-}
-Rules:
-- Split multiple distinct capabilities into separate atomic requirements.
-- Normalize ALL output to professional English regardless of input language.
-- Vague statements like "fast" or "secure" must be normalized to a generic formal requirement, flagged needsClarification=true, and MUST NOT invent metrics.
-- If the answer is unrelated to the project/section, return {"requirements": []}.`;
+}`;
 }
 
 function emptyQuality() {

@@ -244,6 +244,34 @@ const CAPABILITIES = [
       }
       return 'The system shall allow users to view financial information according to their authorized access scope.';
     }
+  },
+  {
+    id: 'EMERGENCY_REQUEST',
+    title: 'Emergency Request Submission',
+    topic: 'Emergency Services',
+    type: 'FUNCTIONAL', section: '3',
+    keywords: ['emergency request', 'submit emergency', 'request emergency', 'emergency requests', 'submit request',
+      'request help', 'distress ticket', 'emergency relief', 'emergency help', 'request submit', 'madat maang',
+      'आपातकालीन अनुरोध', 'मदत विनंती', 'आपत्ती मदत'],
+    statement: 'The system shall allow users to submit emergency requests.'
+  },
+  {
+    id: 'RESOURCE_UPDATE',
+    title: 'Resource Management',
+    topic: 'Resource Management',
+    type: 'FUNCTIONAL', section: '3',
+    keywords: ['update available resources', 'update resources', 'manage resources', 'resource tracking', 'resources update',
+      'संसाधन अपडेट', 'संसाधने अद्ययावत'],
+    statement: 'The system shall allow NGO workers to update available resources.'
+  },
+  {
+    id: 'TASK_ASSIGN',
+    title: 'Task Assignment',
+    topic: 'Task Management',
+    type: 'FUNCTIONAL', section: '3',
+    keywords: ['assign tasks', 'assign tasks to volunteers', 'task allocation', 'relief tasks', 'assign task',
+      'कार्य सौंपना', 'कामे वाटप'],
+    statement: 'The system shall assign relief tasks to volunteers.'
   }
 ];
 

@@ -94,12 +94,22 @@ class InterviewAgent {
     // ---- Relevant answer ----
     const newRequirementCount = analysis.requirements.length;
     const totalSectionRequirements = sectionRequirementsCount + newRequirementCount;
-    const isDetailedAnswer = (lastUserMessage || '').length >= 40 || newRequirementCount >= 2;
-
-    const sectionCompleted = !isPartial && (
-      (totalSectionRequirements >= 1 && isDetailedAnswer) ||
-      totalSectionRequirements >= 2
+    const hasExtractedEntities = Boolean(
+      analysis.entities?.stakeholdersInfo?.primaryUsers?.length ||
+      analysis.entities?.stakeholdersInfo?.stakeholders?.length ||
+      analysis.entities?.rolesInfo?.userRoles?.length ||
+      analysis.entities?.projectInfo?.problemStatement
     );
+    const isDetailedAnswer = (lastUserMessage || '').length >= 30 || newRequirementCount >= 1 || hasExtractedEntities;
+    const isEntitySection = ['PROJECT_INFORMATION', 'STAKEHOLDERS_AND_USERS', 'USER_ROLES_AND_PERMISSIONS', 'REVIEW_AND_CONFIRMATION'].includes(currentSectionConfig?.id);
+    const previousAnswersInStage = conversationHistory.filter(m => m.sender === 'USER' && (m.section === currentSectionConfig?.id || m.topic === currentSectionConfig?.name)).length;
+
+    const sectionCompleted = (isEntitySection && (previousAnswersInStage >= 1 || isDetailedAnswer)) ||
+      (!isPartial && (
+        (isEntitySection && isDetailedAnswer) ||
+        (totalSectionRequirements >= 1 && isDetailedAnswer) ||
+        totalSectionRequirements >= 2
+      ));
 
     // Normalized requirements in the shape the controller expects for display
     const extractedRequirements = analysis.requirements.map((r) => ({
@@ -119,16 +129,22 @@ class InterviewAgent {
       confidence: r.confidence
     }));
 
-    // Build next question: prefer a clarification question if we have one
+    // Build next question: dynamic follow-up using LLM if staying in current section
     let nextQuestion;
-    if (isPartial && analysis.relevance?.message) {
-      nextQuestion = analysis.relevance.message;
+    if (isPartial && (analysis.relevance?.feedbackMessage || analysis.relevance?.message)) {
+      nextQuestion = analysis.relevance.feedbackMessage || analysis.relevance.message;
     } else if (analysis.clarificationQuestion && !sectionCompleted) {
       nextQuestion = analysis.clarificationQuestion;
     } else if (!sectionCompleted) {
-      nextQuestion = this.getSectionFollowUpQuestion(
-        currentSectionConfig.id, projectContext.projectName, detectedLanguage
-      );
+      nextQuestion = await this.generateDynamicFollowUp({
+        sectionConfig: currentSectionConfig,
+        projectName: projectContext.projectName,
+        detectedLanguage,
+        userAnswer: lastUserMessage,
+        extractedEntities: analysis.entities,
+        extractedRequirements,
+        conversationHistory
+      });
     } else {
       nextQuestion = this.getSectionFollowUpQuestion(
         currentSectionConfig.id, projectContext.projectName, detectedLanguage
@@ -153,6 +169,54 @@ class InterviewAgent {
         ? `Pipeline extracted ${newRequirementCount} atomic normalized requirement(s); ${analysis.informationQuality.ambiguities} need clarification.`
         : analysis.message
     };
+  }
+
+  /**
+   * Generates an intelligent, non-repetitive follow-up question using the LLM.
+   * Falls back to the QUESTIONS dictionary if LLM is unavailable.
+   */
+  async generateDynamicFollowUp({
+    sectionConfig,
+    projectName,
+    detectedLanguage = 'English',
+    userAnswer = '',
+    extractedEntities = {},
+    extractedRequirements = [],
+    conversationHistory = []
+  }) {
+    const { getAIProvider } = require('../index');
+    const ai = getAIProvider();
+
+    if (ai && (await ai.isHealthy())) {
+      try {
+        const prompt = `You are a Senior Requirements Engineer (ISO/IEC/IEEE 29148).
+Generate a concise, intelligent, non-repetitive follow-up interview question for the current stage.
+
+PROJECT: ${projectName}
+CURRENT STAGE: ${sectionConfig.name} (${sectionConfig.description})
+USER'S RECENT ANSWER: "${userAnswer}"
+EXTRACTED ENTITIES: ${JSON.stringify(extractedEntities || {})}
+REQUIREMENTS CAPTURED: ${extractedRequirements.length} requirements.
+
+INSTRUCTIONS:
+1. Do NOT ask for information the user has already stated.
+2. If the user provided primary users, ask about other stakeholders (e.g. administrators, managers, support staff, or partner agencies).
+3. If in functional stage, ask for specific workflows, edge cases, reporting, or notifications.
+4. If in NFR stage, ask for specific measurable targets (e.g. maximum response time, uptime percentage, backup frequency).
+5. Generate the question in the user's language: ${detectedLanguage} (English, Hindi, Marathi, or Hinglish).
+6. Return ONLY the question string directly without markdown or quotes.`;
+
+        const response = await ai.generateCompletion(prompt, { temperature: 0.3, maxTokens: 100 });
+        const clean = (response || '').trim().replace(/^["']|["']$/g, '');
+        if (clean && clean.length > 10) {
+          return clean;
+        }
+      } catch (err) {
+        console.warn('[InterviewAgent] Dynamic LLM follow-up failed, using fallback:', err.message);
+      }
+    }
+
+    return this.getSectionFollowUpQuestion(sectionConfig.id, projectName, detectedLanguage);
   }
 
   _redirectionMessage(reasonMessage, projectContext, sectionConfig, language, currentQuestion = '') {

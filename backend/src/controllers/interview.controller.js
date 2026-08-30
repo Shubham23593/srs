@@ -196,8 +196,12 @@ exports.sendMessage = async (req, res, next) => {
     history.reverse();
 
     // Identify the active question being answered
-    const lastAiMsg = [...history].reverse().find(m => m.sender === 'AI');
-    const currentQuestion = lastAiMsg?.content || interviewAgent.getSectionInitialQuestion(currentSectionConfig.id, project.projectName, detectedLang);
+    const lastAiMsg = [...history].reverse().find(m => m.sender === 'AI' && !m.isOutOfScope);
+    const rawQuestion = lastAiMsg?.content || '';
+    const cleanQuestion = rawQuestion.includes('👉 **Current Question:**')
+      ? rawQuestion.split('👉 **Current Question:**').pop().trim()
+      : rawQuestion;
+    const currentQuestion = cleanQuestion || interviewAgent.getSectionInitialQuestion(currentSectionConfig.id, project.projectName, detectedLang);
 
     // Run AI Interview Agent (with Strict Context Guard, Language & Quality Engine)
     const turnResult = await interviewAgent.processInterviewTurn({
@@ -256,7 +260,7 @@ exports.sendMessage = async (req, res, next) => {
     // NORMALIZED requirements are stored (raw text lives only in rawSourceText).
     let persistResult = { saved: [], skippedDuplicates: [] };
     let extractedIds = [];
-    if (turnResult.analysis && turnResult.analysis.requirements && turnResult.analysis.requirements.length > 0) {
+    if (turnResult.analysis && turnResult.analysis.requirements && turnResult.analysis.requirements.length > 0 && turnResult.analysis.isRequirementEvidence !== false) {
       persistResult = await pipeline.persistRequirements(projectId, turnResult.analysis, {
         sourceMessageId: userMsg.messageId
       });
@@ -267,6 +271,37 @@ exports.sendMessage = async (req, res, next) => {
         for (const iss of turnResult.analysis.issues) {
           await RequirementIssue.create({ projectId, ...iss });
         }
+      }
+    }
+
+    // Persist extracted structured entities to Project document
+    if (turnResult.analysis?.entities) {
+      const { stakeholdersInfo, constraintsInfo, dependenciesInfo } = turnResult.analysis.entities;
+      let projectModified = false;
+
+      if (stakeholdersInfo) {
+        if (stakeholdersInfo.primaryUsers?.length) {
+          project.targetUsers = [...new Set([...(project.targetUsers || []), ...stakeholdersInfo.primaryUsers])];
+          projectModified = true;
+        }
+        if (stakeholdersInfo.stakeholders?.length) {
+          project.stakeholders = [...new Set([...(project.stakeholders || []), ...stakeholdersInfo.stakeholders])];
+          projectModified = true;
+        }
+      }
+
+      if (constraintsInfo?.technologyConstraints?.length) {
+        project.constraints = [...new Set([...(project.constraints || []), ...constraintsInfo.technologyConstraints])];
+        projectModified = true;
+      }
+
+      if (dependenciesInfo?.dependencies?.length) {
+        project.dependencies = [...new Set([...(project.dependencies || []), ...dependenciesInfo.dependencies])];
+        projectModified = true;
+      }
+
+      if (projectModified) {
+        await project.save();
       }
     }
 
@@ -287,13 +322,16 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     const currentSectionReqsTotal = session.sectionsState[currentSectionIdx]?.requirementsExtracted || 0;
+    const isEntitySection = ['PROJECT_INFORMATION', 'STAKEHOLDERS_AND_USERS', 'USER_ROLES_AND_PERMISSIONS', 'REVIEW_AND_CONFIRMATION'].includes(currentSectionConfig.id);
 
     // 🔴 STRICT STAGE ADVANCEMENT GATE:
     // Only advance to the next section IF:
     // 1. User clicked Skip Section button (userExplicitlySkipped), OR
-    // 2. We have at least 1 extracted requirement AND AI marked sectionCompleted: true, OR
-    // 3. We have 2 or more extracted requirements for this section
+    // 2. We are in an entity section and AI marked sectionCompleted: true, OR
+    // 3. We have at least 1 extracted requirement AND AI marked sectionCompleted: true, OR
+    // 4. We have 2 or more extracted requirements for this section
     const shouldAdvanceSection = userExplicitlySkipped ||
+      (isEntitySection && turnResult.sectionCompleted) ||
       (currentSectionReqsTotal >= 1 && turnResult.sectionCompleted) ||
       (currentSectionReqsTotal >= 2);
 
