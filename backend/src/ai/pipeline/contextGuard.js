@@ -54,79 +54,29 @@ function capabilityKeywordHits(text) {
   return hits;
 }
 
-async function assessRelevance({ rawText, project, sectionConfig }) {
-  const text = (rawText || '').trim();
+const semanticContextValidator = require('./semanticContextValidator');
 
-  if (!text) {
-    return { relevant: false, reason: 'EMPTY', score: 0, isOutOfScope: true, category: 'INVALID' };
-  }
-
-  // 1. Hard out-of-scope patterns
-  for (const entry of OUT_OF_SCOPE_PATTERNS) {
-    if (entry.patterns.some((p) => p.test(text))) {
-      return {
-        relevant: false,
-        reason: entry.reason,
-        score: 0,
-        isOutOfScope: true,
-        category: 'OUT_OF_SCOPE',
-        message: `This input appears unrelated to ${project?.projectName ? 'the ' + project.projectName : 'this project'}. Please provide information relevant to the current interview topic.`
-      };
-    }
-  }
-
-  // 2. Too short / no signal
-  if (text.length < 3) {
-    return { relevant: false, reason: 'TOO_SHORT', score: 0, isOutOfScope: true, category: 'INVALID' };
-  }
-
-  // 3. Capability vocabulary overlap (works across languages via lexicon)
-  const capHits = capabilityKeywordHits(text);
-
-  // 4. Domain keyword overlap
-  const domainKw = buildDomainKeywords(project, sectionConfig);
-  const tokens = text.toLowerCase().split(/[^a-zऀ-ॿ]+/).filter(Boolean);
-  const domainHits = tokens.filter((t) => domainKw.has(t)).length;
-
-  // 5. Embedding similarity to project context (single batched model call)
-  let embeddingScore = 0;
-  try {
-    const context = [
-      project?.projectName, project?.description, project?.scope,
-      sectionConfig?.name, sectionConfig?.description
-    ].filter(Boolean).join(' ');
-    if (context) {
-      const [a, b] = await embeddingService.generateEmbeddings([text, context]);
-      embeddingScore = embeddingService.cosineSimilarity(a, b);
-    }
-  } catch (e) {
-    embeddingScore = 0;
-  }
-
-  const score = Math.min(1, capHits * 0.18 + Math.min(domainHits, 6) * 0.06 + embeddingScore * 0.35);
-
-  // Relevance decision: any recognized capability in ANY language is relevant;
-  // otherwise require enough domain/embedding signal.
-  const relevant = capHits >= 1 || domainHits >= 2 || embeddingScore >= 0.55;
-
-  if (!relevant) {
-    return {
-      relevant: false,
-      reason: 'NOT_RELATED_TO_PROJECT',
-      score: Math.round(score * 100) / 100,
-      isOutOfScope: true,
-      category: 'OUT_OF_SCOPE',
-      message: `This input appears unrelated to ${project?.projectName ? 'the ' + project.projectName : 'this project'}. Please provide information relevant to the current interview topic (${sectionConfig?.name || 'requirements'}).`
-    };
-  }
+async function assessRelevance({ rawText, project, sectionConfig, currentQuestion, conversationHistory }) {
+  const result = await semanticContextValidator.validateInterviewAnswer({
+    rawText,
+    project,
+    sectionConfig,
+    currentQuestion,
+    conversationHistory
+  });
 
   return {
-    relevant: true,
-    reason: null,
-    score: Math.round(score * 100) / 100,
-    isOutOfScope: false,
-    category: 'RELEVANT',
-    signals: { capabilityHits: capHits, domainHits, embeddingScore: Math.round(embeddingScore * 100) / 100 }
+    relevant: result.isRelevant,
+    isOutOfScope: result.isOutOfScope,
+    classification: result.classification,
+    status: result.status,
+    category: result.status === 'CONTEXT_MISMATCH' || result.status === 'INVALID' ? 'OUT_OF_SCOPE' : result.classification,
+    reason: result.explanation,
+    message: result.feedbackMessage || `This input appears unrelated to ${project?.projectName || 'this project'}. Please provide information relevant to ${sectionConfig?.name || 'the current topic'}.`,
+    clarificationNeeds: result.clarificationNeeds || [],
+    confidence: result.confidence,
+    score: result.confidence || (result.isRelevant ? 0.9 : 0.2),
+    embeddingScore: result.embeddingScore
   };
 }
 

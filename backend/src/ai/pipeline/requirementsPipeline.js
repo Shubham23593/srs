@@ -60,7 +60,7 @@ class RequirementsPipeline {
    * Persistence is done by the caller (interview/requirement controllers) via
    * persistRequirements() so there is one write path.
    */
-  async analyzeAnswer({ rawText, project, sectionConfig, existingRequirements = [] }) {
+  async analyzeAnswer({ rawText, project, sectionConfig, currentQuestion = '', conversationHistory = [], existingRequirements = [] }) {
     const rawSourceText = String(rawText || '').trim();
 
     // ---- PHASE 1: Input validation ----
@@ -82,8 +82,15 @@ class RequirementsPipeline {
     // ---- PHASE 3: Language detection ----
     const language = detectLanguage(rawSourceText);
 
-    // ---- PHASE 2: Context / project-scope guard ----
-    const relevance = await assessRelevance({ rawText: rawSourceText, project, sectionConfig });
+    // ---- PHASE 2: Context / project-scope guard (AI/LLM-based Semantic Validation) ----
+    const relevance = await assessRelevance({
+      rawText: rawSourceText,
+      project,
+      sectionConfig,
+      currentQuestion,
+      conversationHistory
+    });
+
     if (!relevance.relevant) {
       return {
         valid: false,

@@ -195,20 +195,30 @@ exports.sendMessage = async (req, res, next) => {
     const history = await InterviewMessage.find({ projectId }).sort({ timestamp: -1 }).limit(8);
     history.reverse();
 
+    // Identify the active question being answered
+    const lastAiMsg = [...history].reverse().find(m => m.sender === 'AI');
+    const currentQuestion = lastAiMsg?.content || interviewAgent.getSectionInitialQuestion(currentSectionConfig.id, project.projectName, detectedLang);
+
     // Run AI Interview Agent (with Strict Context Guard, Language & Quality Engine)
     const turnResult = await interviewAgent.processInterviewTurn({
       projectContext: project,
       conversationHistory: history,
       currentSectionConfig,
+      currentQuestion,
       existingRequirements: existingReqs,
       currentStats: { coverage: session.coverage },
       lastUserMessage: content || '',
       sectionRequirementsCount: currentSecState.requirementsExtracted || 0
     });
 
-    // 🔴 HARD BLOCK: If out-of-scope or casual greeting, STOP and STAY in the same section!
+    // 🔴 HARD BLOCK: If out-of-scope, casual greeting, or context mismatch, STOP and STAY in the same section!
     if (turnResult.isOutOfScope && !userExplicitlySkipped) {
       userMsg.isOutOfScope = true;
+      userMsg.analysisResult = {
+        status: 'CONTEXT_MISMATCH',
+        reason: turnResult.analysis?.relevance?.reason,
+        confidence: turnResult.analysis?.relevance?.confidence
+      };
       await userMsg.save();
 
       const aiMsg = await InterviewMessage.create({
@@ -233,6 +243,7 @@ exports.sendMessage = async (req, res, next) => {
           userMessage: userMsg,
           aiMessage: aiMsg,
           isOutOfScope: true,
+          contextMismatch: true,
           currentSection: currentSectionConfig.id,
           stageChanged: false,
           newRequirementsExtracted: []

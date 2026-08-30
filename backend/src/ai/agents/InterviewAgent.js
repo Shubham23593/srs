@@ -39,12 +39,13 @@ class InterviewAgent {
    */
   async processInterviewTurn({
     projectContext,
-    conversationHistory,
+    conversationHistory = [],
     currentSectionConfig,
     existingRequirements = [],
     currentStats = {},
     lastUserMessage = '',
-    sectionRequirementsCount = 0
+    sectionRequirementsCount = 0,
+    currentQuestion = ''
   }) {
     const detectedLanguage = this.detectLanguage(lastUserMessage);
 
@@ -53,16 +54,21 @@ class InterviewAgent {
       rawText: lastUserMessage,
       project: projectContext,
       sectionConfig: currentSectionConfig,
+      currentQuestion,
+      conversationHistory,
       existingRequirements
     });
 
-    // ---- Out of scope: redirect, create nothing ----
-    if (analysis.isOutOfScope) {
+    const isMismatch = analysis.isOutOfScope || analysis.relevance?.status === 'CONTEXT_MISMATCH' || analysis.relevance?.status === 'INVALID';
+
+    // ---- Out of scope / Context Mismatch: redirect, create nothing ----
+    if (isMismatch) {
       const redirection = this._redirectionMessage(
         analysis.message,
         projectContext,
         currentSectionConfig,
-        detectedLanguage
+        detectedLanguage,
+        currentQuestion
       );
       return {
         question: redirection,
@@ -71,24 +77,29 @@ class InterviewAgent {
         language: detectedLanguage,
         progress: currentStats.coverage || 15,
         isOutOfScope: true,
+        contextMismatch: true,
         isRelevant: false,
         sectionCompleted: false,
         interviewCompleted: false,
         extractedRequirements: [],
         analysis,
         missingInformation: [],
-        notes: `Out-of-scope input intercepted (${analysis.relevance?.reason}).`
+        notes: `Out-of-scope/Context-mismatch input intercepted (${analysis.relevance?.reason || analysis.relevance?.status}).`
       };
     }
+
+    // ---- Partially Relevant: ask for clarification, do NOT complete section ----
+    const isPartial = analysis.relevance?.status === 'PARTIALLY_RELEVANT' || analysis.relevance?.classification === 'PARTIALLY_RELEVANT';
 
     // ---- Relevant answer ----
     const newRequirementCount = analysis.requirements.length;
     const totalSectionRequirements = sectionRequirementsCount + newRequirementCount;
     const isDetailedAnswer = (lastUserMessage || '').length >= 40 || newRequirementCount >= 2;
 
-    const sectionCompleted =
+    const sectionCompleted = !isPartial && (
       (totalSectionRequirements >= 1 && isDetailedAnswer) ||
-      totalSectionRequirements >= 2;
+      totalSectionRequirements >= 2
+    );
 
     // Normalized requirements in the shape the controller expects for display
     const extractedRequirements = analysis.requirements.map((r) => ({
@@ -100,7 +111,7 @@ class InterviewAgent {
       category: r.category,
       topicCluster: r.topicCluster,
       priority: r.priority,
-      status: r.status,
+      status: isPartial ? 'NEEDS_CLARIFICATION' : r.status,
       ambiguityFlags: r.ambiguityFlags,
       clarificationQuestion: r.clarificationQuestion,
       qualityFlags: r.qualityFlags,
@@ -110,7 +121,9 @@ class InterviewAgent {
 
     // Build next question: prefer a clarification question if we have one
     let nextQuestion;
-    if (analysis.clarificationQuestion && !sectionCompleted) {
+    if (isPartial && analysis.relevance?.message) {
+      nextQuestion = analysis.relevance.message;
+    } else if (analysis.clarificationQuestion && !sectionCompleted) {
       nextQuestion = analysis.clarificationQuestion;
     } else if (!sectionCompleted) {
       nextQuestion = this.getSectionFollowUpQuestion(
@@ -130,6 +143,7 @@ class InterviewAgent {
       progress: currentStats.coverage || 15,
       isOutOfScope: false,
       isRelevant: true,
+      isPartiallyRelevant: isPartial,
       sectionCompleted,
       interviewCompleted: false,
       extractedRequirements,
@@ -141,21 +155,18 @@ class InterviewAgent {
     };
   }
 
-  _redirectionMessage(reasonMessage, projectContext, sectionConfig, language) {
+  _redirectionMessage(reasonMessage, projectContext, sectionConfig, language, currentQuestion = '') {
     const base = reasonMessage ||
-      `This input appears unrelated to ${projectContext.projectName}. Please provide information relevant to the current interview topic.`;
+      `This input appears unrelated to ${projectContext.projectName}. Please provide information relevant to the current interview question.`;
 
-    const question = this.getSectionInitialQuestion(
+    const activeQuestion = currentQuestion || this.getSectionInitialQuestion(
       sectionConfig.id, projectContext.projectName, language
     );
 
     if (language === 'Hinglish') {
-      return `${base}\n\nAbhi hum **${sectionConfig.name}** section par hain.\n${question}`;
+      return `${base}\n\nHum abhi **${sectionConfig.name}** stage par hain.\n👉 **Current Question:** ${activeQuestion}`;
     }
-    if (language === 'Hindi' || language === 'Marathi') {
-      return `${base}\n\nWe are currently on the **${sectionConfig.name}** section.\n${question}`;
-    }
-    return `${base}\n\nWe are currently on the **${sectionConfig.name}** section.\n${question}`;
+    return `${base}\n\nWe are currently on the **${sectionConfig.name}** stage.\n👉 **Current Question:** ${activeQuestion}`;
   }
 }
 
