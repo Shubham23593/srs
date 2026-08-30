@@ -47,25 +47,39 @@ router.get('/health', async (req, res) => {
   const { getAIProvider } = require('../ai');
   const embeddingService = require('../ai/EmbeddingService');
   const ai = getAIProvider();
-  let aiHealth = { provider: 'unknown', connected: false };
+  let aiHealth = { provider: 'ollama', status: 'OFFLINE', connected: false, configuredModel: '', modelRunning: false };
 
   try {
-    if (ai && typeof ai.getHealthDetails === 'function') {
+    if (ai && typeof ai.checkLiveHealth === 'function') {
+      aiHealth = await ai.checkLiveHealth();
+    } else if (ai && typeof ai.getHealthDetails === 'function') {
       aiHealth = ai.getHealthDetails();
     } else if (ai) {
       const connected = await ai.isHealthy();
-      aiHealth = { provider: ai.providerName || 'ollama', connected };
+      aiHealth = { provider: ai.providerName || 'ollama', status: connected ? 'ONLINE' : 'OFFLINE', connected };
     }
   } catch (e) {
-    aiHealth = { provider: 'ollama', connected: false, error: e.message };
+    aiHealth = { provider: 'ollama', status: 'OFFLINE', connected: false, error: e.message };
   }
+
+  const embInfo = embeddingService.getInfo();
+  const embeddingData = {
+    modelName: embInfo.modelId || 'Xenova/multilingual-e5-small',
+    status: embInfo.realModel ? 'LOADED' : 'FALLBACK',
+    dimensions: embInfo.dimensions || 384,
+    engine: embInfo.engine,
+    realModel: embInfo.realModel,
+    isRealModel: embInfo.realModel,
+    lastError: embInfo.lastError || null
+  };
 
   res.json({
     status: 'OK',
     service: 'IntelliSDLC AI Requirements Engineering Platform',
     timestamp: new Date().toISOString(),
     ai: aiHealth,
-    embedding: embeddingService.getInfo()
+    ollama: aiHealth,
+    embedding: embeddingData
   });
 });
 
@@ -73,25 +87,40 @@ router.get('/health/ai', async (req, res) => {
   const { getAIProvider } = require('../ai');
   const embeddingService = require('../ai/EmbeddingService');
   const ai = getAIProvider();
-  let aiHealth = { provider: 'unknown', connected: false };
+  let aiHealth = { provider: 'ollama', status: 'OFFLINE', connected: false, configuredModel: '', modelRunning: false };
 
   try {
-    if (ai && typeof ai.getHealthDetails === 'function') {
+    if (ai && typeof ai.checkLiveHealth === 'function') {
+      aiHealth = await ai.checkLiveHealth();
+    } else if (ai && typeof ai.getHealthDetails === 'function') {
       aiHealth = ai.getHealthDetails();
     } else if (ai) {
       const connected = await ai.isHealthy();
-      aiHealth = { provider: ai.providerName || 'ollama', connected };
+      aiHealth = { provider: ai.providerName || 'ollama', status: connected ? 'ONLINE' : 'OFFLINE', connected };
     }
   } catch (e) {
-    aiHealth = { provider: 'ollama', connected: false, error: e.message };
+    aiHealth = { provider: 'ollama', status: 'OFFLINE', connected: false, error: e.message };
   }
+
+  const embInfo = embeddingService.getInfo();
+  const embeddingData = {
+    modelName: embInfo.modelId || 'Xenova/multilingual-e5-small',
+    status: embInfo.realModel ? 'LOADED' : 'FALLBACK',
+    dimensions: embInfo.dimensions || 384,
+    engine: embInfo.engine,
+    realModel: embInfo.realModel,
+    isRealModel: embInfo.realModel,
+    lastError: embInfo.lastError || null
+  };
 
   res.json({
     success: true,
     data: {
+      ollama: aiHealth,
       ai: aiHealth,
-      embedding: embeddingService.getInfo()
-    }
+      embedding: embeddingData
+    },
+    timestamp: new Date().toISOString()
   });
 });
 

@@ -53,16 +53,89 @@ class OllamaProvider extends AIProvider {
   }
 
   /**
+   * Perform live health check against Ollama API (tags + running models via /api/ps)
+   */
+  async checkLiveHealth() {
+    const startTime = Date.now();
+    let online = false;
+    let installedModels = [];
+    let runningModels = [];
+    let errorMsg = null;
+
+    try {
+      const [tagsRes, psRes] = await Promise.allSettled([
+        axios.get(`${this.baseUrl}/api/tags`, { timeout: 2500 }),
+        axios.get(`${this.baseUrl}/api/ps`, { timeout: 2500 })
+      ]);
+
+      if (tagsRes.status === 'fulfilled' && tagsRes.value?.status === 200) {
+        online = true;
+        installedModels = (tagsRes.value.data?.models || []).map((m) => m.name || m.model);
+      }
+
+      if (psRes.status === 'fulfilled' && psRes.value?.status === 200) {
+        runningModels = (psRes.value.data?.models || []).map((m) => m.name || m.model);
+      }
+
+      this._isHealthyCached = online;
+      this._lastHealthCheck = Date.now();
+      if (!online && tagsRes.status === 'rejected') {
+        errorMsg = tagsRes.reason?.message || 'Connection refused';
+        this._lastError = errorMsg;
+      }
+    } catch (err) {
+      online = false;
+      this._isHealthyCached = false;
+      errorMsg = err.message;
+      this._lastError = errorMsg;
+    }
+
+    const latencyMs = Date.now() - startTime;
+    const modelLower = (this.model || '').toLowerCase();
+    const modelBase = modelLower.split(':')[0];
+    const modelInstalled = installedModels.some(
+      (m) => m.toLowerCase() === modelLower || m.toLowerCase().startsWith(modelBase)
+    );
+    const modelRunning = runningModels.some(
+      (m) => m.toLowerCase() === modelLower || m.toLowerCase().startsWith(modelBase)
+    );
+
+    return {
+      provider: 'ollama',
+      status: online ? 'ONLINE' : 'OFFLINE',
+      connected: online,
+      baseUrl: this.baseUrl,
+      configuredModel: this.model,
+      model: this.model,
+      modelInstalled,
+      modelRunning,
+      installedModels,
+      runningModels,
+      lastRequestStatus: this._lastRequestStatus || (online ? 'READY' : 'OFFLINE'),
+      lastResponseTimeMs: this._lastResponseTimeMs || latencyMs,
+      latencyMs,
+      lastError: errorMsg || this._lastError || null
+    };
+  }
+
+  /**
    * Get real-time health and telemetry details (Priority 11)
    */
   getHealthDetails() {
     return {
       provider: 'ollama',
-      model: this.model,
-      baseUrl: this.baseUrl,
+      status: this._isHealthyCached ? 'ONLINE' : 'OFFLINE',
       connected: this._isHealthyCached,
+      baseUrl: this.baseUrl,
+      configuredModel: this.model,
+      model: this.model,
+      modelInstalled: this._isHealthyCached,
+      modelRunning: false,
+      installedModels: [],
+      runningModels: [],
       lastRequestStatus: this._lastRequestStatus || 'IDLE',
       lastResponseTimeMs: this._lastResponseTimeMs || 0,
+      latencyMs: 0,
       lastError: this._lastError || null
     };
   }
