@@ -12,32 +12,15 @@
 
 const embeddingService = require('../EmbeddingService');
 const { detectVagueTerms } = require('./semanticEngine');
+const { assessProjectRelevance } = require('./contextRelevanceEngine');
 
 // Duplicate detection thresholds.
-//
-// The neural multilingual-e5 model is used for ALL semantic operations, but
-// after formal normalization every statement starts with the formulaic
-// "The system shall allow users to ...", which crowds even unrelated features
-// to ~0.91-0.94 cosine. Duplicate flagging is therefore deliberately
-// CONSERVATIVE and combines three independent signals:
-//   1. Exact identical normalized statement (cosine ~1.0) — definitive.
-//   2. Near-identical neural cosine >= 0.96 — paraphrases of the SAME
-//      normalized requirement (e.g. "record expenses" vs "create and record
-//      expense entries" = 0.965; distinct features like delete-vs-create = 0.937
-//      and login-vs-manage-accounts = 0.941 stay below).
-//   3. Strong content-word lexical overlap >= 0.50 (boilerplate stripped,
-//      lightly stemmed) — catches word-level duplicates the model crowds.
-// Cross-lingual duplicates are normalized to the identical English statement
-// by the semantic engine and caught by path (1) before any cosine comparison.
 const DUPLICATE_NEAR_IDENTICAL = 0.96;
 const DUPLICATE_LEXICAL = 0.50;
-// Legacy aliases referenced by tooling/tests.
 const DUPLICATE_THRESHOLD = DUPLICATE_NEAR_IDENTICAL;
 const DUPLICATE_HARD_THRESHOLD = 0.985;
 const CONFLICT_SIMILARITY_FLOOR = 0.45;
 
-// Formulaic tokens shared by every formally-normalized statement ("The system
-// shall allow users to ..."). They must not count as lexical overlap.
 const FORMULA_TOKENS = new Set([
   'system', 'shall', 'should', 'must', 'allow', 'allows', 'able', 'enable',
   'enables', 'provide', 'provides', 'support', 'supports', 'ensure', 'user',
@@ -55,10 +38,6 @@ function tokenize(text) {
     .filter((w) => w.length > 2);
 }
 
-/**
- * Content-bearing tokens only (formal SRS boilerplate removed), with light
- * plural stemming so "record"/"records" and "expense"/"expenses" match.
- */
 function contentTokens(text) {
   return tokenize(text)
     .filter((w) => !FORMULA_TOKENS.has(w))
@@ -79,7 +58,7 @@ function jaccard(aTokens, bTokens) {
 }
 
 /**
- * Score the 8 ISO/IEC/IEEE 29148 quality characteristics for a requirement.
+ * Score the 10 ISO/IEC/IEEE 29148 quality characteristics for a requirement.
  */
 function scoreQuality(req) {
   const desc = req.normalizedDescription || req.description || '';
@@ -90,11 +69,24 @@ function scoreQuality(req) {
     atomicity: req.isAtomic === false ? 40 : 90,
     clarity: vague.length ? 45 : 88,
     completeness: /shall/.test(desc) && tokens.length >= 4 ? 85 : 55,
-    consistency: 85, // checked globally for conflicts; baseline
+    consistency: (req.conflictReferences && req.conflictReferences.length) ? 40 : 85,
     testability: (vague.length || req.status === 'NEEDS_CLARIFICATION') ? 40 : 85,
     unambiguity: vague.length ? 40 : 88,
     feasibility: 80,
     traceability: req.requirementId ? 90 : 50
+  };
+
+  const validationDimensions = {
+    specific: scores.clarity >= 60 && !vague.length,
+    complete: scores.completeness >= 60,
+    unambiguous: scores.unambiguity >= 60 && !vague.length,
+    consistent: scores.consistency >= 60,
+    feasible: scores.feasibility >= 60,
+    verifiable: scores.testability >= 60,
+    necessary: true,
+    traceable: Boolean(req.requirementId),
+    measurable: req.type === 'NON_FUNCTIONAL' ? !vague.length : true,
+    projectContextRelevance: req.contextRelevance?.status !== 'CONTEXT_MISMATCH'
   };
 
   const flags = [];
@@ -104,15 +96,15 @@ function scoreQuality(req) {
   if (tokens.length > 60) flags.push('LARGE_UNSTRUCTURED_PARAGRAPH');
   if (!/the system shall|shall allow|shall (provide|support|enforce|maintain|generate|protect|operate|depend|be|respond|scale)/i.test(desc)) flags.push('NON_FORMAL_GRAMMAR');
 
-  return { scores, flags, vagueTerms: vague };
+  return { scores, flags, vagueTerms: vague, validationDimensions };
 }
 
 /**
  * Analyze a full set of requirements for a project: attaches quality scores,
- * duplicate candidates and conflict references. Returns issues list + annotated
+ * context relevance, duplicate candidates and conflict references. Returns issues list + annotated
  * requirements.
  */
-async function analyzeRequirementSet(requirements) {
+async function analyzeRequirementSet(requirements, project = null) {
   const issues = [];
 
   // Ensure embeddings exist — generate ONCE for every requirement that lacks
@@ -124,10 +116,25 @@ async function analyzeRequirementSet(requirements) {
     missing.forEach((r, i) => { r.embedding = vecs[i]; });
   }
 
-  // ---- 1. Quality analysis per requirement ----
+  // ---- 1. Context Relevance & Quality analysis per requirement ----
   for (const req of requirements) {
-    const { scores, flags, vagueTerms } = scoreQuality(req);
+    if (project) {
+      const rel = await assessProjectRelevance(req, project);
+      req.contextRelevance = rel;
+      if (rel.status === 'CONTEXT_MISMATCH') {
+        issues.push({
+          issueType: 'OUT_OF_SCOPE',
+          severity: 'HIGH',
+          description: `Context Mismatch: Requirement ${req.requirementId} ("${req.title}") is not aligned with ${project.projectName || 'the project'}. ${rel.reason}`,
+          relatedRequirementIds: [req.requirementId],
+          suggestedResolution: 'Verify if requirement belongs to project scope or remove it.'
+        });
+      }
+    }
+
+    const { scores, flags, vagueTerms, validationDimensions } = scoreQuality(req);
     req.qualityScores = scores;
+    req.validationDimensions = validationDimensions;
     req.qualityFlags = Array.from(new Set([...(req.qualityFlags || []), ...flags]));
     req.ambiguityFlags = Array.from(new Set([...(req.ambiguityFlags || []), ...(vagueTerms.length ? vagueTerms.map((v) => `VAGUE_TERM:${v}`) : [])]));
     req.completenessScore = Math.round(
@@ -177,13 +184,21 @@ async function analyzeRequirementSet(requirements) {
         a.duplicateScores = { ...(a.duplicateScores || {}), [b.requirementId]: score };
         b.duplicateScores = { ...(b.duplicateScores || {}), [a.requirementId]: score };
 
+        // Generate intelligent merge suggestion
+        const mergedTitle = a.title.length <= b.title.length ? a.title : b.title;
+        const longerDesc = (a.normalizedDescription || '').length >= (b.normalizedDescription || '').length
+          ? a.normalizedDescription
+          : b.normalizedDescription;
+
         issues.push({
           issueType: 'DUPLICATE',
           severity: identical || cos >= DUPLICATE_HARD_THRESHOLD ? 'HIGH' : 'MEDIUM',
           description: `Potential semantic duplicate: ${a.requirementId} ("${a.title}") and ${b.requirementId} ("${b.title}") share ${(cos * 100).toFixed(1)}% neural similarity${identical ? ' and identical normalized text' : ` and ${(lex * 100).toFixed(0)}% content-word overlap`}. Preserved for review — not auto-deleted.`,
           relatedRequirementIds: [a.requirementId, b.requirementId],
           similarityScore: score,
-          suggestedResolution: 'Merge into one requirement or explicitly differentiate the capabilities.'
+          explanation: `Both requirements specify ${a.title.toLowerCase()} capabilities with ${Math.round(score * 100)}% semantic overlap.`,
+          suggestedMerge: longerDesc || `The system shall allow authorized users to manage ${mergedTitle.toLowerCase()}.`,
+          suggestedResolution: 'Merge into one comprehensive requirement or explicitly differentiate the capabilities.'
         });
       }
     }

@@ -101,11 +101,13 @@ class RequirementsPipeline {
     }
 
     // ---- PHASES 4-8: Semantic understanding -> atomic decomposition ->
-    //                 classification -> normalization (engine first, LLM fallback)
-    const engineResult = extractAtomicRequirements(rawSourceText, sectionConfig);
-    let extracted = engineResult;
-    let engineUsed = true;
-    if (!extracted || extracted.requirements.length === 0) {
+    //                 classification -> normalization
+    let extracted = null;
+    let engineUsed = false;
+
+    // For custom domain projects, try LLM extraction first if AI is healthy
+    const ai = getAIProvider();
+    if (ai && (await ai.isHealthy())) {
       const llmResult = await this._llmExtract(rawSourceText, project, sectionConfig);
       if (llmResult && llmResult.requirements.length > 0) {
         extracted = llmResult;
@@ -113,11 +115,20 @@ class RequirementsPipeline {
       }
     }
 
+    if (!extracted || extracted.requirements.length === 0) {
+      const engineResult = extractAtomicRequirements(rawSourceText, sectionConfig);
+      extracted = engineResult;
+      engineUsed = true;
+    }
+
     // ---- PHASE 7: Formal normalization (never let raw text through) ----
-    const requirements = extracted.requirements.map((r) => {
+    const { assessProjectRelevance } = require('./contextRelevanceEngine');
+    const requirements = await Promise.all((extracted.requirements || []).map(async (r) => {
       const normalizedDescription = formalNormalize(r.normalizedDescription || r.description || '');
-      return {
+      const item = {
         title: r.title,
+        source: 'AI_INTERVIEW',
+        originalText: rawSourceText,
         rawSourceText,
         sourceLanguage: language.language,
         sourceInterviewStage: sectionConfig?.name || '',
@@ -139,19 +150,29 @@ class RequirementsPipeline {
         confidence: r.confidence || (engineUsed ? 0.78 : 0.9),
         validationStatus: r.status === 'NEEDS_CLARIFICATION' ? 'NEEDS_CLARIFICATION' : 'VALID'
       };
-    }).filter((r) => r.normalizedDescription && r.title);
+
+      if (project) {
+        const relevanceResult = await assessProjectRelevance(item, project);
+        item.contextRelevance = relevanceResult;
+      }
+
+      return item;
+    }));
+
+    const validReqs = requirements.filter((r) => r.normalizedDescription && r.title);
 
     // ---- PHASE 9: per-requirement quality (ambiguity, testability, grammar)
-    // Quality scoring runs on the new requirements only.
     const { scoreQuality } = require('./qualityEngine');
-    for (const req of requirements) {
-      const { scores, flags, vagueTerms } = scoreQuality({
+    for (const req of validReqs) {
+      const { scores, flags, vagueTerms, validationDimensions } = scoreQuality({
         normalizedDescription: req.normalizedDescription,
         isAtomic: req.isAtomic,
         status: req.status,
-        requirementId: 'NEW'
+        requirementId: 'NEW',
+        contextRelevance: req.contextRelevance
       });
       req.qualityScores = scores;
+      req.validationDimensions = validationDimensions;
       req.qualityFlags = Array.from(new Set([...(req.qualityFlags || []), ...flags]));
       if (vagueTerms.length) {
         req.ambiguityFlags = Array.from(new Set([...(req.ambiguityFlags || []), ...vagueTerms.map((v) => `VAGUE_TERM:${v}`)]));
@@ -159,24 +180,21 @@ class RequirementsPipeline {
     }
 
     // Generate embeddings ONCE for each new requirement (batch) and reuse them
-    // for duplicate detection, conflict detection and later persistence.
-    if (requirements.length) {
+    if (validReqs.length) {
       const vecs = await embeddingService.generateEmbeddings(
-        requirements.map((r) => r.normalizedDescription)
+        validReqs.map((r) => r.normalizedDescription)
       );
-      requirements.forEach((r, i) => { r.embedding = vecs[i]; });
+      validReqs.forEach((r, i) => { r.embedding = vecs[i]; });
     }
 
     // ---- PHASES 11-12: duplicate & conflict detection -------------------
-    // Only NEW-vs-CATALOG comparisons count (new requirements extracted from
-    // the SAME answer must not be flagged as duplicates of one another).
     const catalog = existingRequirements.map((r) => {
       const o = r.toObject ? r.toObject() : r;
       return { ...o, normalizedDescription: o.normalizedDescription || o.description };
     });
-    const newSet = requirements.map((r) => ({ ...r, requirementId: 'NEW', rawSourceText }));
+    const newSet = validReqs.map((r) => ({ ...r, requirementId: 'NEW', rawSourceText }));
     const workingSet = [...catalog, ...newSet];
-    const { issues } = await analyzeRequirementSet(workingSet);
+    const { issues } = await analyzeRequirementSet(workingSet, project);
 
     // Map catalog-duplicate/conflict results back onto the NEW requirements.
     for (let i = 0; i < requirements.length; i++) {
@@ -372,17 +390,21 @@ class RequirementsPipeline {
    * conflict detection. Persists results to requirement docs and issues.
    */
   async analyzeCatalog(projectId) {
-    const requirements = await Requirement.find({ projectId });
+    const Project = require('../../models/Project');
+    const project = await Project.findById(projectId);
+    const requirements = await Requirement.find({ projectId, archived: { $ne: true } });
     for (const r of requirements) {
       r.normalizedDescription = r.normalizedDescription || r.description;
     }
 
-    // Quality / duplicates / conflicts
-    const { issues } = await analyzeRequirementSet(requirements);
+    // Quality / duplicates / conflicts with project context relevance
+    const { issues } = await analyzeRequirementSet(requirements, project);
 
     // Persist requirement-level analysis
     for (const r of requirements) {
       const update = {
+        contextRelevance: r.contextRelevance,
+        validationDimensions: r.validationDimensions,
         qualityScores: r.qualityScores,
         qualityFlags: r.qualityFlags,
         ambiguityFlags: r.ambiguityFlags,
@@ -407,30 +429,32 @@ class RequirementsPipeline {
    * PHASES 15-19: Generate the SRS from the validated catalog.
    * cluster -> map sections -> assemble section-wise -> language guard -> audit
    */
-  async generateSRS(project) {
+  async generateSRS(project, options = {}) {
     const projectId = project._id;
 
-    // Only catalog requirements feed the SRS — never raw text.
-    let requirements = await Requirement.find({ projectId });
-    for (const r of requirements) {
+    // Load only catalog requirements for this specific project
+    const allCatalogReqs = await Requirement.find({ projectId });
+    const includedRequirements = allCatalogReqs.filter((r) => {
+      if (!options.includeArchived && r.archived) return false;
+      if (!options.includeRejected && r.status === 'REJECTED') return false;
+      return true;
+    });
+
+    for (const r of includedRequirements) {
       r.normalizedDescription = r.normalizedDescription || r.description;
     }
 
     // Run catalog analysis first (clusters/mapping need up-to-date data)
     const { issues } = await this.analyzeCatalog(projectId);
-    requirements = await Requirement.find({ projectId });
-    for (const r of requirements) {
-      r.normalizedDescription = r.normalizedDescription || r.description;
-    }
 
     // Phase 15: semantic topic clustering
-    const { clusters } = await clusterRequirements(requirements);
+    const { clusters } = await clusterRequirements(includedRequirements);
 
     // Phase 16: deterministic section mapping
-    await mapRequirementsToSections(requirements);
+    await mapRequirementsToSections(includedRequirements);
 
     // Persist cluster + section mapping
-    for (const r of requirements) {
+    for (const r of includedRequirements) {
       await Requirement.findByIdAndUpdate(r._id, {
         topicCluster: r.topicCluster,
         targetSrsSection: r.targetSrsSection,
@@ -440,7 +464,25 @@ class RequirementsPipeline {
     }
 
     // Phase 17: section-wise assembly (normalized requirements only)
-    const srsData = assembleSRS(project, requirements, issues, clusters);
+    const srsData = assembleSRS(project, includedRequirements, issues, clusters);
+
+    // Generation summary (Priority 12)
+    const generationSummary = {
+      project: project.projectName,
+      totalRequirementsInCatalog: allCatalogReqs.length,
+      requirementsIncluded: includedRequirements.length,
+      breakdown: {
+        functional: includedRequirements.filter(r => r.type === 'FUNCTIONAL').length,
+        nonFunctional: includedRequirements.filter(r => r.type === 'NON_FUNCTIONAL').length,
+        constraints: includedRequirements.filter(r => r.type === 'CONSTRAINT').length,
+        dependencies: includedRequirements.filter(r => ['DEPENDENCY', 'INTERFACE', 'ASSUMPTION'].includes(r.type)).length
+      },
+      requirementsExcluded: {
+        archived: allCatalogReqs.filter(r => r.archived).length,
+        rejected: allCatalogReqs.filter(r => r.status === 'REJECTED').length
+      }
+    };
+    srsData.generationSummary = generationSummary;
 
     // Phase 18: final language guard
     const languageAudit = auditSrsLanguage(srsData);
@@ -450,8 +492,8 @@ class RequirementsPipeline {
     }
 
     // Phase 19: quality audit
-    const rawSourceTexts = requirements.map((r) => r.rawSourceText).filter(Boolean);
-    const audit = auditSRS({ srs: srsData, requirements, rawSourceTexts });
+    const rawSourceTexts = includedRequirements.map((r) => r.rawSourceText).filter(Boolean);
+    const audit = auditSRS({ srs: srsData, requirements: includedRequirements, rawSourceTexts });
     srsData.auditReport = audit;
 
     // Persist SRS (upsert)
@@ -464,7 +506,7 @@ class RequirementsPipeline {
       srs = await SRS.create({ ...srsData, projectId, currentVersion: '1.0', status: 'DRAFT' });
     }
 
-    return { srs, audit, clusters, issues, languageAudit };
+    return { srs, audit, clusters, issues, languageAudit, generationSummary };
   }
 }
 

@@ -13,12 +13,20 @@ const { registerModel, ObjectId } = require('../db/dataStore');
 const STATUS_ENUM = ['PROPOSED', 'NEEDS_CLARIFICATION', 'NEEDS_REVIEW', 'APPROVED', 'ACTIVE', 'DEPRECATED', 'REJECTED', 'MODIFIED', 'LOCKED'];
 const TYPE_ENUM = ['FUNCTIONAL', 'NON_FUNCTIONAL', 'CONSTRAINT', 'ASSUMPTION', 'DEPENDENCY', 'INTERFACE', 'STAKEHOLDER', 'BUSINESS_RULE'];
 
+const SOURCE_ENUM = ['MANUAL', 'AI_INTERVIEW', 'AI_ATOMIC_EXTRACTION', 'IMPORTED', 'AI_MERGED', 'AI_GENERATED'];
+
 const definition = {
   fields: {
     requirementId: { type: String, required: true, index: true },
     projectId: { type: ObjectId, ref: 'Project', required: true, index: true },
 
     title: { type: String, required: true, trim: true },
+
+    // Requirement Provenance & Source Tracking (Priority 5)
+    source: { type: String, enum: SOURCE_ENUM, default: 'AI_INTERVIEW' },
+    originalText: { type: String, default: '' },
+    mergedFrom: { type: [String], default: [] },
+    archived: { type: Boolean, default: false },
 
     // Raw, unstructured source evidence (interview answer). NOT shown as the requirement.
     rawSourceText: { type: String, default: '' },
@@ -57,6 +65,33 @@ const definition = {
     conflictReferences: { type: [String], default: [] },
     validationIssues: { type: [String], default: [] },
     suggestedImprovement: { type: String, default: '' },
+
+    // Project Context Relevance (Priority 4)
+    contextRelevance: {
+      type: 'Mixed',
+      default: {
+        status: 'RELEVANT',
+        reason: 'Requirement is consistent with project scope and domain.',
+        score: 1.0
+      }
+    },
+
+    // 10-Dimension ISO 29148 Validation Breakdown (Priority 9)
+    validationDimensions: {
+      type: 'Mixed',
+      default: {
+        specific: true,
+        complete: true,
+        unambiguous: true,
+        consistent: true,
+        feasible: true,
+        verifiable: true,
+        necessary: true,
+        traceable: true,
+        measurable: true,
+        projectContextRelevance: true
+      }
+    },
 
     qualityScores: {
       type: 'Mixed',

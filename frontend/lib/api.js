@@ -61,7 +61,11 @@ export const requirementAPI = {
   create: (projectId, data) => api.post(`/projects/${projectId}/requirements`, data),
   update: (id, data) => api.put(`/requirements/${id}`, data),
   delete: (id) => api.delete(`/requirements/${id}`),
-  extract: (projectId, text) => api.post(`/projects/${projectId}/requirements/extract`, { text })
+  archive: (id) => api.post(`/requirements/${id}/archive`),
+  revalidate: (id) => api.post(`/requirements/${id}/revalidate`),
+  extract: (projectId, text) => api.post(`/projects/${projectId}/requirements/extract`, { text, previewOnly: false }),
+  extractPreview: (projectId, text) => api.post(`/projects/${projectId}/requirements/extract`, { text, previewOnly: true }),
+  batchCreate: (projectId, requirements) => api.post(`/projects/${projectId}/requirements/batch`, { requirements })
 };
 
 export const analysisAPI = {
@@ -69,7 +73,8 @@ export const analysisAPI = {
   classify: (projectId, data) => api.post(`/projects/${projectId}/requirements/classify`, data),
   validate: (projectId) => api.post(`/projects/${projectId}/requirements/validate`),
   getIssues: (projectId) => api.get(`/projects/${projectId}/requirements/issues`),
-  resolveIssue: (issueId, data) => api.put(`/issues/${issueId}/resolve`, data)
+  resolveIssue: (issueId, data) => api.put(`/issues/${issueId}/resolve`, data),
+  getAlternativeSuggestion: (reqId) => api.post(`/requirements/${reqId}/alternative-suggestion`)
 };
 
 export const srsAPI = {
@@ -85,6 +90,11 @@ export const srsAPI = {
   getTraceability: (projectId) => api.get(`/projects/${projectId}/traceability`),
   getExportPDFUrl: (projectId) => `${API_BASE}/projects/${projectId}/srs/export/pdf`,
   getExportDOCXUrl: (projectId) => `${API_BASE}/projects/${projectId}/srs/export/docx`
+};
+
+export const systemAPI = {
+  getHealth: () => api.get('/health'),
+  getAIHealth: () => api.get('/health/ai')
 };
 
 export default api;

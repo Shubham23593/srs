@@ -111,18 +111,18 @@ const CAPABILITIES = [
   },
   {
     id: 'REPORT_VIEW',
-    title: 'Monthly Report Viewing',
+    title: 'Report Viewing',
     topic: 'Reporting',
     type: 'FUNCTIONAL', section: '3',
     keywords: ['report', 'reports', 'monthly report', 'view report', 'generate report', 'see report', 'report dekhna', 'report dekh',
       'ahwal', 'report bagh', 'रिपोर्ट', 'अहवाल', 'मासिक रिपोर्ट', 'मासिक अहवाल', 'रिपोर्ट देख', 'अहवाल पहा'],
     statement: 'The system shall allow users to view monthly expense reports.',
     statementFor: (ctx) => {
-      if (ctx.has('weekly')) return 'The system shall allow users to view weekly expense reports.';
-      if (ctx.has('daily')) return 'The system shall allow users to view daily expense reports.';
-      if (ctx.has('year') || ctx.has('annual') || ctx.has('varshik')) return 'The system shall allow users to view annual expense reports.';
+      if (ctx.has('weekly')) return 'The system shall allow users to view weekly reports.';
+      if (ctx.has('daily')) return 'The system shall allow users to view daily reports.';
+      if (ctx.has('year') || ctx.has('annual') || ctx.has('varshik')) return 'The system shall allow users to view annual reports.';
       if (ctx.has('monthly') || ctx.has('mahine') || ctx.has('masik') || ctx.has('month')) return 'The system shall allow users to view monthly expense reports.';
-      return 'The system shall allow users to view and generate expense reports.';
+      return 'The system shall allow users to view and generate reports.';
     }
   },
   {
@@ -132,7 +132,7 @@ const CAPABILITIES = [
     type: 'FUNCTIONAL', section: '3',
     keywords: ['generate report', 'create report', 'report banane', 'report banao', 'report generate', 'auto report',
       'रिपोर्ट बना', 'अहवाल तयार', 'रिपोर्ट तैयार'],
-    statement: 'The system shall generate expense reports on request.'
+    statement: 'The system shall generate reports on request.'
   },
   {
     id: 'BUDGET_MANAGE',
@@ -141,15 +141,15 @@ const CAPABILITIES = [
     type: 'FUNCTIONAL', section: '3',
     keywords: ['budget', 'set budget', 'budget limit', 'spending limit', 'andajpatrak', 'budget bagh', 'budget manage',
       'बजट', 'अंदाजपत्रक', 'बजेट सेट'],
-    statement: 'The system shall allow users to define and track budgets against expense categories.'
+    statement: 'The system shall allow users to define and track budgets against categories.'
   },
   {
     id: 'CATEGORY_MANAGE',
-    title: 'Expense Categorization',
-    topic: 'Expense Management',
+    title: 'Item Categorization',
+    topic: 'Core Management',
     type: 'FUNCTIONAL', section: '3',
-    keywords: ['categorize', 'categorise', 'classify expense', 'tag expense', 'categories', 'by category', 'expense category', 'varg', 'प्रकार', 'वर्ग', 'श्रेणी'],
-    statement: 'The system shall allow expenses to be organized into categories.'
+    keywords: ['categorize', 'categorise', 'classify', 'tag records', 'categories', 'by category', 'varg', 'प्रकार', 'वर्ग', 'श्रेणी'],
+    statement: 'The system shall allow records to be organized into categories.'
   },
   // ---- Authentication / users ----
   {

@@ -9,8 +9,9 @@
     "seed": "node src/scripts/seedDemo.js",
     "fetch:model": "node scripts/fetchEmbeddingModel.js",
     "test:e2e": "node src/scripts/testPipelineE2E.js",
+    "test:priorities": "node src/scripts/testMultiProject14Priorities.js",
     "test:embeddings": "node src/scripts/testMultilingualEmbeddings.js",
-    "test": "node src/scripts/testMultilingualEmbeddings.js && node src/scripts/testPipelineE2E.js"
+    "test": "node src/scripts/testMultilingualEmbeddings.js && node src/scripts/testMultiProject14Priorities.js && node src/scripts/testPipelineE2E.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.0.2",

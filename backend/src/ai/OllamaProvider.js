@@ -45,6 +45,7 @@ class OllamaProvider extends AIProvider {
       this._isHealthyCached = response.status === 200;
     } catch (error) {
       this._isHealthyCached = false;
+      this._lastError = error.message;
     }
 
     this._lastHealthCheck = now;
@@ -52,10 +53,26 @@ class OllamaProvider extends AIProvider {
   }
 
   /**
+   * Get real-time health and telemetry details (Priority 11)
+   */
+  getHealthDetails() {
+    return {
+      provider: 'ollama',
+      model: this.model,
+      baseUrl: this.baseUrl,
+      connected: this._isHealthyCached,
+      lastRequestStatus: this._lastRequestStatus || 'IDLE',
+      lastResponseTimeMs: this._lastResponseTimeMs || 0,
+      lastError: this._lastError || null
+    };
+  }
+
+  /**
    * Generate standard text completion
    */
   async generateCompletion(prompt, options = {}) {
     const isLive = await this.isHealthy();
+    const startTime = Date.now();
 
     if (isLive) {
       try {
@@ -76,18 +93,26 @@ class OllamaProvider extends AIProvider {
             }
           },
           {
-            timeout: 30000
+            timeout: options.timeout || 6000
           }
         );
 
+        this._lastRequestStatus = 'SUCCESS';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = null;
         return response.data?.response || '';
       } catch (error) {
+        this._lastRequestStatus = 'FAILED';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = error.message;
         console.warn(
           `[OllamaProvider] Live completion failed: ${error.message}`
         );
       }
     }
 
+    this._lastRequestStatus = 'FALLBACK';
+    this._lastResponseTimeMs = Date.now() - startTime;
     return this._generateDeterministicFallback(prompt);
   }
 
@@ -96,6 +121,7 @@ class OllamaProvider extends AIProvider {
    */
   async generateStructuredJSON(prompt, zodSchema = null) {
     const isLive = await this.isHealthy();
+    const startTime = Date.now();
     let rawText = '';
 
     if (isLive) {
@@ -126,12 +152,18 @@ IMPORTANT RULES:
             }
           },
           {
-            timeout: 30000
+            timeout: 6000
           }
         );
 
         rawText = response.data?.response || '';
+        this._lastRequestStatus = 'SUCCESS';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = null;
       } catch (error) {
+        this._lastRequestStatus = 'FAILED';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = error.message;
         console.warn(
           `[OllamaProvider] Live JSON generation failed: ${error.message}`
         );
@@ -140,6 +172,10 @@ IMPORTANT RULES:
 
     // Fallback to deterministic reasoning if model didn't return text
     if (!rawText) {
+      if (this._lastRequestStatus !== 'FAILED') {
+        this._lastRequestStatus = 'FALLBACK';
+        this._lastResponseTimeMs = Date.now() - startTime;
+      }
       rawText = this._generateDeterministicFallback(prompt);
     }
 

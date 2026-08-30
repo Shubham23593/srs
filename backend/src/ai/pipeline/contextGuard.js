@@ -29,15 +29,14 @@ function buildDomainKeywords(project, sectionConfig) {
   (project?.objectives || []).forEach(pushText);
   if (sectionConfig) pushText(sectionConfig.name + ' ' + sectionConfig.description);
 
-  // Always-on RE domain vocabulary (requirements-elicitation context)
+  // Always-on RE generic vocabulary (general requirements-elicitation context)
   [
     'user', 'users', 'admin', 'system', 'feature', 'require', 'requirement', 'data',
-    'account', 'login', 'report', 'expense', 'budget', 'manage', 'view', 'add',
-    'create', 'delete', 'edit', 'access', 'permission', 'role', 'performance',
-    'security', 'secure', 'fast', 'interface', 'api', 'database', 'integrate',
-    'notify', 'notification', 'export', 'search', 'dashboard', 'password',
-    'kharch', 'kharcha', 'kharch', 'expense', 'report', 'paisa', 'hisab',
-    'व्यय', 'खर्च', 'रिपोर्ट', 'अहवाल', 'उपयोगकर्ता', 'सिस्टम', 'खाते'
+    'account', 'login', 'manage', 'view', 'add', 'create', 'delete', 'edit',
+    'access', 'permission', 'role', 'performance', 'security', 'secure', 'fast',
+    'interface', 'api', 'database', 'integrate', 'notify', 'notification', 'export',
+    'search', 'dashboard', 'password', 'record', 'information', 'schedule',
+    'रिपोर्ट', 'अहवाल', 'उपयोगकर्ता', 'सिस्टम', 'खाते', 'नोंदणी', 'तपशील'
   ].forEach((w) => words.add(w));
 
   return words;
