@@ -85,26 +85,48 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-semibold">Ollama Service Status:</span>
+                  <span className="text-slate-400 font-semibold">Ollama Service:</span>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isOnline ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
                     {isOnline ? 'ONLINE' : 'OFFLINE'}
                   </span>
                 </div>
-                <span className="font-mono text-slate-200 block text-[11px]">{ollama.baseUrl || 'http://127.0.0.1:11434'}</span>
+                <span className="font-mono text-slate-200 block text-[11px] truncate">{ollama.baseUrl || 'http://127.0.0.1:11434'}</span>
               </div>
 
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-semibold">Configured LLM Model:</span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isRunning ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : isOnline ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
-                    {isRunning ? 'RUNNING' : isOnline ? 'READY' : 'OFFLINE'}
+                  <span className="text-slate-400 font-semibold">Configured Model:</span>
+                  <span className="text-slate-500 font-mono text-[10px]">active</span>
+                </div>
+                <span className="font-mono text-emerald-400 font-bold block text-[11px] truncate" title={ollama.configuredModel || ollama.model}>
+                  {ollama.configuredModel || ollama.model || 'Auto-detected'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-semibold">Installed Locally:</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${ollama.modelInstalled ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : isOnline ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                    {ollama.modelInstalled ? 'YES' : isOnline ? 'NO' : 'UNKNOWN'}
                   </span>
                 </div>
-                <span className="font-mono text-emerald-400 font-bold block text-[11px] truncate">
-                  {ollama.configuredModel || ollama.model || 'Dynamic (Auto-detected)'}
+                <span className="text-slate-400 text-[11px] block truncate">
+                  {ollama.modelInstalled ? 'Present in local Ollama library' : 'Not found in local tags'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-semibold">Currently Running (/api/ps):</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isRunning ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                    {isRunning ? 'YES (IN RAM)' : 'NO (STANDBY)'}
+                  </span>
+                </div>
+                <span className="text-slate-400 text-[11px] block truncate">
+                  {isRunning ? 'Actively loaded in memory' : 'Standby (loads on request)'}
                 </span>
               </div>
 
@@ -122,7 +144,7 @@ export default function SettingsPage() {
 
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-semibold">Vector Dimensions & Engine:</span>
+                  <span className="text-slate-400 font-semibold">Vector Dimensions:</span>
                   <span className="font-mono text-slate-300 text-[10px] font-bold">
                     {embedding.dimensions || 384}-dim
                   </span>

@@ -130,7 +130,7 @@ export default function AIStatusIndicator() {
       bg: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
       dot: 'bg-amber-400',
       text: `Ollama: ${configuredModelName}`,
-      runningText: data.ollama.modelInstalled ? 'Installed & Ready' : 'Model Standby',
+      runningText: data.ollama.modelInstalled ? 'Installed (Standby)' : 'Not Installed',
       icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
     };
   };
@@ -177,9 +177,11 @@ export default function AIStatusIndicator() {
         <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${ollamaBadge.bg}`}>
           <div className={`w-1.5 h-1.5 rounded-full ${ollamaBadge.dot}`} />
           <span className="font-semibold truncate max-w-[130px]">{ollamaBadge.text}</span>
-          {ollamaRunning && (
-            <span className="text-[9px] bg-emerald-500/20 text-emerald-200 px-1 rounded font-mono">live</span>
-          )}
+          {ollamaRunning ? (
+            <span className="text-[9px] bg-emerald-500/20 text-emerald-200 px-1 rounded font-mono">running</span>
+          ) : ollamaOnline ? (
+            <span className="text-[9px] bg-amber-500/20 text-amber-200 px-1 rounded font-mono">standby</span>
+          ) : null}
         </div>
 
         {/* Embedding Pill */}
@@ -194,12 +196,12 @@ export default function AIStatusIndicator() {
 
       {/* Real-time Diagnostics Popover */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 rounded-xl bg-slate-900 border border-slate-700/80 shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-xl">
+        <div className="absolute right-0 mt-2 w-[420px] rounded-xl bg-slate-900 border border-slate-700/80 shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-xl">
           {/* Popover Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-semibold text-white">Real-Time AI Status</h3>
+              <h3 className="text-sm font-semibold text-white">Real-Time AI Diagnostics</h3>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -217,11 +219,11 @@ export default function AIStatusIndicator() {
 
           <div className="space-y-3 mt-3">
             {/* 1. Ollama Status Card */}
-            <div className="p-3 rounded-lg bg-slate-800/60 border border-slate-700/60 space-y-2">
+            <div className="p-3.5 rounded-lg bg-slate-800/60 border border-slate-700/60 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Server className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-semibold text-slate-200">Ollama LLM Provider</span>
+                  <span className="text-xs font-semibold text-slate-200">Ollama LLM Engine</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {ollamaBadge.icon}
@@ -237,25 +239,48 @@ export default function AIStatusIndicator() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="text-slate-400 block text-[10px]">Configured Model</span>
-                  <span className="font-mono font-medium text-white truncate block" title={configuredModelName}>
+              {/* Explicit Separated States */}
+              <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
+                <div className="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 block text-[10px] font-medium">Configured Model</span>
+                  <span className="font-mono font-bold text-white truncate block mt-0.5" title={configuredModelName}>
                     {configuredModelName}
                   </span>
                 </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="text-slate-400 block text-[10px]">Model State</span>
+                <div className="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 block text-[10px] font-medium">Installed</span>
                   <span
-                    className={`font-medium block truncate ${
-                      ollamaRunning
-                        ? 'text-emerald-400 font-semibold'
+                    className={`font-bold block mt-0.5 ${
+                      data.ollama.modelInstalled
+                        ? 'text-emerald-400'
                         : ollamaOnline
-                        ? 'text-amber-300'
-                        : 'text-rose-400'
+                        ? 'text-rose-400'
+                        : 'text-slate-500'
                     }`}
                   >
-                    {ollamaBadge.runningText}
+                    {data.ollama.modelInstalled ? 'Yes' : ollamaOnline ? 'No' : 'Unknown'}
+                  </span>
+                </div>
+                <div className="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 block text-[10px] font-medium truncate" title="Currently Running in Ollama memory (/api/ps)">
+                    Running in Memory
+                  </span>
+                  <span
+                    className={`font-bold block mt-0.5 flex items-center gap-1.5 ${
+                      ollamaRunning ? 'text-emerald-400' : 'text-slate-400'
+                    }`}
+                  >
+                    {ollamaRunning ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Yes</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                        <span>No</span>
+                      </>
+                    )}
                   </span>
                 </div>
               </div>
@@ -270,11 +295,12 @@ export default function AIStatusIndicator() {
               )}
 
               {data.ollama.runningModels?.length > 0 && (
-                <div className="pt-1 border-t border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block mb-1">Active Memory Models:</span>
+                <div className="pt-1.5 border-t border-slate-800/80">
+                  <span className="text-[10px] text-slate-400 block mb-1">Active Memory Models (/api/ps):</span>
                   <div className="flex flex-wrap gap-1">
                     {data.ollama.runningModels.map((m, i) => (
-                      <span key={i} className="text-[10px] font-mono bg-emerald-950/60 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800/50">
+                      <span key={i} className="text-[10px] font-mono bg-emerald-950/70 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/60 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                         {m}
                       </span>
                     ))}

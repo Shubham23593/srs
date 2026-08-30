@@ -91,14 +91,16 @@ class OllamaProvider extends AIProvider {
     }
 
     const latencyMs = Date.now() - startTime;
-    const modelLower = (this.model || '').toLowerCase();
-    const modelBase = modelLower.split(':')[0];
-    const modelInstalled = installedModels.some(
-      (m) => m.toLowerCase() === modelLower || m.toLowerCase().startsWith(modelBase)
-    );
-    const modelRunning = runningModels.some(
-      (m) => m.toLowerCase() === modelLower || m.toLowerCase().startsWith(modelBase)
-    );
+    const modelLower = (this.model || '').toLowerCase().trim();
+    const cleanModel = modelLower.replace(/:latest$/, '');
+    
+    const isModelMatch = (mName) => {
+      const clean = (mName || '').toLowerCase().trim().replace(/:latest$/, '');
+      return clean === cleanModel || clean.split(':')[0] === cleanModel.split(':')[0] && (clean === cleanModel || clean.startsWith(cleanModel));
+    };
+
+    const modelInstalled = installedModels.some(isModelMatch);
+    const modelRunning = runningModels.some(isModelMatch);
 
     return {
       provider: 'ollama',
