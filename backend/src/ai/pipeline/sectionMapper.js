@@ -59,40 +59,51 @@ function sectionById(id) {
   return SRS_SECTIONS.find((s) => s.id === id);
 }
 
+// Section embeddings are static text — compute once and reuse across runs.
+let _sectionEmbeddingCache = null;
+async function getSectionEmbeddings() {
+  if (_sectionEmbeddingCache) return _sectionEmbeddingCache;
+  const labels = SRS_SECTIONS.map((s) => `${s.name}. ${s.types.join(', ')} ${s.nfr.join(', ')}`);
+  const vecs = await embeddingService.generateEmbeddings(labels);
+  _sectionEmbeddingCache = {};
+  SRS_SECTIONS.forEach((s, i) => { _sectionEmbeddingCache[s.id] = vecs[i]; });
+  return _sectionEmbeddingCache;
+}
+
 /**
  * Map a set of requirements to SRS sections. Uses deterministic type-based
  * mapping as the authoritative decision (KNN/cosine is used only to attach a
- * confidence score), so placement is stable and explainable.
+ * confidence score), so placement is stable and explainable. Reuses each
+ * requirement's already-computed embedding (no duplicate model calls).
  */
 async function mapRequirementsToSections(requirements) {
-  // Precompute section embeddings
-  const sectionEmbeddings = {};
-  for (const s of SRS_SECTIONS) {
-    sectionEmbeddings[s.id] = await embeddingService.generateEmbedding(
-      `${s.name}. ${s.types.join(', ')} ${s.nfr.join(', ')}`
+  const sectionEmbeddings = await getSectionEmbeddings();
+
+  // Ensure every requirement has an embedding (batch, generated once).
+  const missing = requirements.filter((r) => !r.embedding || r.embedding.length === 0);
+  if (missing.length) {
+    const vecs = await embeddingService.generateEmbeddings(
+      missing.map((r) => `${r.normalizedDescription || r.description || ''}`)
     );
+    missing.forEach((r, i) => { r.embedding = vecs[i]; });
   }
 
   for (const req of requirements) {
     const det = deterministicSection(req);
+    const reqEmb = req.embedding;
 
-    // KNN confidence: cosine of requirement vs each eligible section
-    const reqEmb = req.embedding && req.embedding.length
-      ? req.embedding
-      : await embeddingService.generateEmbedding(`${req.title}: ${req.normalizedDescription || req.description}`);
-
-    let semanticPick = det.id;
+    // KNN confidence: cosine of requirement vs each section
     let bestSim = -Infinity;
     for (const s of SRS_SECTIONS) {
       const sim = embeddingService.cosineSimilarity(reqEmb, sectionEmbeddings[s.id]);
-      if (sim > bestSim) { bestSim = sim; semanticPick = s.id; }
+      if (sim > bestSim) bestSim = sim;
     }
 
     req.targetSrsSection = det.id;
     req.targetSrsSectionName = det.name;
     req.sectionMappingConfidence = Math.round(bestSim * 100) / 100;
-    req.sectionMappingMethod = 'type-deterministic+cosine-validation';
-    // Deterministic mapping always wins for correctness; semantic score is recorded for audit.
+    req.sectionMappingMethod = 'type-deterministic+neural-cosine-validation';
+    // Deterministic mapping always wins for correctness; semantic score recorded for audit.
   }
 
   const mapping = {};

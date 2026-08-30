@@ -43,7 +43,8 @@ exports.createRequirement = async (req, res, next) => {
     const count = await Requirement.countDocuments({ projectId, type: reqType });
     const reqId = req.body.requirementId || `${prefix}-${String(count + 1).padStart(3, '0')}`;
 
-    const embedding = await embeddingService.generateEmbedding(`${title}: ${normalizedDescription}`);
+    const embedding = await embeddingService.generateEmbedding(normalizedDescription);
+    const embeddingModel = embeddingService.isRealModelActive() ? 'multilingual-e5-small' : 'deterministic-v1';
 
     const requirement = await Requirement.create({
       projectId,
@@ -63,7 +64,8 @@ exports.createRequirement = async (req, res, next) => {
       confidence: 1.0,
       status: 'APPROVED',
       validationStatus: 'VALID',
-      embedding
+      embedding,
+      embeddingModel
     });
 
     try { await ragService.indexProjectKnowledge(projectId); } catch (e) {}
@@ -90,7 +92,8 @@ exports.updateRequirement = async (req, res, next) => {
     if (req.body.title || req.body.description) {
       const title = req.body.title || requirement.title;
       const desc = req.body.description || requirement.description;
-      req.body.embedding = await embeddingService.generateEmbedding(`${title}: ${desc}`);
+      req.body.embedding = await embeddingService.generateEmbedding(desc);
+      req.body.embeddingModel = embeddingService.isRealModelActive() ? 'multilingual-e5-small' : 'deterministic-v1';
     }
 
     const updated = await Requirement.findByIdAndUpdate(requirement._id, req.body, { new: true });

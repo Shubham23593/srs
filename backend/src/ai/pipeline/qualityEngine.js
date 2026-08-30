@@ -13,9 +13,39 @@
 const embeddingService = require('../EmbeddingService');
 const { detectVagueTerms } = require('./semanticEngine');
 
-const DUPLICATE_THRESHOLD = 0.82; // cosine
-const DUPLICATE_HARD_THRESHOLD = 0.92;
+// Duplicate detection thresholds.
+//
+// The neural multilingual-e5 model is used for ALL semantic operations, but
+// after formal normalization every statement starts with the formulaic
+// "The system shall allow users to ...", which crowds even unrelated features
+// to ~0.91-0.94 cosine. Duplicate flagging is therefore deliberately
+// CONSERVATIVE and combines three independent signals:
+//   1. Exact identical normalized statement (cosine ~1.0) — definitive.
+//   2. Near-identical neural cosine >= 0.96 — paraphrases of the SAME
+//      normalized requirement (e.g. "record expenses" vs "create and record
+//      expense entries" = 0.965; distinct features like delete-vs-create = 0.937
+//      and login-vs-manage-accounts = 0.941 stay below).
+//   3. Strong content-word lexical overlap >= 0.50 (boilerplate stripped,
+//      lightly stemmed) — catches word-level duplicates the model crowds.
+// Cross-lingual duplicates are normalized to the identical English statement
+// by the semantic engine and caught by path (1) before any cosine comparison.
+const DUPLICATE_NEAR_IDENTICAL = 0.96;
+const DUPLICATE_LEXICAL = 0.50;
+// Legacy aliases referenced by tooling/tests.
+const DUPLICATE_THRESHOLD = DUPLICATE_NEAR_IDENTICAL;
+const DUPLICATE_HARD_THRESHOLD = 0.985;
 const CONFLICT_SIMILARITY_FLOOR = 0.45;
+
+// Formulaic tokens shared by every formally-normalized statement ("The system
+// shall allow users to ..."). They must not count as lexical overlap.
+const FORMULA_TOKENS = new Set([
+  'system', 'shall', 'should', 'must', 'allow', 'allows', 'able', 'enable',
+  'enables', 'provide', 'provides', 'support', 'supports', 'ensure', 'user',
+  'users', 'administrator', 'administrators', 'admin', 'their', 'they',
+  'them', 'with', 'from', 'into', 'onto', 'that', 'this', 'for', 'and',
+  'the', 'are', 'can', 'will', 'may', 'each', 'all', 'any', 'via', 'use',
+  'using', 'used', 'ability'
+]);
 
 function tokenize(text) {
   return String(text || '')
@@ -23,6 +53,20 @@ function tokenize(text) {
     .replace(/[^a-z0-9ऀ-ॿ\s]/g, ' ')
     .split(/\s+/)
     .filter((w) => w.length > 2);
+}
+
+/**
+ * Content-bearing tokens only (formal SRS boilerplate removed), with light
+ * plural stemming so "record"/"records" and "expense"/"expenses" match.
+ */
+function contentTokens(text) {
+  return tokenize(text)
+    .filter((w) => !FORMULA_TOKENS.has(w))
+    .map((w) => {
+      if (w.length > 4 && w.endsWith('ies')) return w.slice(0, -3) + 'y';
+      if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+      return w;
+    });
 }
 
 function jaccard(aTokens, bTokens) {
@@ -71,11 +115,13 @@ function scoreQuality(req) {
 async function analyzeRequirementSet(requirements) {
   const issues = [];
 
-  // Ensure embeddings exist
-  for (const r of requirements) {
-    if (!r.embedding || r.embedding.length === 0) {
-      r.embedding = await embeddingService.generateEmbedding(`${r.title}: ${r.normalizedDescription || r.description}`);
-    }
+  // Ensure embeddings exist — generate ONCE for every requirement that lacks
+  // one via a single batched model call (then reused for duplicates/conflicts).
+  const embeddingText = (r) => `${r.normalizedDescription || r.description || ''}`;
+  const missing = requirements.filter((r) => !r.embedding || r.embedding.length === 0);
+  if (missing.length) {
+    const vecs = await embeddingService.generateEmbeddings(missing.map(embeddingText));
+    missing.forEach((r, i) => { r.embedding = vecs[i]; });
   }
 
   // ---- 1. Quality analysis per requirement ----
@@ -110,16 +156,21 @@ async function analyzeRequirementSet(requirements) {
       const a = requirements[i];
       const b = requirements[j];
 
-      const aTok = tokenize(`${a.title} ${a.normalizedDescription}`);
-      const bTok = tokenize(`${b.title} ${b.normalizedDescription}`);
+      const aTok = contentTokens(`${a.title} ${a.normalizedDescription}`);
+      const bTok = contentTokens(`${b.title} ${b.normalizedDescription}`);
       const lex = jaccard(aTok, bTok);
       const cos = embeddingService.cosineSimilarity(a.embedding, b.embedding);
-      const similarity = Math.max(cos, lex * 0.95);
 
       // Identical normalized statement -> definitive duplicate
       const identical = (a.normalizedDescription || '').trim().toLowerCase() === (b.normalizedDescription || '').trim().toLowerCase();
+      // Near-identical neural semantics (paraphrase of the same requirement).
+      const nearIdentical = cos >= DUPLICATE_NEAR_IDENTICAL;
+      // Strong content-word lexical overlap (word-level duplicate).
+      const strongLexical = lex >= DUPLICATE_LEXICAL;
+      const isDuplicate = identical || nearIdentical || strongLexical;
+      const similarity = Math.max(cos, lex);
 
-      if (identical || similarity >= DUPLICATE_THRESHOLD) {
+      if (isDuplicate) {
         const score = Math.round(similarity * 100) / 100;
         a.duplicateCandidates = Array.from(new Set([...(a.duplicateCandidates || []), b.requirementId]));
         b.duplicateCandidates = Array.from(new Set([...(b.duplicateCandidates || []), a.requirementId]));
@@ -128,8 +179,8 @@ async function analyzeRequirementSet(requirements) {
 
         issues.push({
           issueType: 'DUPLICATE',
-          severity: similarity >= DUPLICATE_HARD_THRESHOLD || identical ? 'HIGH' : 'MEDIUM',
-          description: `Potential semantic duplicate: ${a.requirementId} ("${a.title}") and ${b.requirementId} ("${b.title}") share ${(score * 100).toFixed(1)}% semantic similarity. Preserved for review — not auto-deleted.`,
+          severity: identical || cos >= DUPLICATE_HARD_THRESHOLD ? 'HIGH' : 'MEDIUM',
+          description: `Potential semantic duplicate: ${a.requirementId} ("${a.title}") and ${b.requirementId} ("${b.title}") share ${(cos * 100).toFixed(1)}% neural similarity${identical ? ' and identical normalized text' : ` and ${(lex * 100).toFixed(0)}% content-word overlap`}. Preserved for review — not auto-deleted.`,
           relatedRequirementIds: [a.requirementId, b.requirementId],
           similarityScore: score,
           suggestedResolution: 'Merge into one requirement or explicitly differentiate the capabilities.'

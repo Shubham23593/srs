@@ -89,7 +89,7 @@ async function assessRelevance({ rawText, project, sectionConfig }) {
   const tokens = text.toLowerCase().split(/[^a-zऀ-ॿ]+/).filter(Boolean);
   const domainHits = tokens.filter((t) => domainKw.has(t)).length;
 
-  // 5. Embedding similarity to project context
+  // 5. Embedding similarity to project context (single batched model call)
   let embeddingScore = 0;
   try {
     const context = [
@@ -97,8 +97,7 @@ async function assessRelevance({ rawText, project, sectionConfig }) {
       sectionConfig?.name, sectionConfig?.description
     ].filter(Boolean).join(' ');
     if (context) {
-      const a = await embeddingService.generateEmbedding(text);
-      const b = await embeddingService.generateEmbedding(context);
+      const [a, b] = await embeddingService.generateEmbeddings([text, context]);
       embeddingScore = embeddingService.cosineSimilarity(a, b);
     }
   } catch (e) {

@@ -6,6 +6,7 @@ const env = require('./src/config/env');
 const { connectDB } = require('./src/config/db');
 const routes = require('./src/routes');
 const { errorHandler } = require('./src/middleware/errorHandler.middleware');
+const embeddingService = require('./src/ai/EmbeddingService');
 
 const app = express();
 
@@ -40,6 +41,16 @@ const startServer = async () => {
       console.log(` Embedding Model: ${env.ai.embeddingModel}`);
       console.log(`====================================================`);
     });
+
+    // Preload the real multilingual neural embedding model in the background so
+    // the first request doesn't pay the load cost. Failure falls back to the
+    // deterministic engine with a clearly logged warning (never crashes boot).
+    embeddingService.warmup()
+      .then(() => {
+        const info = embeddingService.getInfo();
+        console.log(`[Startup] Embedding engine ready: ${info.engine} (dimensions=${info.dimensions}, realModel=${info.realModel})`);
+      })
+      .catch((e) => console.warn('[Startup] Embedding model warmup failed; deterministic fallback active:', e.message));
   } catch (error) {
     console.error('Fatal startup error:', error);
     process.exit(1);

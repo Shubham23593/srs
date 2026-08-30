@@ -76,6 +76,9 @@ const definition = {
     // It ALWAYS equals normalizedDescription (never the raw source text).
     version: { type: String, default: '1.0' },
     embedding: { type: [Number], default: [] },
+    // Records which engine produced the embedding ('multilingual-e5-small' = real
+    // neural model; 'deterministic-v1' = fallback) for verification/auditing.
+    embeddingModel: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
   },

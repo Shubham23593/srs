@@ -67,19 +67,43 @@ function kmeans(vectors, k, { maxIter = 20 } = {}) {
   return assignments;
 }
 
-async function labelCluster(memberTexts) {
-  // Compare cluster centroid embedding against canonical topic names
-  const centroidText = memberTexts.join(' . ');
-  const centroidEmb = await embeddingService.generateEmbedding(centroidText);
+// Canonical topic embeddings are static — compute once and reuse.
+let _topicEmbeddings = null;
+async function getTopicEmbeddings() {
+  if (_topicEmbeddings) return _topicEmbeddings;
+  const vecs = await embeddingService.generateEmbeddings(CANONICAL_TOPICS);
+  _topicEmbeddings = CANONICAL_TOPICS.map((topic, i) => ({ topic, emb: vecs[i] }));
+  return _topicEmbeddings;
+}
 
+async function labelCluster(memberEmbeddings, memberTexts) {
+  // Centroid = mean of the (already-computed, reused) member embeddings.
+  const dim = memberEmbeddings[0].length;
+  const centroid = new Array(dim).fill(0);
+  for (const emb of memberEmbeddings) {
+    for (let d = 0; d < dim; d++) centroid[d] += emb[d];
+  }
+  for (let d = 0; d < dim; d++) centroid[d] /= memberEmbeddings.length;
+
+  const topics = await getTopicEmbeddings();
   let best = CANONICAL_TOPICS[CANONICAL_TOPICS.length - 1];
   let bestSim = -Infinity;
-  for (const topic of CANONICAL_TOPICS) {
-    const tEmb = await embeddingService.generateEmbedding(topic);
-    const sim = embeddingService.cosineSimilarity(centroidEmb, tEmb);
+  for (const { topic, emb } of topics) {
+    const sim = embeddingService.cosineSimilarity(centroid, emb);
     if (sim > bestSim) { bestSim = sim; best = topic; }
   }
   return { label: best, confidence: Math.round(bestSim * 100) / 100 };
+}
+
+/** Ensure every requirement carries a reused embedding (single batched call). */
+async function ensureEmbeddings(requirements) {
+  const missing = requirements.filter((r) => !r.embedding || r.embedding.length === 0);
+  if (missing.length) {
+    const vecs = await embeddingService.generateEmbeddings(
+      missing.map((m) => `${m.normalizedDescription || m.description || ''}`)
+    );
+    missing.forEach((m, i) => { m.embedding = vecs[i]; });
+  }
 }
 
 /**
@@ -118,6 +142,7 @@ async function clusterRequirements(requirements) {
   }
 
   const clusters = [];
+  await ensureEmbeddings(requirements);
 
   // For small catalogs or strong priors, label each prior group semantically,
   // then MERGE groups that resolve to the same canonical label (keeps Section 3
@@ -126,17 +151,13 @@ async function clusterRequirements(requirements) {
     const byLabel = new Map();
     for (const [priorLabel, members] of priorGroups) {
       const isQualityGroup = members.some((m) => m.type === 'NON_FUNCTIONAL' || m.type === 'CONSTRAINT' || m.type === 'DEPENDENCY' || m.type === 'ASSUMPTION' || m.type === 'INTERFACE');
-      // Trust an already-semantic prior label for quality groups and for
-      // functional groups whose prior already looks like a named topic (the
-      // pipeline assigns these from capability topics). Canonical re-labelling
-      // only fills in when the prior is a generic section name.
       const priorIsSemantic = priorLabel &&
         !/general|core features|functional requirements|core$/i.test(priorLabel);
       let label;
       if (isQualityGroup || priorIsSemantic) {
         label = priorLabel;
       } else {
-        label = (await labelCluster(members.map((m) => `${m.title} ${m.normalizedDescription || m.description}`))).label;
+        label = (await labelCluster(members.map((m) => m.embedding))).label;
       }
       if (!byLabel.has(label)) byLabel.set(label, []);
       byLabel.get(label).push(...members);
@@ -155,11 +176,8 @@ async function clusterRequirements(requirements) {
     return { clusters };
   }
 
-  // Larger catalogs: full embedding K-means
-  const vectors = [];
-  for (const r of requirements) {
-    vectors.push(await embeddingService.generateEmbedding(`${r.title}: ${r.normalizedDescription || r.description}`));
-  }
+  // Larger catalogs: full embedding K-means (reuses per-requirement embeddings)
+  const vectors = requirements.map((r) => r.embedding);
   const k = Math.min(CANONICAL_TOPICS.length, Math.max(3, Math.ceil(Math.sqrt(requirements.length / 2))));
   const assignments = kmeans(vectors, k);
 
@@ -171,8 +189,7 @@ async function clusterRequirements(requirements) {
 
   let idx = 0;
   for (const [, members] of groups) {
-    const texts = members.map((m) => `${m.title} ${m.normalizedDescription || m.description}`);
-    const { label } = await labelCluster(texts);
+    const { label } = await labelCluster(members.map((m) => m.embedding));
     const clusterId = `C${String(++idx).padStart(2, '0')}`;
     for (const m of members) m.topicCluster = label;
     clusters.push({

@@ -155,6 +155,15 @@ class RequirementsPipeline {
       }
     }
 
+    // Generate embeddings ONCE for each new requirement (batch) and reuse them
+    // for duplicate detection, conflict detection and later persistence.
+    if (requirements.length) {
+      const vecs = await embeddingService.generateEmbeddings(
+        requirements.map((r) => r.normalizedDescription)
+      );
+      requirements.forEach((r, i) => { r.embedding = vecs[i]; });
+    }
+
     // ---- PHASES 11-12: duplicate & conflict detection -------------------
     // Only NEW-vs-CATALOG comparisons count (new requirements extracted from
     // the SAME answer must not be flagged as duplicates of one another).
@@ -276,7 +285,12 @@ class RequirementsPipeline {
       counters[type] = (counters[type] || 0) + 1;
       const requirementId = `${TYPE_PREFIX[type]}-${String(counters[type]).padStart(3, '0')}`;
 
-      const embedding = await embeddingService.generateEmbedding(`${req.title}: ${req.normalizedDescription}`);
+      // Reuse the embedding already produced during analysis (never recompute).
+      let embedding = req.embedding;
+      if (!embedding || embedding.length === 0) {
+        embedding = await embeddingService.generateEmbedding(req.normalizedDescription);
+      }
+      const embeddingModel = embeddingService.isRealModelActive() ? 'multilingual-e5-small' : 'deterministic-v1';
 
       const doc = await Requirement.create({
         projectId,
@@ -306,7 +320,8 @@ class RequirementsPipeline {
         completenessScore: req.qualityScores ? Math.round(
           (req.qualityScores.atomicity + req.qualityScores.clarity + req.qualityScores.completeness +
             req.qualityScores.testability + req.qualityScores.unambiguity) / 5) : 80,
-        embedding
+        embedding,
+        embeddingModel
       });
       saved.push(doc);
     }
@@ -315,16 +330,36 @@ class RequirementsPipeline {
   }
 
   async _findPersistedDuplicate(req, existing, justSaved) {
-    const reqEmb = await embeddingService.generateEmbedding(`${req.title}: ${req.normalizedDescription}`);
+    // Reuse the analysis embedding for the new requirement.
+    let reqEmb = req.embedding;
+    if (!reqEmb || reqEmb.length === 0) {
+      reqEmb = await embeddingService.generateEmbedding(req.normalizedDescription);
+      req.embedding = reqEmb;
+    }
+
     const all = [...existing, ...justSaved];
+    // Make sure catalog/saved entries have embeddings (batch, generated once).
+    const needEmb = all.filter((e) => !e.embedding || e.embedding.length === 0);
+    if (needEmb.length) {
+      const vecs = await embeddingService.generateEmbeddings(
+        needEmb.map((e) => `${e.normalizedDescription || e.description || ''}`)
+      );
+      needEmb.forEach((e, i) => { e.embedding = vecs[i]; });
+    }
+
     for (const e of all) {
-      if ((e.normalizedDescription || e.description || '').trim().toLowerCase() === req.normalizedDescription.trim().toLowerCase()) {
+      const eDesc = (e.normalizedDescription || e.description || '').trim().toLowerCase();
+      if (eDesc === req.normalizedDescription.trim().toLowerCase()) {
         return e;
       }
-      const eEmb = e.embedding && e.embedding.length ? e.embedding
-        : await embeddingService.generateEmbedding(`${e.title}: ${e.normalizedDescription || e.description}`);
-      const sim = embeddingService.cosineSimilarity(reqEmb, eEmb);
-      if (sim >= 0.9) return e;
+      const sim = embeddingService.cosineSimilarity(reqEmb, e.embedding);
+      // Hard SKIP only for near-identical statements (cosine >= 0.96): two
+      // answers that normalized to the same English requirement. Anything else
+      // — including close paraphrases and cross-lingual duplicates — is
+      // preserved and FLAGGED for human review by qualityEngine; the neural
+      // model's same-domain crowding (add-expense vs delete-expense ~0.94) must
+      // never cause a distinct requirement to be dropped.
+      if (sim >= 0.96) return e;
     }
     return null;
   }
