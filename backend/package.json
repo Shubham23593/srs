@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed": "node src/scripts/seedDemo.js"
+    "seed": "node src/scripts/seedDemo.js",
+    "test:e2e": "node src/scripts/testPipelineE2E.js"
   },
   "dependencies": {
     "axios": "^1.7.9",

@@ -1,58 +1,23 @@
-const mongoose = require('mongoose');
+const { registerModel } = require('../db/dataStore');
 
-const SRSVersionSchema = new mongoose.Schema({
-  projectId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Project',
-    required: true,
-    index: true
+const definition = {
+  fields: {
+    projectId: { type: 'ObjectId', ref: 'Project', required: true, index: true },
+    srsId: { type: 'ObjectId', ref: 'SRS', required: true },
+    version: { type: String, required: true },
+    reasonForChanges: { type: String, required: true },
+    changedRequirementIds: { type: [String], default: [] },
+    affectedSections: { type: [String], default: [] },
+    summaryOfChanges: { type: String, default: '' },
+    diffData: {
+      type: 'Mixed',
+      default: { added: [], modified: [], removed: [], sectionDiffs: {} }
+    },
+    srsSnapshot: { type: 'Mixed', required: true },
+    approvedBy: { type: 'ObjectId', ref: 'User', default: null },
+    createdAt: { type: Date, default: Date.now }
   },
-  srsId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'SRS',
-    required: true
-  },
-  version: {
-    type: String,
-    required: true
-  },
-  reasonForChanges: {
-    type: String,
-    required: true
-  },
-  changedRequirementIds: {
-    type: [String],
-    default: []
-  },
-  affectedSections: {
-    type: [String],
-    default: []
-  },
-  summaryOfChanges: {
-    type: String,
-    default: ''
-  },
-  diffData: {
-    added: { type: [String], default: [] },
-    modified: { type: [String], default: [] },
-    removed: { type: [String], default: [] },
-    sectionDiffs: { type: mongoose.Schema.Types.Mixed, default: {} }
-  },
-  srsSnapshot: {
-    type: mongoose.Schema.Types.Mixed,
-    required: true
-  },
-  approvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+  indexes: [{ fields: { projectId: 1, version: 1 }, unique: true }]
+};
 
-SRSVersionSchema.index({ projectId: 1, version: 1 }, { unique: true });
-
-module.exports = mongoose.models.SRSVersion || mongoose.model('SRSVersion', SRSVersionSchema);
+module.exports = registerModel('SRSVersion', definition);

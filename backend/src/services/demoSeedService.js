@@ -6,7 +6,8 @@ const SRSVersion = require('../models/SRSVersion');
 const TraceabilityLink = require('../models/TraceabilityLink');
 const InterviewSession = require('../models/InterviewSession');
 const InterviewMessage = require('../models/InterviewMessage');
-const srsGenerationAgent = require('../ai/agents/SRSGenerationAgent');
+const pipeline = require('../ai/pipeline/requirementsPipeline');
+const { formalNormalize } = require('../ai/pipeline/semanticEngine');
 const traceabilityService = require('./traceabilityService');
 const ragService = require('./ragService');
 
@@ -102,82 +103,68 @@ class DemoSeedService {
     await m4.save();
 
     // 4. Seed 4 Initial Requirements
-    const req1 = new Requirement({
-      projectId: project._id,
-      requirementId: 'FR-001',
-      title: 'Event Viewing',
-      description: 'Students shall view upcoming college events with detailed schedules and venue locations.',
-      type: 'FUNCTIONAL',
-      category: 'Core Features',
-      priority: 'HIGH',
-      sourceMessageId: m2.messageId,
-      sourceText: 'Students need to view upcoming events and register for them directly online.',
-      status: 'APPROVED',
-      validationStatus: 'VALID',
-      version: '1.0'
-    });
+    const seedRequirements = [
+      {
+        requirementId: 'FR-001', title: 'Event Viewing', type: 'FUNCTIONAL',
+        category: 'Event Management', nfrSubcategory: 'N/A', priority: 'HIGH',
+        normalized: 'The system shall allow students to view upcoming college events with detailed schedules and venue locations.',
+        raw: 'Students need to view upcoming events and register for them directly online.', msg: m2.messageId
+      },
+      {
+        requirementId: 'FR-002', title: 'Event Registration', type: 'FUNCTIONAL',
+        category: 'Event Management', nfrSubcategory: 'N/A', priority: 'HIGH',
+        normalized: 'The system shall allow students to register for available college events.',
+        raw: 'Students need to view upcoming events and register for them directly online.', msg: m2.messageId
+      },
+      {
+        requirementId: 'FR-003', title: 'Event Creation', type: 'FUNCTIONAL',
+        category: 'Event Management', nfrSubcategory: 'N/A', priority: 'HIGH',
+        normalized: 'The system shall allow administrators to create and publish new college events.',
+        raw: 'Administrators must be able to create new events, and only authenticated users can access protected functions.', msg: m4.messageId
+      },
+      {
+        requirementId: 'NFR-001', title: 'Access Control Security', type: 'NON_FUNCTIONAL',
+        category: 'Security', nfrSubcategory: 'SECURITY', priority: 'HIGH',
+        normalized: 'The system shall restrict protected functions to authenticated users only.',
+        raw: 'Administrators must be able to create new events, and only authenticated users can access protected functions.', msg: m4.messageId
+      }
+    ];
 
-    const req2 = new Requirement({
-      projectId: project._id,
-      requirementId: 'FR-002',
-      title: 'Event Registration',
-      description: 'Students shall register for available college events.',
-      type: 'FUNCTIONAL',
-      category: 'Core Features',
-      priority: 'HIGH',
-      sourceMessageId: m2.messageId,
-      sourceText: 'Students need to view upcoming events and register for them directly online.',
-      status: 'APPROVED',
-      validationStatus: 'VALID',
-      version: '1.0'
-    });
+    const reqDocs = [];
+    for (const r of seedRequirements) {
+      const doc = new Requirement({
+        projectId: project._id,
+        requirementId: r.requirementId,
+        title: r.title,
+        normalizedDescription: formalNormalize(r.normalized),
+        description: formalNormalize(r.normalized),
+        rawSourceText: r.raw,
+        sourceLanguage: 'English',
+        sourceMessageId: r.msg,
+        sourceInterviewStage: 'Elicitation Interview',
+        type: r.type,
+        nfrSubcategory: r.nfrSubcategory,
+        category: r.category,
+        topicCluster: r.type === 'NON_FUNCTIONAL' ? 'Security' : 'Event Management',
+        priority: r.priority,
+        status: 'APPROVED',
+        validationStatus: 'VALID',
+        version: '1.0',
+        isAtomic: true
+      });
+      await doc.save();
+      reqDocs.push(doc);
+    }
 
-    const req3 = new Requirement({
-      projectId: project._id,
-      requirementId: 'FR-003',
-      title: 'Event Creation',
-      description: 'Administrators shall create and publish new college events.',
-      type: 'FUNCTIONAL',
-      category: 'Administration',
-      priority: 'HIGH',
-      sourceMessageId: m4.messageId,
-      sourceText: 'Administrators must be able to create new events.',
-      status: 'APPROVED',
-      validationStatus: 'VALID',
-      version: '1.0'
-    });
-
-    const req4 = new Requirement({
-      projectId: project._id,
-      requirementId: 'NFR-001',
-      title: 'Access Control Security',
-      description: 'Only authenticated users shall access protected system functions.',
-      type: 'NON_FUNCTIONAL',
-      category: 'Security',
-      priority: 'HIGH',
-      sourceMessageId: m4.messageId,
-      sourceText: 'Only authenticated users can access protected functions.',
-      status: 'APPROVED',
-      validationStatus: 'VALID',
-      version: '1.0'
-    });
-
-    await req1.save();
-    await req2.save();
-    await req3.save();
-    await req4.save();
-
-    // 5. Generate SRS v1.0
-    const requirements = [req1, req2, req3, req4];
-    const srsData = await srsGenerationAgent.generateSRS(project, requirements, '');
-    srsData.projectId = project._id;
+    // 5. Generate SRS v1.0 through the authoritative pipeline
+    const { srs: srsDoc } = await pipeline.generateSRS(project);
+    const srsData = srsDoc;
     srsData.currentVersion = '1.0';
     srsData.status = 'APPROVED';
     srsData.approvedBy = demoUser._id;
     srsData.approvedAt = new Date();
-
-    const srs = new SRS(srsData);
-    await srs.save();
+    await srsData.save();
+    const srs = srsData;
 
     // 6. Save Snapshot for Version 1.0
     const version1 = new SRSVersion({

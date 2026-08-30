@@ -32,7 +32,9 @@ class TraceabilityService {
           requirementTitle: req.title,
           sourceType: req.sourceMessageId ? 'INTERVIEW_MESSAGE' : 'USER_INPUT',
           sourceReference: req.sourceMessageId || 'User Specification',
-          sourceTextSnippet: (req.sourceText || req.description).substring(0, 150),
+          // Trace back to the RAW source evidence (the interview answer),
+          // never the normalized statement.
+          sourceTextSnippet: (req.rawSourceText || req.sourceText || '').substring(0, 150),
           systemFeatureId: featId,
           srsSection: srsSec,
           srsVersion: srs?.currentVersion || '1.0',

@@ -1,35 +1,42 @@
-const { getAIProvider } = require('../index');
-const { getExtractionPrompt } = require('../prompts/extraction.prompt');
+/**
+ * Compatibility shim.
+ *
+ * The single authoritative extraction path is the RequirementsPipeline
+ * (src/ai/pipeline/requirementsPipeline.js). This agent delegates to it so no
+ * duplicate extraction logic remains.
+ */
+const pipeline = require('../pipeline/requirementsPipeline');
+const { SECTIONS_CONFIG } = require('../../constants/interviewSections');
 
 class RequirementExtractionAgent {
-  async extractRequirements(text, projectContext, startingIdNum = 1) {
-    const ai = getAIProvider();
-    const prompt = getExtractionPrompt(text, projectContext);
-    const result = await ai.generateStructuredJSON(prompt);
-
-    const rawReqs = result.requirements || [];
-    let frCount = startingIdNum;
-    let nfrCount = startingIdNum;
-
-    return rawReqs.map((req) => {
-      const isFR = req.type === 'FUNCTIONAL';
-      const idStr = isFR
-        ? `FR-${String(frCount++).padStart(3, '0')}`
-        : `NFR-${String(nfrCount++).padStart(3, '0')}`;
-
-      return {
-        requirementId: req.requirementId || idStr,
-        title: req.title,
-        description: req.description,
-        type: req.type || 'FUNCTIONAL',
-        category: req.category || 'Core',
-        priority: req.priority || 'MEDIUM',
-        confidence: req.confidence || 0.95,
-        sourceText: text.substring(0, 300),
-        status: 'PROPOSED',
-        validationStatus: 'VALID'
-      };
+  /**
+   * Extract normalized, atomic requirements from free text. Raw text is never
+   * copied — the pipeline normalizes it to formal English statements.
+   */
+  async extractRequirements(text, project) {
+    const functionalSection = SECTIONS_CONFIG.find((s) => s.id === 'FUNCTIONAL_REQUIREMENTS');
+    const analysis = await pipeline.analyzeAnswer({
+      rawText: text,
+      project,
+      sectionConfig: functionalSection,
+      existingRequirements: []
     });
+    if (analysis.isOutOfScope) return [];
+    return analysis.requirements.map((r) => ({
+      title: r.title,
+      normalizedDescription: r.normalizedDescription,
+      description: r.normalizedDescription,
+      type: r.type,
+      nfrSubcategory: r.nfrSubcategory || 'N/A',
+      category: r.category,
+      priority: r.priority,
+      status: r.status,
+      ambiguityFlags: r.ambiguityFlags || [],
+      clarificationQuestion: r.clarificationQuestion || '',
+      rawSourceText: analysis.rawSourceText,
+      sourceLanguage: analysis.language?.language || 'English',
+      confidence: r.confidence || 0.85
+    }));
   }
 }
 

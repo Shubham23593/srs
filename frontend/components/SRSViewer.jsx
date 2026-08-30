@@ -255,22 +255,22 @@ export default function SRSViewer({ srs, activeSection = 'all', onSelectSection 
 
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-emerald-400">5.1 Performance Requirements</h3>
-              <p className="text-slate-300">{srs.section5_otherNonfunctionalRequirements?.performanceRequirements || 'TBD — Needs Clarification'}</p>
+              <p className="text-slate-300">{Array.isArray(srs.section5_otherNonfunctionalRequirements?.performanceRequirements) ? srs.section5_otherNonfunctionalRequirements.performanceRequirements.join(' ') : (srs.section5_otherNonfunctionalRequirements?.performanceRequirements || 'TBD — Needs Clarification')}</p>
             </div>
 
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-emerald-400">5.2 Safety Requirements</h3>
-              <p className="text-slate-300">{srs.section5_otherNonfunctionalRequirements?.safetyRequirements || 'TBD — Needs Clarification'}</p>
+              <p className="text-slate-300">{Array.isArray(srs.section5_otherNonfunctionalRequirements?.safetyRequirements) ? srs.section5_otherNonfunctionalRequirements.safetyRequirements.join(' ') : (srs.section5_otherNonfunctionalRequirements?.safetyRequirements || 'TBD — Needs Clarification')}</p>
             </div>
 
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-emerald-400">5.3 Security Requirements</h3>
-              <p className="text-slate-300">{srs.section5_otherNonfunctionalRequirements?.securityRequirements || 'TBD — Needs Clarification'}</p>
+              <p className="text-slate-300">{Array.isArray(srs.section5_otherNonfunctionalRequirements?.securityRequirements) ? srs.section5_otherNonfunctionalRequirements.securityRequirements.join(' ') : (srs.section5_otherNonfunctionalRequirements?.securityRequirements || 'TBD — Needs Clarification')}</p>
             </div>
 
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-emerald-400">5.4 Software Quality Attributes</h3>
-              <p className="text-slate-300">{srs.section5_otherNonfunctionalRequirements?.softwareQualityAttributes || 'TBD — Needs Clarification'}</p>
+              <p className="text-slate-300">{Array.isArray(srs.section5_otherNonfunctionalRequirements?.softwareQualityAttributes) ? srs.section5_otherNonfunctionalRequirements.softwareQualityAttributes.join(' ') : (srs.section5_otherNonfunctionalRequirements?.softwareQualityAttributes || 'TBD — Needs Clarification')}</p>
             </div>
           </section>
         )}

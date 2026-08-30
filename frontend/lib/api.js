@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Use a relative URL by default so browser requests go through the Next.js
+// proxy (next.config.js rewrites /api/* -> backend). This keeps the app working
+// in sandboxed/preview environments where the browser cannot reach localhost.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
