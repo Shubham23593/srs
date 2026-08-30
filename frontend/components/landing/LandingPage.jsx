@@ -47,6 +47,7 @@ export default function LandingPage() {
     let headerHandler = null;
     let mobileStageHandler = null;
     let cursorAlive = false;
+    let rotIv = null;
     if (!reduced) {
       lenis = new Lenis({ duration: 1.15 });
       lenis.on('scroll', ScrollTrigger.update);
@@ -196,8 +197,7 @@ export default function LandingPage() {
           });
         };
         showWord(0);
-        const rotIv = setInterval(() => { wi = (wi + 1) % words.length; showWord(wi); }, 2800);
-        ctx.rotIv = rotIv;
+        rotIv = setInterval(() => { wi = (wi + 1) % words.length; showWord(wi); }, 2800);
       }
 
       /* ---------------- preloader ---------------- */
@@ -375,6 +375,7 @@ export default function LandingPage() {
 
     return () => {
       cursorAlive = false;
+      if (rotIv) clearInterval(rotIv);
       window.removeEventListener('load', onLoad);
       if (headerHandler) window.removeEventListener('scroll', headerHandler);
       if (mobileStageHandler) window.removeEventListener('scroll', mobileStageHandler);
