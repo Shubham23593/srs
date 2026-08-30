@@ -9,6 +9,6 @@ module.exports = {
     provider: process.env.AI_PROVIDER || 'ollama',
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
     ollamaModel: process.env.OLLAMA_MODEL || 'codellama:7b-instruct',
-    embeddingModel: process.env.EMBEDDING_MODEL || 'BAAI/bge-small-en-v1.5'
+    embeddingModel: process.env.EMBEDDING_MODEL || 'Xenova/multilingual-e5-small'
   }
 };
