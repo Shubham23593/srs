@@ -38,7 +38,15 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
-  getMe: () => api.get('/auth/me')
+  getMe: () => api.get('/auth/me'),
+  getGoogleAuthUrl: (mode = 'login') => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    return `${base}/auth/google?mode=${mode}`;
+  },
+  getGithubAuthUrl: (mode = 'login') => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    return `${base}/auth/github?mode=${mode}`;
+  }
 };
 
 export const projectAPI = {

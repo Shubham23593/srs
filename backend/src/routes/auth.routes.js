@@ -7,4 +7,10 @@ router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.get('/me', protect, authController.getMe);
 
+// OAuth Routes
+router.get('/google', authController.googleAuth);
+router.get('/google/callback', authController.googleCallback);
+router.get('/github', authController.githubAuth);
+router.get('/github/callback', authController.githubCallback);
+
 module.exports = router;

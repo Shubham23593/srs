@@ -5,9 +5,12 @@ const definition = {
   fields: {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true },
-    role: { type: String, enum: ['ENGINEER', 'PRODUCT_OWNER', 'ADMIN', 'REVIEWER'], default: 'ENGINEER' },
+    password: { type: String, required: false },
+    role: { type: String, enum: ['ENGINEER', 'PRODUCT_OWNER', 'ADMIN', 'REVIEWER', 'STUDENT', 'FACULTY', 'DEVELOPER', 'MANAGER', 'USER'], default: 'ENGINEER' },
     organization: { type: String, default: 'Engineering Dept' },
+    authProvider: { type: String, enum: ['local', 'google', 'github'], default: 'local' },
+    providerId: { type: String },
+    avatar: { type: String },
     createdAt: { type: Date, default: Date.now }
   },
   indexes: [{ fields: { email: 1 }, unique: true }],

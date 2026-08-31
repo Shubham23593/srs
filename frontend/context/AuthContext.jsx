@@ -8,6 +8,7 @@ const AuthContext = createContext({
   loading: true,
   login: async () => {},
   register: async () => {},
+  handleOAuthToken: async () => {},
   logout: () => {}
 });
 
@@ -62,6 +63,18 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const handleOAuthToken = async (token) => {
+    localStorage.setItem('token', token);
+    const res = await authAPI.getMe();
+    if (res.data?.success) {
+      setUser(res.data.data);
+      return res.data.data;
+    } else {
+      localStorage.removeItem('token');
+      throw new Error(res.data?.message || 'Failed to retrieve profile');
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -71,7 +84,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, handleOAuthToken, logout }}>
       {children}
     </AuthContext.Provider>
   );
