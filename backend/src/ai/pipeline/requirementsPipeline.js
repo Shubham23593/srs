@@ -111,19 +111,24 @@ class RequirementsPipeline {
     //                 classification -> normalization
     let extracted = null;
     let engineUsed = false;
+    let aiProviderFailed = false;
 
     // For custom domain projects, try LLM extraction first if AI is healthy
     const ai = getAIProvider();
     if (ai && (await ai.isHealthy())) {
       const llmResult = await this._llmExtract(rawSourceText, project, sectionConfig);
-      if (llmResult && llmResult.requirements.length > 0) {
+      if (llmResult && llmResult.providerFailed) {
+        // AI failure: record and fall through to the deterministic engine.
+        // Must NOT be treated as "user provided no requirement".
+        aiProviderFailed = true;
+      } else if (llmResult && llmResult.requirements.length > 0) {
         extracted = llmResult;
         engineUsed = false;
       }
     }
 
     if (!extracted || extracted.requirements.length === 0) {
-      const engineResult = extractAtomicRequirements(rawSourceText, sectionConfig);
+      const engineResult = extractAtomicRequirements(rawSourceText, sectionConfig, project);
       extracted = engineResult;
       engineUsed = true;
     }
@@ -247,6 +252,9 @@ class RequirementsPipeline {
       clarificationQuestion,
       isOutOfScope: false,
       engineUsed,
+      stageId: sectionConfig?.id || '',
+      stageName: sectionConfig?.name || '',
+      providerStatus: aiProviderFailed ? 'FAILED_DETERMINISTIC_FALLBACK' : (engineUsed ? 'DETERMINISTIC_ENGINE' : 'AI_PROVIDER'),
       message: requirements.length
         ? `Extracted ${requirements.length} atomic requirement(s).`
         : 'The answer is relevant. Captured project metadata.'
@@ -265,7 +273,14 @@ class RequirementsPipeline {
 
       const prompt = buildLlmExtractionPrompt(rawText, project, sectionConfig);
       const result = await ai.generateStructuredJSON(prompt);
-      if (!result || !Array.isArray(result.requirements) || result.requirements.length === 0) return null;
+
+      // providerFailed / parseFailed: AI could not produce trustworthy output.
+      // Return a special marker so callers know this is an AI FAILURE (fall back
+      // to the deterministic engine) — NOT evidence that the user said nothing.
+      if (!result || result.providerFailed || result.parseFailed || result.schemaFailed) {
+        return { providerFailed: true, requirements: [] };
+      }
+      if (!Array.isArray(result.requirements) || result.requirements.length === 0) return null;
 
       return {
         requirements: result.requirements.map((r) => ({
@@ -295,16 +310,57 @@ class RequirementsPipeline {
    * requirements). Assigns stable IDs and embeddings. Idempotent: skips
    * semantic duplicates of existing catalog entries.
    */
+  /**
+   * Stage-eligibility guard. Requirements may only be created in stages that
+   * are permitted to produce them (this prevents stage leakage — e.g. a fake FR
+   * during the stakeholder stage). LLM/extraction output is treated as
+   * untrusted; the gate is deterministic.
+   */
+  _isRequirementAllowedInStage(req, analysis) {
+    const stage = (req.sourceInterviewStage || analysis.stageName || '').trim().toLowerCase();
+    const mapStage = (s) => {
+      s = (s || '').toLowerCase();
+      if (s.includes('project information')) return 'PROJECT_INFORMATION';
+      if (s.includes('stakeholder')) return 'STAKEHOLDERS_AND_USERS';
+      if (s.includes('role')) return 'USER_ROLES_AND_PERMISSIONS';
+      if (s.includes('functional')) return 'FUNCTIONAL_REQUIREMENTS';
+      if (s.includes('non-functional') || s.includes('nonfunctional')) return 'NON_FUNCTIONAL_REQUIREMENTS';
+      if (s.includes('interface')) return 'EXTERNAL_INTERFACES';
+      if (s.includes('constraint')) return 'CONSTRAINTS';
+      if (s.includes('assumption') || s.includes('depend')) return 'ASSUMPTIONS_AND_DEPENDENCIES';
+      if (s.includes('review')) return 'REVIEW_AND_CONFIRMATION';
+      return 'UNKNOWN';
+    };
+    const stageId = analysis.stageId || mapStage(stage);
+
+    // Stages that never produce requirements.
+    const noRequirementStages = ['PROJECT_INFORMATION', 'STAKEHOLDERS_AND_USERS', 'USER_ROLES_AND_PERMISSIONS', 'REVIEW_AND_CONFIRMATION'];
+    if (noRequirementStages.includes(stageId)) return false;
+
+    // Review stage: never create new requirements silently.
+    if (stageId === 'REVIEW_AND_CONFIRMATION') return false;
+
+    return true; // requirement-elicitation stages (FR/NFR/Interfaces/Constraints/Assumptions)
+  }
+
   async persistRequirements(projectId, analysis, { sourceMessageId = null } = {}) {
     const existing = await Requirement.find({ projectId });
     const saved = [];
     const skippedDuplicates = [];
+    const rejectedByGate = [];
 
     // Counters per type for ID assignment
     const counters = {};
     for (const t of Object.keys(TYPE_PREFIX)) counters[t] = existing.filter((r) => r.type === t).length;
 
     for (const req of analysis.requirements) {
+      // Eligibility gate: never persist a requirement from a non-requirement
+      // stage (project info / stakeholders / roles / review).
+      if (!this._isRequirementAllowedInStage(req, analysis)) {
+        rejectedByGate.push({ title: req.title, reason: `Not a requirement for stage ${analysis.stageId || req.sourceInterviewStage}` });
+        continue;
+      }
+
       // Hard duplicate guard against the persisted catalog (embedding cosine)
       const dup = await this._findPersistedDuplicate(req, existing, saved);
       if (dup) {
@@ -357,7 +413,7 @@ class RequirementsPipeline {
       saved.push(doc);
     }
 
-    return { saved, skippedDuplicates };
+    return { saved, skippedDuplicates, rejectedByGate };
   }
 
   async _findPersistedDuplicate(req, existing, justSaved) {

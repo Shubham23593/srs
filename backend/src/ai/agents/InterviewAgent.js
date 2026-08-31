@@ -15,6 +15,7 @@
 
 const pipeline = require('../pipeline/requirementsPipeline');
 const { detectLanguage } = require('../pipeline/languageDetector');
+const { evaluateStageCompletion } = require('../pipeline/stageGate');
 
 class InterviewAgent {
   detectLanguage(text = '') {
@@ -94,22 +95,19 @@ class InterviewAgent {
     // ---- Relevant answer ----
     const newRequirementCount = analysis.requirements.length;
     const totalSectionRequirements = sectionRequirementsCount + newRequirementCount;
-    const hasExtractedEntities = Boolean(
-      analysis.entities?.stakeholdersInfo?.primaryUsers?.length ||
-      analysis.entities?.stakeholdersInfo?.stakeholders?.length ||
-      analysis.entities?.rolesInfo?.userRoles?.length ||
-      analysis.entities?.projectInfo?.problemStatement
-    );
-    const isDetailedAnswer = (lastUserMessage || '').length >= 30 || newRequirementCount >= 1 || hasExtractedEntities;
-    const isEntitySection = ['PROJECT_INFORMATION', 'STAKEHOLDERS_AND_USERS', 'USER_ROLES_AND_PERMISSIONS', 'REVIEW_AND_CONFIRMATION'].includes(currentSectionConfig?.id);
-    const previousAnswersInStage = conversationHistory.filter(m => m.sender === 'USER' && (m.section === currentSectionConfig?.id || m.topic === currentSectionConfig?.name)).length;
-
-    const sectionCompleted = (isEntitySection && (previousAnswersInStage >= 1 || isDetailedAnswer)) ||
-      (!isPartial && (
-        (isEntitySection && isDetailedAnswer) ||
-        (totalSectionRequirements >= 1 && isDetailedAnswer) ||
-        totalSectionRequirements >= 2
-      ));
+    // ---- STAGE GATE (deterministic): completeness decided by stage-appropriate
+    //      knowledge/requirements, NOT message count. Partial answers never
+    //      auto-complete a stage.
+    const gate = evaluateStageCompletion({
+      stageId: currentSectionConfig?.id,
+      entities: analysis.entities || {},
+      project: projectContext || {},
+      stageRequirements: totalSectionRequirements,
+      outOfScope: false,
+      userSkipped: false
+    });
+    const sectionCompleted = !isPartial && gate.complete;
+    const stageGateReason = gate.reason;
 
     // Normalized requirements in the shape the controller expects for display
     const extractedRequirements = analysis.requirements.map((r) => ({
@@ -129,13 +127,15 @@ class InterviewAgent {
       confidence: r.confidence
     }));
 
-    // Build next question: dynamic follow-up using LLM if staying in current section
+    // Build next question. Priority: relevance feedback > clarification >
+    // targeted missing-info hint (from the stage gate) > LLM dynamic > static bank.
     let nextQuestion;
     if (isPartial && (analysis.relevance?.feedbackMessage || analysis.relevance?.message)) {
       nextQuestion = analysis.relevance.feedbackMessage || analysis.relevance.message;
     } else if (analysis.clarificationQuestion && !sectionCompleted) {
       nextQuestion = analysis.clarificationQuestion;
     } else if (!sectionCompleted) {
+      const missingHint = (gate.missingFields && gate.missingFields[0]) || '';
       nextQuestion = await this.generateDynamicFollowUp({
         sectionConfig: currentSectionConfig,
         projectName: projectContext.projectName,
@@ -143,8 +143,19 @@ class InterviewAgent {
         userAnswer: lastUserMessage,
         extractedEntities: analysis.entities,
         extractedRequirements,
-        conversationHistory
+        conversationHistory,
+        missingHint
       });
+      // Fall back to the deterministic, non-repetitive missing-info hint,
+      // then to the static section follow-up bank.
+      if ((!nextQuestion || nextQuestion.length < 5) && missingHint) {
+        nextQuestion = missingHint;
+      }
+      if (!nextQuestion) {
+        nextQuestion = this.getSectionFollowUpQuestion(
+          currentSectionConfig.id, projectContext.projectName, detectedLanguage
+        );
+      }
     } else {
       nextQuestion = this.getSectionFollowUpQuestion(
         currentSectionConfig.id, projectContext.projectName, detectedLanguage
@@ -164,7 +175,8 @@ class InterviewAgent {
       interviewCompleted: false,
       extractedRequirements,
       analysis,
-      missingInformation: analysis.informationQuality?.ambiguities ? [] : [],
+      stageGate: gate,
+      missingInformation: gate.missingFields || [],
       notes: newRequirementCount
         ? `Pipeline extracted ${newRequirementCount} atomic normalized requirement(s); ${analysis.informationQuality.ambiguities} need clarification.`
         : analysis.message
@@ -182,7 +194,8 @@ class InterviewAgent {
     userAnswer = '',
     extractedEntities = {},
     extractedRequirements = [],
-    conversationHistory = []
+    conversationHistory = [],
+    missingHint = ''
   }) {
     const { getAIProvider } = require('../index');
     const ai = getAIProvider();
@@ -190,32 +203,38 @@ class InterviewAgent {
     if (ai && (await ai.isHealthy())) {
       try {
         const prompt = `You are a Senior Requirements Engineer (ISO/IEC/IEEE 29148).
-Generate a concise, intelligent, non-repetitive follow-up interview question for the current stage.
+Write ONE concise, friendly, non-repetitive follow-up question for the CURRENT interview stage only.
 
 PROJECT: ${projectName}
-CURRENT STAGE: ${sectionConfig.name} (${sectionConfig.description})
-USER'S RECENT ANSWER: "${userAnswer}"
-EXTRACTED ENTITIES: ${JSON.stringify(extractedEntities || {})}
-REQUIREMENTS CAPTURED: ${extractedRequirements.length} requirements.
+CURRENT STAGE: ${sectionConfig.name}
+STAGE FOCUS: ${sectionConfig.description}
+USER'S LAST ANSWER: "${userAnswer}"
+ALREADY COLLECTED: ${JSON.stringify(extractedEntities || {})}; ${extractedRequirements.length} requirements captured.
+SPECIFIC MISSING INFORMATION TO ASK FOR: ${missingHint || '(ask for the key remaining detail for this stage)'}
 
-INSTRUCTIONS:
-1. Do NOT ask for information the user has already stated.
-2. If the user provided primary users, ask about other stakeholders (e.g. administrators, managers, support staff, or partner agencies).
-3. If in functional stage, ask for specific workflows, edge cases, reporting, or notifications.
-4. If in NFR stage, ask for specific measurable targets (e.g. maximum response time, uptime percentage, backup frequency).
-5. Generate the question in the user's language: ${detectedLanguage} (English, Hindi, Marathi, or Hinglish).
-6. Return ONLY the question string directly without markdown or quotes.`;
+RULES:
+1. Do NOT repeat what the user already provided.
+2. Ask ONLY for the specific missing information above.
+3. Do not invent features, metrics, or assumptions.
+4. Write in the user's language: ${detectedLanguage} (English, Hindi, Marathi, or Hinglish).
+5. Return ONLY the question, no markdown, no quotes, no preamble.`;
 
-        const response = await ai.generateCompletion(prompt, { temperature: 0.3, maxTokens: 100 });
-        const clean = (response || '').trim().replace(/^["']|["']$/g, '');
-        if (clean && clean.length > 10) {
+        // Bounded timeout so a slow model can never hang the interview.
+        const response = await ai.generateCompletion(prompt, { temperature: 0.3, maxTokens: 120, timeout: 20000, retries: 0 });
+        const clean = (response || '').trim().replace(/^["'👉*\s]+|["'*\s]+$/g, '');
+        // Reject trivial/echoed/empty LLM output; fall through to deterministic.
+        if (clean && clean.length > 12 && clean.includes('?')) {
           return clean;
         }
       } catch (err) {
-        console.warn('[InterviewAgent] Dynamic LLM follow-up failed, using fallback:', err.message);
+        console.warn('[InterviewAgent] Dynamic LLM follow-up failed, using deterministic fallback:', err.message);
       }
     }
 
+    // Deterministic: prefer the specific missing-info hint; else a section-aware
+    // non-repetitive prompt from the static bank. Never returns empty so the
+    // interview always has a valid next question even with the LLM offline.
+    if (missingHint) return missingHint;
     return this.getSectionFollowUpQuestion(sectionConfig.id, projectName, detectedLanguage);
   }
 

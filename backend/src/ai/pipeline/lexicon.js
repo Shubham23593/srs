@@ -324,12 +324,19 @@ const NFR_PATTERNS = [
     nfrSubcategory: 'AVAILABILITY',
     topic: 'Reliability',
     section: '5.4',
+    // Only treat as an availability REQUIREMENT when the SYSTEM availability is
+    // being discussed with a metric or explicit uptime/24-7 wording. The bare
+    // word "available" (e.g. "NGOs manage available resources") must NOT create
+    // an availability requirement.
     ambiguous: false,
-    keywords: ['available', 'uptime', 'always on', '24/7', 'available 24', '99.9', '99.99', 'उपलब्ध', 'चालू'],
-    measurable: /(\d{2,3}(?:\.\d+)?)\s*%/,
+    keywords: ['system availability', 'availability of the system', 'uptime', 'always on', '24/7', 'available 24', 'available 99', '99.9%', '99.99%', 'high availability', 'सिस्टम उपलब्ध'],
+    measurable: /(\d{2,3}(?:\.\d+)?)\s*(?:%|percent)/,
     measurableStatement: (m) => `The system shall maintain ${m[1]}% availability.`,
+    // No vague fallback: an availability statement without a metric asks for
+    // clarification rather than fabricating a target.
     vagueStatement: 'The system shall remain available during agreed operating hours.',
-    clarification: '',
+    clarification: 'What availability target is required (e.g., 99.5% uptime or specified operating hours)?',
+    requireMeasurableForMatch: true,
     metricHint: 'availability'
   },
   {

@@ -205,23 +205,61 @@ function extractStakeholdersAndUsers(text) {
   };
 }
 
+// Known role nouns (open set; also captures "<word> worker/officer/admin" patterns).
+const ROLE_NOUNS = /\b(?:admin|admins|administrator|administrators|manager|managers|field worker|field workers|ground staff|volunteer|volunteers|citizen|citizens|officer|officers|supervisor|supervisors|user|users|doctor|doctors|patient|patients|nurse|nurses|agent|agents|operator|operators|farmer|farmers|responders?|coordinator|coordinators|clerk|clerks)\b/gi;
+
 function extractRolesAndPermissions(text) {
   const s = String(text || '');
   const roles = [];
   const permissions = [];
 
-  const roleMatches = s.match(/\b(?:admin|administrator|manager|field worker|volunteer|citizen|officer|supervisor|user|doctor|patient)\b/gi) || [];
-  roleMatches.forEach(r => roles.push(r.toLowerCase()));
+  // 1. Explicit known role nouns.
+  const roleMatches = s.match(ROLE_NOUNS) || [];
+  roleMatches.forEach(r => roles.push(r.toLowerCase().replace(/s$/, (m) => m === 's' ? 's' : m)));
 
-  const permMatches = s.match(/\b(?:view assigned tasks|update repair status|read-only|read and write|full access|approve requests|create records|delete records|manage users)\b/gi) || [];
-  permMatches.forEach(p => permissions.push(p.toLowerCase()));
+  // 2. Generic actor pattern: "<Role> can/should <action> ..." (any domain).
+  //    e.g. "Field workers can update only their assigned repair tasks."
+  const actorClauses = s.match(/[A-Za-z][A-Za-z\s-]{1,40}?\s+(?:can|could|should|must|shall|are able to|is able to)\s+[^.!?]+/gi) || [];
+  for (const clause of actorClauses) {
+    // The role is the leading noun phrase up to the modal.
+    const rolePart = clause.split(/\s+(?:can|could|should|must|shall|are able to|is able to)\b/i)[0];
+    const role = rolePart.toLowerCase()
+      .replace(/^(the|a|an|all|only|these|those)\s+/i, '')
+      .trim();
+    if (role && role.length <= 40 && /[a-z]/.test(role)) roles.push(role);
+
+    // The permission/action is the remainder.
+    const action = clause.replace(/^[^]+?\b(?:can|could|should|must|shall|are able to|is able to)\s*/i, '').trim();
+    if (action) {
+      const perm = action.replace(/[.,;!]+$/, '').trim();
+      if (perm.length > 2) permissions.push(perm);
+    }
+  }
+
+  const canonicalRoles = [...new Set(roles.map(normalizeRole))].filter(Boolean);
+  const canonicalPerms = [...new Set(permissions.map((p) => p.toLowerCase().replace(/\s+/g, ' ').trim()))];
 
   return {
-    userRoles: [...new Set(roles)],
-    permissions: [...new Set(permissions)],
-    roleHierarchy: roles.length > 1 ? [`${roles[0]} > ${roles.slice(1).join(', ')}`] : [],
-    accessRules: permissions
+    userRoles: canonicalRoles,
+    permissions: canonicalPerms,
+    roleHierarchy: canonicalRoles.length > 1 ? [`${canonicalRoles[0]} > ${canonicalRoles.slice(1).join(', ')}`] : [],
+    accessRules: canonicalPerms
   };
+}
+
+function normalizeRole(role) {
+  const r = String(role || '').trim().toLowerCase();
+  if (!r) return '';
+  if (/admin/.test(r)) return 'administrator';
+  if (/field worker|ground staff/.test(r)) return 'field worker';
+  if (/officer/.test(r)) return 'officer';
+  if (/manager/.test(r)) return 'manager';
+  if (/volunteer/.test(r)) return 'volunteer';
+  if (/citizen/.test(r)) return 'citizen';
+  if (/doctor/.test(r)) return 'doctor';
+  if (/patient/.test(r)) return 'patient';
+  if (/farmer/.test(r)) return 'farmer';
+  return r.replace(/s$/, '');
 }
 
 function extractProjectInfo(text) {
@@ -258,13 +296,32 @@ function extractAssumptionsDependencies(text) {
   if (/gps/i.test(s)) deps.push('GPS Location Services');
   if (/email/i.test(s)) deps.push('Email Notification Provider');
   if (/sms/i.test(s)) deps.push('SMS Gateway Provider');
-  if (/payment|stripe|paypal/i.test(s)) deps.push('Payment Gateway');
+  if (/whatsapp/i.test(s)) deps.push('WhatsApp Messaging API');
+  if (/google maps|maps api|map service/i.test(s)) deps.push('Maps API');
+  if (/payment|stripe|paypal|razorpay/i.test(s)) deps.push('Payment Gateway');
   return {
-    assumptions: s.includes('assume') ? [s] : ['Reliable network connectivity is available.'],
+    assumptions: /assume|assumption|assuming|man liya|गृहीत/i.test(s) ? [s.trim()] : [],
     dependencies: deps,
     thirdPartyServices: deps,
     environmentalDependencies: []
   };
+}
+
+function extractInterfaces(text) {
+  const s = String(text || '');
+  const interfaces = [];
+  const known = [
+    [/payment gateway|stripe|paypal|razorpay/i, 'Payment Gateway'],
+    [/google maps|maps api|map service/i, 'Maps API'],
+    [/\bsms\b|sms gateway/i, 'SMS Gateway'],
+    [/whatsapp/i, 'WhatsApp Messaging API'],
+    [/\bemail\b|smtp/i, 'Email Service API'],
+    [/rest api|webhook|third-party api|external api/i, 'External REST API'],
+    [/kafka|message queue|rabbitmq/i, 'Message Queue'],
+    [/database integration|integrat.*database/i, 'Database Integration']
+  ];
+  for (const [re, label] of known) if (re.test(s)) interfaces.push(label);
+  return { interfaces: [...new Set(interfaces)] };
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +378,283 @@ function detectVerbObjectEnumerations(sentence) {
     if (hasVerb) matched.add(cap.id);
   }
   return matched;
+}
+
+// ---------------------------------------------------------------------------
+// 4b. Domain-general functional capability extraction
+// ---------------------------------------------------------------------------
+// The CAPABILITIES lexicon covers known domains (expense, disaster relief).
+// To support ANY project domain (agriculture, water, health, ...) without
+// hallucinating, this generic extractor recognizes EXPLICIT system-behavior
+// clauses via <modal/auxiliary> + <action verb> + (<actor>) + (<object>)
+// patterns and builds a faithful formal statement from the clause's own words.
+// It is intentionally conservative: it only fires on a clear capability marker
+// (modal verb / "able to" / multilingual equivalents) and it NEVER adds objects,
+// metrics, or features that are not present in the source clause.
+
+// Action verbs that indicate the system DOES something (open set, domain-neutral).
+const GENERIC_ACTION_VERBS = [
+  'upload', 'download', 'submit', 'create', 'add', 'record', 'capture', 'enter',
+  'view', 'see', 'read', 'display', 'show', 'list', 'browse', 'monitor', 'track',
+  'edit', 'update', 'modify', 'change', 'delete', 'remove', 'manage', 'maintain',
+  'search', 'filter', 'find', 'generate', 'produce', 'send', 'receive', 'notify',
+  'alert', 'remind', 'approve', 'reject', 'assign', 'review', 'verify', 'validate',
+  'register', 'log in', 'login', 'sign in', 'sign up', 'register', 'export',
+  'import', 'share', 'download', 'print', 'schedule', 'book', 'reserve', 'order',
+  'pay', 'purchase', 'request', 'apply', 'report', 'analyze', 'process', 'calculate',
+  'confirm', 'select', 'choose', 'pick', 'cancel', 'complete', 'check in', 'check-in',
+  'access', 'login', 'reschedule', 'join', 'attend', 'track', 'locate', 'navigate',
+  'store', 'save', 'backup', 'restore', 'integrate', 'connect', 'sync',
+  // Hinglish / romanized
+  'upload kar', 'add kar', 'bhar', 'jama', 'dekh', 'bagh', 'pah', 'bhej',
+  // Devanagari (Hindi/Marathi) common action stems
+  'अपलोड', 'दर्ज', 'जोड़', 'नोंदव', 'देख', 'पहा', 'बघा', 'भेज', 'सबमिट', 'हटा',
+  'आवेदन', 'स्थिति'
+];
+
+// Devanagari (Hindi/Marathi) -> English glossary for action verbs and common
+// object nouns. Used ONLY to normalize a native-script requirement into formal
+// English; it never invents behavior — it maps words the user actually wrote.
+const DEVA_GLOSSARY = {
+  // action verbs
+  'अपलोड': 'upload', 'डाउनलोड': 'download', 'सबमिट': 'submit', 'जमा': 'submit',
+  'दर्ज': 'record', 'जोड़': 'add', 'जोड़ें': 'add', 'बना': 'create', 'नोंदव': 'register',
+  'देख': 'view', 'देखें': 'view', 'पहा': 'view', 'बघा': 'view', 'दृश्य': 'view',
+  'भेज': 'send', 'प्राप्त': 'receive', 'स्वीकार': 'approve', 'अस्वीकार': 'reject',
+  'हटा': 'delete', 'हटाएं': 'delete', 'संपादित': 'edit', 'अपडेट': 'update',
+  'खोज': 'search', 'खोजें': 'search', 'प्रबंधित': 'manage', 'सूचित': 'notify',
+  'सत्यापित': 'verify', 'समीक्षा': 'review', 'पुस्तक': 'book', 'बुक': 'book',
+  'लॉगिन': 'log in', 'लॉग इन': 'log in', 'पंजीकरण': 'register', 'पुष्टि': 'confirm',
+  'आवेदन': 'apply', 'आवेदन कर': 'apply',
+  // object / domain nouns
+  'आवेदन की स्थिति': 'application status', 'आवेदन': 'application', 'स्थिति': 'status',
+  'सब्सिडी': 'subsidy', 'फसल': 'crop', 'किसान': 'farmers', 'दस्तावेज़': 'documents',
+  'नियुक्ति': 'appointment', 'अपॉइंटमेंट': 'appointment', 'डॉक्टर': 'doctor',
+  'मरीज': 'patients', 'मरीजों': 'patients', 'रोगी': 'patients',
+  'ऑनलाइन': 'online',
+  'टोकन': 'token', 'प्रणाली': 'system', 'सिस्टम': 'system', 'सूचना': 'notification',
+  'सुविधा': 'feature', 'लाइव': 'live', 'नंबर': 'number',
+  'खर्च': 'expenses', 'रिपोर्ट': 'reports', 'खाता': 'accounts', 'उपयोगकर्ता': 'users'
+};
+
+function glossDevanagariToEnglish(text) {
+  let out = String(text || '');
+  // Replace longer phrases first so "आवेदन की स्थिति" wins over "आवेदन".
+  const entries = Object.entries(DEVA_GLOSSARY).sort((a, b) => b[0].length - a[0].length);
+  for (const [deva, en] of entries) {
+    out = out.split(deva).join(' ' + en + ' ');
+  }
+  // Drop residual Devanagari function words that carry no English meaning.
+  out = out.replace(DEVA_STOPWORD, ' ');
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+// Modal / auxiliary markers that signal an explicit requirement/obligation.
+const MODAL_MARKERS = [
+  'should be able to', 'shall be able to', 'must be able to', 'will be able to',
+  'can ', 'could ', 'should ', 'shall ', 'must ', 'will ', 'need to', 'needs to',
+  'able to',
+  'kar sake', 'kar sakte', 'kar sakta', 'kar sako', 'karu shakto', 'karu shake',
+  'pahije', 'hona chahiye', 'honi chahiye', 'chahiye',
+  'चाहिए', 'सकते', 'सकता', 'सकें', 'सके', 'सकू', 'पाहिजे', 'शकतो', 'शकतात'
+];
+
+// Residual Devanagari function words stripped after glossing (they carry no
+// English meaning once verbs/nouns have been mapped).
+const DEVA_STOPWORD = /(के|लिए|कर|करें|और|अपने|अपनी|को|से|में|का|की|है|हों|हो|यह|वे|वह|पर|नहीं|ला|यांना|ना)\s?/g;
+
+// Words that indicate a non-functional quality statement (handled by NFR path).
+// Quality-attribute signal. Note: the bare adjective "available" is NOT enough
+// ("available time slot" is a functional capability, not an availability NFR);
+// require the noun "availability"/"uptime" or a measurable quality predicate.
+const NFR_SIGNAL = /\b(fast|quick|slow|secure|security|availability|uptime|reliable|reliability|scalab|scalability|performance|latency|response time|usab|encryption|backup|throughput|concurrent users|be available|remain available|highly available)\b|तेज़?|सुरक्षित|जलद/i;
+
+function normalizeObjectPhrase(phrase) {
+  // Clean up an extracted object phrase into readable English-ish wording.
+  let p = String(phrase || '').trim().replace(/\s+/g, ' ');
+  p = p.replace(/^(the|a|an|their|his|her|its|apna|apne)\s+/i, '');
+  p = p.replace(/[.,;!?]+$/, '');
+  return p.trim();
+}
+
+/**
+ * Build a faithful generic FR statement from a clause that contains an
+ * explicit capability marker. Returns null when the clause is descriptive only.
+ */
+function buildGenericCapability(clause) {
+  // Normalize native-script verbs/nouns to English FIRST so action/object
+  // extraction works for Hindi/Marathi requirements. The English gloss is only
+  // used to build the normalized statement; the raw text stays as evidence.
+  const rawOriginal = String(clause || '').trim();
+  const raw = glossDevanagariToEnglish(rawOriginal);
+  // If the source contained a Devanagari capability modal (सकें/सके/चाहिए/पाहिजे/
+  // शकतो), treat it as an English "can" obligation after glossing.
+  const hadNativeModal = /सकें|सके|सकते|सकता|चाहिए|पाहिजे|शकतो|शकतात/.test(rawOriginal);
+  const modalRaw = hadNativeModal ? raw + ' can ' : raw;
+  const lower = ' ' + modalRaw.toLowerCase() + ' ';
+
+  // Ignore clauses that are purely quality attributes (NFR handles those).
+  // But still allow clauses that ALSO contain a capability (mixed) — those are
+  // split by the caller clause splitter.
+  // Find the action verb: prefer a WHOLE-WORD match (so "booking" doesn't hit
+  // "book" mid-word and so the verb is the capability, not a later step), then
+  // fall back to substring matching for romanized/Devanagari verbs. Choose the
+  // longest whole-word match nearest to the obligation marker.
+  let action = null;
+  const sortedVerbs = [...GENERIC_ACTION_VERBS].sort((a, b) => b.length - a.length);
+  for (const v of sortedVerbs) {
+    const stem = v.trim();
+    const ascii = /^[a-z][a-z\s]*$/i.test(stem);
+    const re = ascii
+      ? new RegExp(`\\b${stem.replace(/\s+/g, '\\s+')}(?:ing|ed|s)?\\b`, 'i')
+      : null;
+    if ((re && re.test(raw)) || (!ascii && raw.toLowerCase().includes(stem.toLowerCase()))) { action = stem; break; }
+  }
+  if (!action) return null;
+
+  // Must contain an obligation/capability marker (avoid plain narration).
+  const hasModal = MODAL_MARKERS.some((m) => lower.includes(m));
+  if (!hasModal) return null;
+
+  // Extract actor if present (e.g., "farmers can upload", "admin manages").
+  let actor = 'users';
+  const actorMatch = raw.match(/^\s*([A-Za-zऀ-ॿ][A-Za-zऀ-ॿ\s-]{1,40}?)\s+(?:can|could|should|shall|must|will|is able to|are able to)\b/i);
+  if (actorMatch) {
+    const cand = actorMatch[1].trim().toLowerCase();
+    // Reject generic pronouns / non-actors.
+    if (cand && !/^(the system|system|it|they|we|i|you|this|that)$/.test(cand)) {
+      actor = cand.replace(/^(the|a|an)\s+/i, '');
+    }
+  }
+
+  // Extract the object: text after the action verb (what is acted upon).
+  // Locate the action in the ORIGINAL string (case-insensitive) to avoid the
+  // Devanagari-range regex corrupting Latin text.
+  let objectPhrase = '';
+  const actionEscaped = action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const actionIdx = raw.toLowerCase().search(new RegExp(actionEscaped.replace(/\s+/g, '\\s+'), 'i'));
+  if (actionIdx >= 0) {
+    // Cut the object at a subordinate step/condition ("after picking ...",
+    // "before submitting ...") — that is a separate capability, not the object.
+    // Cut at a subordinate step/condition ("after picking ...", "before
+    // submitting ...") — that describes a separate step, not the object.
+    let afterRaw = raw.slice(actionIdx + action.length);
+    const stepCut = afterRaw.search(/\s+(?:after|before|when|while|once|following)\s/i);
+    if (stepCut >= 0) afterRaw = afterRaw.slice(0, stepCut);
+    const after = afterRaw.trim();
+    objectPhrase = normalizeObjectPhrase(after);
+  }
+
+  // Compose a faithful statement using ONLY English clause content.
+  // Normalized requirements must be formal English (the raw native/Hinglish
+  // text is preserved separately as source evidence). Strip any Devanagari and
+  // romanized-Hindi helper words so no non-English tokens leak through.
+  const toEnglish = (phrase) => String(phrase || '')
+    .replace(/[ऀ-ॿ।॰ऽ]/g, ' ')                 // drop Devanagari script
+    .replace(/\b(?:la|li|mi|majh|mala|amhi|aamhi|tumhi|pan|ali|pahije|chahiye|chahida|karne|karne ki suvidha|sake|sakta|sakte|sakti|shakto|shakte|karu|kar|hona|honi|chahiye|hai|hain|ho|ye|dekh|baghta|bhar|jod)\b/gi, ' ')
+    .replace(/[.,;:!?]+(?!\s*$)/g, ' ')
+    .replace(/[^A-Za-z0-9\s%-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Normalize a trailing gerund/participle on the matched verb ("booking" ->
+  // "book", "choosing" -> "choose", "logging in" -> "log in").
+  const baseVerb = action.replace(/\s+kar$/, '')
+    .replace(/\b(\w+?)ing\b/g, (m, b) => (b.length >= 2 ? b + 'e' : m))
+    .trim();
+  const actionLabel = toEnglish(baseVerb).trim() || 'manage';
+  let englishObject = toEnglish(objectPhrase);
+  // Truncate the object at the NEXT action verb so two capabilities in one
+  // clause ("upload application AND view status") don't merge into one object
+  // ("upload application status view"). The clause splitter usually separates
+  // these; this is a safety net for fused glossed phrasing.
+  const trailingVerbs = new Set(GENERIC_ACTION_VERBS
+    .map((v) => toEnglish(v).trim())
+    .filter((v) => v && v !== actionLabel && v.length >= 3));
+  englishObject = englishObject.split(/\s+/)
+    .filter((w) => w.length > 0)
+    .reduce((acc, w) => {
+      if (acc.stop) return acc;
+      if (trailingVerbs.has(w.toLowerCase()) && acc.words.length > 0) { acc.stop = true; return acc; }
+      acc.words.push(w);
+      return acc;
+    }, { words: [], stop: false }).words.join(' ');
+  const englishActor = toEnglish(actor) || 'users';
+
+  let statement;
+  if (englishObject && englishObject.length >= 2) {
+    statement = `The system shall allow ${englishActor} to ${actionLabel} ${englishObject}.`.replace(/\s+\./, '.').replace(/\s{2,}/g, ' ');
+  } else {
+    statement = `The system shall allow ${englishActor} to ${actionLabel} information.`.replace(/\s{2,}/g, ' ');
+  }
+
+  // Reject thin/uninformative generic output: a generic verb with no real
+  // object ("manage information") or an object that reduces to nothing after
+  // native-word stripping ("add ne"). These carry no elicitation value and must
+  // not fabricate content; the lexicon/pattern paths handle real capabilities.
+  const STOP_OBJECTS = new Set(['information', 'data', 'it', 'this', 'that', 'ne', 'ka', 'ki', 'ko', 'se', 'feature']);
+  const objectWords = englishObject.split(/\s+/).filter((w) => /[a-z]/i.test(w));
+  const meaningfulObject = objectWords.some((w) => !STOP_OBJECTS.has(w.toLowerCase()) && w.length >= 2);
+  if (!meaningfulObject) return null;
+
+  // Title: Action + object (title-case-ish), English only.
+  const titleObj = englishObject ? englishObject.split(/\s+/).slice(0, 4).join(' ') : actionLabel;
+  const title = `${capTitle(actionLabel)} ${capTitle(titleObj)}`.trim().slice(0, 60);
+
+  return { title, statement, actor: englishActor, action: actionLabel, object: englishObject };
+}
+
+function capTitle(s) {
+  return String(s || '').replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1));
+}
+
+/**
+ * Domain-general MEASURABLE non-functional requirement recognizer.
+ * Captures explicit numeric quality targets the user actually stated (never
+ * invents a number). Returns a normalized NFR candidate or null.
+ */
+function buildGenericMeasurableNfr(clause) {
+  const raw = String(clause || '');
+  const lower = raw.toLowerCase();
+
+  // Response time / latency with an explicit time value.
+  const timeMatch = lower.match(/(?:respond|response|load|load time|latency|reply|process)[^.]*?(\d+(?:\.\d+)?)\s*(ms|milliseconds?|seconds?|sec|s|min|minutes?)\b/);
+  if (timeMatch) {
+    const value = timeMatch[1];
+    const unit = /ms|millisecond/i.test(timeMatch[2]) ? 'milliseconds' : /min|minute/.test(timeMatch[2]) ? 'minutes' : 'seconds';
+    return {
+      title: 'Response Performance',
+      normalizedDescription: `The system shall respond to user actions within ${value} ${unit} under normal load.`,
+      type: 'NON_FUNCTIONAL', nfrSubcategory: 'PERFORMANCE', topic: 'Performance',
+      status: 'PROPOSED', confidence: 0.9, measurable: true
+    };
+  }
+
+  // Availability percentage (accept "%" or the word "percent").
+  const availMatch = lower.match(/(?:available|availability|uptime|up time)[^.]*?(\d{2,3}(?:\.\d+)?)\s*(?:%|percent)/);
+  if (availMatch) {
+    return {
+      title: 'System Availability',
+      normalizedDescription: `The system shall maintain ${availMatch[1]}% availability during agreed operating hours.`,
+      type: 'NON_FUNCTIONAL', nfrSubcategory: 'AVAILABILITY', topic: 'Reliability',
+      status: 'PROPOSED', confidence: 0.9, measurable: true
+    };
+  }
+
+  // Concurrent users / load.
+  const loadMatch = lower.match(/(\d[\d,]*)\s*(concurrent|simultaneous)?\s*(users|requests per second|transactions per second|req\/sec)/);
+  if (loadMatch) {
+    const n = loadMatch[1];
+    const what = /request|transaction/.test(loadMatch[3]) ? 'requests per second' : 'concurrent users';
+    return {
+      title: 'Scalability',
+      normalizedDescription: `The system shall support ${n} ${what}.`,
+      type: 'NON_FUNCTIONAL', nfrSubcategory: 'SCALABILITY', topic: 'Performance',
+      status: 'PROPOSED', confidence: 0.9, measurable: true
+    };
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -438,10 +772,43 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
     // Only extract NFRs when in NFR stage OR when explicit NFR keywords & metrics exist
     const allowNfrInThisStage = stageId === 'NON_FUNCTIONAL_REQUIREMENTS' ||
       stageId === 'FUNCTIONAL_REQUIREMENTS' ||
-      /(\d+(?:\.\d+)?)\s*(?:%|ms|seconds?|sec|s)\b/i.test(clause);
+      /(\d+(?:\.\d+)?)\s*(?:%|percent|ms|milliseconds?|seconds?|sec|min|minutes?)\b/i.test(clause);
 
     // Block fake NFRs in stakeholder / project / roles stage
     const isDescriptiveStage = ['PROJECT_INFORMATION', 'STAKEHOLDERS_AND_USERS', 'USER_ROLES_AND_PERMISSIONS'].includes(stageId);
+
+    // Domain-general MEASURABLE NFR (explicit number the user actually stated).
+    // Never invents a metric; if no NFR_PATTERN matches, use this faithful one.
+    let genericNfrMatched = false;
+    if (allowNfrInThisStage && !isDescriptiveStage) {
+      const genericNfr = buildGenericMeasurableNfr(clause);
+      if (genericNfr) {
+        const key = 'GNFR|' + genericNfr.normalizedDescription;
+        if (!seenCapIds.has(key)) {
+          seenCapIds.add(key);
+          found.push({
+            title: genericNfr.title,
+            normalizedDescription: genericNfr.normalizedDescription,
+            type: 'NON_FUNCTIONAL',
+            nfrSubcategory: genericNfr.nfrSubcategory,
+            category: genericNfr.topic,
+            topicCluster: genericNfr.topic,
+            priority: genericNfr.nfrSubcategory === 'PERFORMANCE' || genericNfr.nfrSubcategory === 'SECURITY' ? 'HIGH' : 'MEDIUM',
+            status: 'PROPOSED',
+            ambiguityFlags: [],
+            clarificationQuestion: '',
+            isAtomic: true, atomic: true,
+            confidence: genericNfr.confidence,
+            qualityFlags: [],
+            isRequirementEvidence: true,
+            sourceInterviewStage: stageName,
+            extractionMethod: 'GENERIC_MEASURABLE_NFR'
+          });
+          genericNfrMatched = true;
+          matchedInClause = true;
+        }
+      }
+    }
 
     if (allowNfrInThisStage && !isDescriptiveStage) {
       for (const nfr of NFR_PATTERNS) {
@@ -449,6 +816,16 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
         if (!hit) continue;
 
         const measurable = nfr.measurable ? clause.match(nfr.measurable) : null;
+
+        // If the domain-general measurable recognizer already produced a
+        // concrete statement for this same clause+metric, don't duplicate it.
+        if (genericNfrMatched && measurable) continue;
+
+        // Some quality attributes (e.g. availability) must only become a
+        // requirement when an explicit metric/uptime is stated — otherwise the
+        // bare keyword ("available resources") would hallucinate an NFR.
+        if (nfr.requireMeasurableForMatch && !measurable) continue;
+
         const vagueTerms = detectVagueTerms(clause);
         const isAmbiguous = nfr.ambiguous && !measurable;
 
@@ -596,11 +973,31 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
 
     // Extract functional requirements when in functional stage OR when an explicit capability action exists
     if (!clauseIsDependency && !clauseIsConstraint) {
+      // Domain guard for the keyword lexicon: a capability template belongs to
+      // a known domain (expense, disaster relief, ...). It must only fire when
+      // the PROJECT is that domain OR the clause itself names the template's
+      // domain objects. Otherwise a generic verb like "search" in a hospital
+      // answer would wrongly emit "search and filter expense records".
+      const projectContextText = [project?.projectName, project?.domain, project?.description, project?.scope]
+        .filter(Boolean).join(' ').toLowerCase();
+
       for (const cap of CAPABILITIES) {
         if (enumCapIds.has(cap.id)) continue;
 
         const hit = cap.keywords.find((kw) => hasKeyword(clauseLower, clause, kw));
         if (!hit) continue;
+
+        const domainTokens = (cap.objects || cap.keywords || [])
+          .filter((k) => /^[a-z]/i.test(k) && k.length >= 4)
+          .map((k) => k.toLowerCase());
+        const isFinanceCap = domainTokens.some((o) => /expense|budget|financ/.test(o));
+        const isReliefCap = domainTokens.some((o) => /disaster|relief|emergency|rescue/.test(o));
+        const projectMatchesCapDomain =
+          (isFinanceCap && /expense|budget|financ/.test(projectContextText)) ||
+          (isReliefCap && /disaster|relief|emergency|rescue/.test(projectContextText));
+        const clauseNamesDomainObject = (cap.objects || [])
+          .some((o) => /^[a-z]/i.test(o) && clauseLower.includes(String(o).toLowerCase()));
+        if (!(projectMatchesCapDomain || clauseNamesDomainObject)) continue;
 
         const ctx = {
           has: (...ws) => ctxHas(clause, ws),
@@ -633,6 +1030,50 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
         }
         matchedInClause = true;
       }
+
+      // Domain-GENERAL capability fallback: recognize explicit system behavior
+      // for ANY project domain (not only known lexicon domains). Only runs in
+      // requirement-elicitation stages and only when the clause has a clear
+      // obligation marker + action verb. Never invents unsupported content.
+      const functionalStage = stageId === 'FUNCTIONAL_REQUIREMENTS' ||
+        stageId === 'EXTERNAL_INTERFACES' || stageId === 'NON_FUNCTIONAL_REQUIREMENTS';
+      if (!matchedInClause && functionalStage && !(NFR_SIGNAL.test(clause) || genericNfrMatched)) {
+        // A clause produced by splitting an enumeration ("... search X, select Y,
+        // and confirm Z") may carry no modal of its own. If it starts with an
+        // action verb and the wider answer carries an obligation marker, treat
+        // it as an inherited capability (prefix "users can") so it is recognized
+        // faithfully rather than dropped.
+        const clauseHasModal = MODAL_MARKERS.some((m) => (' ' + clauseLower).includes(m));
+        const answerHasModal = /\b(should|shall|must|will|can|able to)\b/.test(rawText.toLowerCase()) ||
+          /सकें|सके|सकते|चाहिए|पाहिजे|शकतो/.test(rawText);
+        const startsWithVerb = new RegExp(`^\\s*(?:${[...GENERIC_ACTION_VERBS].filter(v => /^[a-z]/i.test(v)).sort((a,b)=>b.length-a.length).join('|')})(?:ing|ed|s)?\\b`, 'i').test(clause);
+        const effectiveClause = (!clauseHasModal && answerHasModal && startsWithVerb)
+          ? `Users can ${clause.replace(/^\s+/, '')}`
+          : clause;
+        const generic = buildGenericCapability(effectiveClause);
+        if (generic && !seenStatements.has(generic.statement)) {
+          seenStatements.add(generic.statement);
+          found.push({
+            title: generic.title,
+            normalizedDescription: generic.statement,
+            type: 'FUNCTIONAL',
+            nfrSubcategory: 'N/A',
+            category: sectionConfig?.name || 'Core Features',
+            topicCluster: 'General System Features',
+            priority: 'MEDIUM',
+            status: 'PROPOSED',
+            ambiguityFlags: [],
+            clarificationQuestion: '',
+            isAtomic: true, atomic: true,
+            confidence: 0.78,
+            qualityFlags: [],
+            isRequirementEvidence: true,
+            sourceInterviewStage: stageName,
+            extractionMethod: 'GENERIC_CAPABILITY'
+          });
+          matchedInClause = true;
+        }
+      }
     }
 
     if (!matchedInClause) {
@@ -647,7 +1088,8 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
       rolesInfo: extractRolesAndPermissions(rawText),
       projectInfo: extractProjectInfo(rawText),
       constraintsInfo: extractConstraints(rawText),
-      dependenciesInfo: extractAssumptionsDependencies(rawText)
+      dependenciesInfo: extractAssumptionsDependencies(rawText),
+      interfacesInfo: extractInterfaces(rawText)
     },
     informationType: classifyInformationType(rawText, sectionConfig),
     isRequirementEvidence: found.length > 0,
@@ -711,5 +1153,7 @@ module.exports = {
   formalNormalize,
   detectVagueTerms,
   splitIntoClauses,
+  buildGenericCapability,
+  glossDevanagariToEnglish,
   INFORMATION_TYPES
 };

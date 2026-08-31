@@ -169,9 +169,6 @@ Respond ONLY with a JSON object:
     });
   }
 
-  /**
-   * Deterministic semantic fallback when LLM is unavailable.
-   */
   _semanticFallbackEvaluation({
     text,
     project,
@@ -183,26 +180,51 @@ Respond ONLY with a JSON object:
   }) {
     const lower = text.toLowerCase();
 
-    // Universal software cross-cutting infrastructure terms (valid for any software project)
-    const universalInfra = [
-      'user', 'admin', 'role', 'login', 'logout', 'auth', 'password', 'permission',
-      'access', 'security', 'secure', 'encrypt', 'database', 'api', 'notification',
-      'email', 'sms', 'report', 'export', 'pdf', 'csv', 'dashboard', 'search',
-      'filter', 'performance', 'speed', 'latency', 'backup', 'audit', 'log',
-      'उपयोगकर्ता', 'सिस्टम', 'लॉगिन', 'सुरक्षा', 'परमिशन', 'पासवर्ड', 'अहवाल', 'रिपोर्ट'
-    ];
+    // --- 1. Gibberish / random keystroke detection ---------------------
+    const words = text.split(/\s+/).filter(Boolean);
+    // Common keyboard-walk / random mash patterns and very-low-vowel tokens.
+    const KEYBOARD_MASH = /\b(qwerty|asdf|zxcv|qwerty|asdfg|zxcvb|qwertz|hjkl|poiuy|ljk|mnbv|dfgh)\b/i;
+    const vowels = (s) => (s.match(/[aeiou]/gi) || []).length;
+    // Known keyboard-walk strings are gibberish; otherwise be conservative and
+    // only flag LONG consonant mashes (>=6 letters, no vowel) so legitimate
+    // Hinglish/tech words ("hona", "postgresql") are never misclassified.
+    const gibberishWords = words.filter((w) => {
+      const letters = w.replace(/[^a-zA-Z]/g, '');
+      if (!letters) return false;
+      if (/[ऀ-ॿ]/.test(w)) return false;
+      if (KEYBOARD_MASH.test(w) && /[^aeiou]/i.test(w)) return /[aeiou]/i.test(w) ? false : true;
+      if (KEYBOARD_MASH.test(w) && letters.length >= 4) return true;
+      if (letters.length < 6) return false;
+      return vowels(letters) === 0; // pure consonant run, e.g. "qwrtyd"
+    });
+    // "Digit-only" only when the ENTIRE answer carries no letters of any script
+    // (Devanagari letters are word chars in Unicode, so exclude them explicitly).
+    const hasAnyLetter = /[a-zA-Zऀ-ॿ]/.test(text);
+    const hasDigitOnly = words.length > 0 && !hasAnyLetter && words.every((w) => /^[\d\s\W]+$/.test(w));
+    const isGibberish = hasDigitOnly ||
+      (words.length >= 3 && gibberishWords.length / words.length >= 0.6 && !/[ऀ-ॿ]/.test(text) && gibberishWords.length >= 2);
+    if (isGibberish) {
+      return {
+        classification: 'INVALID',
+        isRelevant: false,
+        isOutOfScope: true,
+        status: 'INVALID',
+        confidence: 0.9,
+        explanation: 'Input appears to be random characters rather than a meaningful answer.',
+        feedbackMessage: `I could not understand that response. Could you please describe, in your own words, the information requested for ${stageName}?`,
+        clarificationNeeds: ['A meaningful, readable response'],
+        embeddingScore
+      };
+    }
 
-    const hasUniversalInfra = universalInfra.some((term) => lower.includes(term));
-
-    // Hard out-of-scope patterns (casual greetings, sports, unrelated weather/movies)
+    // --- 2. Hard out-of-scope patterns (sports, weather, entertainment) --
     const outOfScopeKeywords = [
-      'football', 'cricket', 'match', 'ipl', 'weather', 'movie', 'cinema', 'song',
-      'dinner', 'recipe', 'food', 'cooking', 'shopping mall', 'flight ticket', 'hotel booking'
+      'football', 'cricket', 'match score', 'ipl', 'fifa', 'weather', 'movie', 'cinema', 'song',
+      'dinner', 'recipe', 'cooking', 'shopping mall', 'flight ticket', 'hotel booking', 'watch a'
     ];
-
-    const isExplicitlyOutOfScope = outOfScopeKeywords.some((kw) => lower.includes(kw));
-
-    if (isExplicitlyOutOfScope && !lower.includes(projName.toLowerCase())) {
+    const isExplicitlyOutOfScope = outOfScopeKeywords.some((kw) => lower.includes(kw)) &&
+      !lower.includes(projName.toLowerCase());
+    if (isExplicitlyOutOfScope) {
       return {
         classification: 'UNRELATED',
         isRelevant: false,
@@ -210,57 +232,166 @@ Respond ONLY with a JSON object:
         status: 'CONTEXT_MISMATCH',
         confidence: 0.9,
         explanation: `Input references topics unrelated to ${projName}.`,
-        feedbackMessage: `This response does not appear related to ${projName}. Please provide information about ${stageName} for this project.`,
+        feedbackMessage: `This response does not appear related to ${projName}. Please provide information about ${stageName}.`,
         clarificationNeeds: [],
         embeddingScore
       };
     }
 
-    // High vague words with no detail -> Partially Relevant
-    const vagueWords = ['good', 'fast', 'nice', 'simple', 'best', 'user-friendly', 'easy'];
-    const isOnlyVague = vagueWords.some((w) => lower.includes(w)) && text.split(/\s+/).length <= 4 && !hasUniversalInfra;
-    if (isOnlyVague) {
+    // --- 3. Domain-content relevance -----------------------------------
+    const stem = (w) => {
+      if (w.length > 5 && w.endsWith('ies')) return w.slice(0, -3) + 'y';
+      if (w.length > 4 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+      return w;
+    };
+    // Generic verbs/nouns that appear in almost any project and must NOT count
+    // as domain grounding (otherwise "track budget" matches "token tracking").
+    const GENERIC_DOMAIN_WORDS = new Set([
+      'track', 'tracking', 'manage', 'management', 'system', 'platform', 'user', 'users',
+      'data', 'information', 'provide', 'service', 'services', 'support', 'access',
+      'view', 'create', 'update', 'report', 'reports', 'notification', 'notifications',
+      'monitor', 'real-time', 'realtime', 'online', 'digital', 'application', 'app'
+    ]);
+    const profileTerms = new Set(
+      [projName, projDomain, project?.description, project?.scope]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .split(/[^a-z0-9\u0900-\u097F]+/)
+        .filter((w) => w.length >= 4 && !GENERIC_DOMAIN_WORDS.has(w) && !GENERIC_DOMAIN_WORDS.has(stem(w)))
+        .flatMap((w) => [w, stem(w)])
+    );
+    const answerTerms = lower.split(/[^a-z0-9\u0900-\u097F]+/).filter((w) => w.length >= 4);
+    let domainHits = 0;
+    const domainHitWords = [];
+    for (const t of answerTerms) {
+      if (!GENERIC_DOMAIN_WORDS.has(t) && !GENERIC_DOMAIN_WORDS.has(stem(t)) &&
+          (profileTerms.has(t) || profileTerms.has(stem(t)))) {
+        domainHits++;
+        domainHitWords.push(t);
+      }
+    }
+
+    // An explicit requirement about THE SYSTEM / a role performing an action.
+    // Deliberately requires a system/role/modal anchor — generic software nouns
+    // alone (e.g. the word "user") are not enough, to avoid accepting cross-domain
+    // prose that merely mentions "a doctor" in a campus-event project.
+    const ACTIONS_EN = '(?:upload|download|submit|create|add|view|see|edit|update|delete|remove|manage|record|capture|generate|send|receive|review|approve|register|sign up|log in|login|search|export|report|track|assign|request|book|browse|select|confirm|notify|notify|notify)';
+    const ROLES_EN = '(?:users?|admins?|farmers?|officers?|managers?|citizens?|doctors?|patients?|workers?|volunteers?|patients?|receptionists?|staff|personnel|customers?|students?)';
+    const explicitSystemReq =
+      // "the system ... should/shall/must/... <verb>"
+      /\b(?:the )?system\b[^.]{0,45}\b(?:shall|must|should|will|needs? to|has to|provide|allow|support|generate|send|store|display|record|notify|integrat|respond|enable|permit)\b/i.test(text) ||
+      // "it ... should be ..." / impersonal modal (formal requirement style)
+      /\b(?:it|the (?:system|application|platform|solution))\b[^.]{0,25}\b(?:should|must|shall|will|needs? to)\b/i.test(text) ||
+      // "<role> can/should/shall/be able to <action> ..."
+      new RegExp('\\b' + ROLES_EN + '\\b[^.]{0,25}\\b(?:can|could|shall|must|should|be able to)\\b[^.]{0,20}\\b' + ACTIONS_EN + '\\b', 'i').test(text) ||
+      // Technology / platform constraint or interface ("must use PostgreSQL",
+      // "integrate with Stripe") — explicit implementation requirement.
+      /\b(?:must|should|shall|will|needs? to)?\s*(?:use|using|built with|implemented in|deployed on|based on|integrate with|connect to|run on)\b[^.]{0,30}\b(?:postgres|postgresql|mysql|mongo|mongodb|redis|docker|kubernetes|aws|azure|react|node|python|java|stripe|paypal|razorpay|twilio|firebase)\b/i.test(text) ||
+      /\b(?:postgresql|mongodb|mysql|redis|stripe|paypal|razorpay|twilio|payment gateway|sms gateway|email provider)\b/i.test(text) &&
+        /(?:use|using|must|should|shall|integrate|depend|built|deploy|technology|database)/i.test(text) ||
+      // Hinglish / romanized system statement ("system fast hona chahiye",
+      // "user accounts manage karu shakto"). Matches system/feature tokens + modal.
+      /(?:system|users?|user|admin|accounts?|expense|kharch|feature|app|platform|login|report|mariz|kisan)[^.]*(?:chahiye|chahida|pahije|hona chahiye|honi|kar sake|kar sakte|kar sakta|kar sako|karu shakto|kar shakto|karne ki suvidha|manage kar)/i.test(text) ||
+      /(?:manage|add|view|create|delete|update|record|dekh|bhar|jod)\s+(?:karu|kar)\s*(?:shakto|sake|sakte|sakta)/i.test(text) ||
+      // Devanagari (Hindi/Marathi): modal/obligation markers + a system/action concept.
+      (
+        /[ऀ-ॿ]/.test(text) &&
+        /(चाहिए|सके|सकता|सकती|सकते|पाहिजे|शकतो|शकते|होनी|करने|मिले|यावी|सुविधा)/.test(text)
+      );
+
+    // Content vocabulary that is inherently about building software. Such words
+    // only accept the answer if it is also DOMAIN-GROUNDED (otherwise a grocery
+    // expense answer mentioning "report/export" would be accepted for a hospital
+    // system). Pure cross-cutting auth/role language remains accepted in roles
+    // & permissions and generic system contexts.
+    const crossCuttingAuth = /\b(login|log in|password|access control|authentication|authorization|role-based|user roles?)\b/i.test(text);
+    const softwareNoun = /\b(api|database|dashboard|workflow|notification|feature|requirement|appointment|queue|registration|token|export|report|csv|pdf)\b/i.test(text);
+    const softwareSignal =
+      words.length >= 3 &&
+      (crossCuttingAuth || (softwareNoun && (domainHits >= 1 || embeddingScore >= 0.82)));
+
+    // Devanagari capability/requirement statement (Hindi/Marathi) in a
+    // requirement stage: the modal markers indicate the user is describing what
+    // the system should do, which is inherently relevant to an RE interview.
+    const devanagariRequirement = /[ऀ-ॿ]/.test(text) &&
+      /(चाहिए|सके|सकता|सकती|सकते|पाहिजे|शकतो|शकते|सुविधा|प्रणाली|सिस्टम)/.test(text);
+
+    // Domain grounding: an explicit requirement about an actor/action still
+    // must belong to THIS project. e5 crowding makes cosine weak, so anchor on
+    // domain terms; accept a high-embedding actor requirement (genuinely on
+    // topic), reject a mid-range cross-domain one (e.g. prescriptions in a
+    // campus-events app). Cross-domain system requirements that share no domain
+    // vocabulary and sit below the high band are treated as unrelated.
+    // On-topic-but-vague quality language is PARTIALLY_RELEVANT (ask for the
+    // metric), not unrelated and not an accepted answer.
+    const vagueWords2 = ['good', 'fast', 'nice', 'simple', 'best', 'user-friendly', 'easy', 'reliable', 'secure', 'quick', 'great'];
+    const hasVagueQ = vagueWords2.some((w) => new RegExp('\\b' + w + '\\b').test(lower));
+    const hasConcrete = /\d|%|within [0-9]|seconds?|milliseconds?|percent|99\.|256|aes|tls|ssl|oauth|jwt/i.test(text);
+    const stageIsQuality = /non.?functional|performance|quality|security|availability/i.test(stageName + ' ' + (questionText || ''));
+    if (hasVagueQ && !hasConcrete && (stageIsQuality || words.length <= 9)) {
       return {
         classification: 'PARTIALLY_RELEVANT',
         isRelevant: true,
         isOutOfScope: false,
         status: 'PARTIALLY_RELEVANT',
-        confidence: 0.75,
-        explanation: `Answer is on-topic but contains non-measurable or vague descriptions.`,
-        feedbackMessage: `Could you specify measurable targets or specific functional details for ${projName}?`,
-        clarificationNeeds: ['Quantifiable metrics', 'Specific behavior description'],
+        confidence: 0.8,
+        explanation: 'Answer is on-topic but vague / non-measurable.',
+        feedbackMessage: `Could you make that specific and measurable for ${projName} (e.g., a target response time, uptime percentage, or a concrete capability)?`,
+        clarificationNeeds: ['Quantifiable metric', 'Specific behavior description'],
         embeddingScore
       };
     }
 
-    // General software features or moderate embedding score
-    if (hasUniversalInfra || embeddingScore >= 0.45) {
+    // Explicit requirement statements in a requirement stage are relevant —
+    // UNLESS they describe a DIFFERENT domain (actor-can-action with no domain
+    // grounding, no project-specific nouns, and emb below the confusion band).
+    // Technology constraints and Hinglish/Devanagari requirement constructions
+    // don't name a competing domain, so they stay accepted.
+    const requirementStage = /functional|non.?functional|constraint|assumption|interface/i.test(stageName);
+    const technologyOrNativeModal =
+      (/\b(?:postgresql|mongodb|mysql|redis|stripe|paypal|razorpay|twilio|firebase|docker|aws)\b/i.test(text)) ||
+      /(?:chahiye|chahida|pahije|hona|karu|kar sake|kar sakte|kar sakta|shakto|सुविधा|चाहिए|पाहिजे)/i.test(text);
+    const crossDomainExplicitReq = explicitSystemReq && requirementStage &&
+      domainHits === 0 && embeddingScore < 0.80 && !technologyOrNativeModal &&
+      words.length >= 5;
+    const explicitReqInReqStage = explicitSystemReq && requirementStage && !crossDomainExplicitReq;
+
+    const actorReqGrounded = explicitSystemReq &&
+      (domainHits >= 1 || embeddingScore >= 0.82);
+
+    const isRelevant =
+      domainHits >= 1 ||
+      actorReqGrounded ||
+      explicitReqInReqStage ||
+      softwareSignal ||
+      devanagariRequirement;
+
+    if (!isRelevant) {
       return {
-        classification: 'RELEVANT',
-        isRelevant: true,
-        isOutOfScope: false,
-        status: 'RELEVANT',
-        confidence: 0.85,
-        explanation: `Answer relates to software capabilities and project context for ${projName}.`,
-        feedbackMessage: '',
+        classification: 'UNRELATED',
+        isRelevant: false,
+        isOutOfScope: true,
+        status: 'CONTEXT_MISMATCH',
+        confidence: 0.75,
+        explanation: `Input has little in common with ${projName} (${projDomain}) and the ${stageName} stage.`,
+        feedbackMessage: `This does not seem to relate to ${projName}. Could you tell me about the ${stageName.toLowerCase()} for this project instead?`,
         clarificationNeeds: [],
         embeddingScore
       };
     }
 
-    // Otherwise, low semantic similarity
     return {
-      classification: 'UNRELATED',
-      isRelevant: false,
-      isOutOfScope: true,
-      status: 'CONTEXT_MISMATCH',
-      confidence: 0.7,
-      explanation: `Input has low contextual similarity to ${projName} and ${stageName}.`,
-      feedbackMessage: `This response does not appear relevant to ${projName}. Please provide details regarding ${stageName}.`,
+      classification: 'RELEVANT',
+      isRelevant: true,
+      isOutOfScope: false,
+      status: 'RELEVANT',
+      confidence: 0.85,
+      explanation: `Answer is relevant to ${projName} and the ${stageName} stage.`,
+      feedbackMessage: '',
       clarificationNeeds: [],
       embeddingScore
     };
   }
 }
-
 module.exports = new SemanticContextValidator();
