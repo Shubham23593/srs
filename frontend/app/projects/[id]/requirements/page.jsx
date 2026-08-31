@@ -81,14 +81,24 @@ export default function RequirementsPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [pRes, rRes] = await Promise.all([
+      const [pRes, rRes] = await Promise.allSettled([
         projectAPI.getById(projectId),
         requirementAPI.getAll(projectId, { includeArchived: showArchived ? 'true' : 'false' })
       ]);
-      if (pRes.data?.success) setProject(pRes.data.data);
-      if (rRes.data?.success) setRequirements(rRes.data.data || []);
+      if (pRes.status === 'fulfilled' && pRes.value.data?.success) {
+        setProject(pRes.value.data.data);
+      } else {
+        try {
+          const all = await projectAPI.getAll();
+          const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
+          if (f) setProject(f);
+        } catch (err) {}
+      }
+      if (rRes.status === 'fulfilled' && rRes.value.data?.success) {
+        setRequirements(rRes.value.data.data || []);
+      }
     } catch (e) {
-      console.error('Failed to load requirements:', e);
+      console.error('Error loading requirements data:', e);
     } finally {
       setLoading(false);
     }

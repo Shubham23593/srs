@@ -54,12 +54,22 @@ export default function AnalysisPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [pRes, iRes] = await Promise.all([
+      const [pRes, iRes] = await Promise.allSettled([
         projectAPI.getById(projectId),
         analysisAPI.getIssues(projectId)
       ]);
-      if (pRes.data?.success) setProject(pRes.data.data);
-      if (iRes.data?.success) setIssues(iRes.data.data || []);
+      if (pRes.status === 'fulfilled' && pRes.value.data?.success) {
+        setProject(pRes.value.data.data);
+      } else {
+        try {
+          const all = await projectAPI.getAll();
+          const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
+          if (f) setProject(f);
+        } catch (err) {}
+      }
+      if (iRes.status === 'fulfilled' && iRes.value.data?.success) {
+        setIssues(iRes.value.data.data || []);
+      }
     } catch (e) {
       console.error('Error loading analysis issues:', e);
     } finally {

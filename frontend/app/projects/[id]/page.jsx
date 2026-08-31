@@ -57,7 +57,14 @@ export default function ProjectOverviewPage() {
         srsAPI.get(projectId)
       ]);
 
-      if (pRes.status === 'fulfilled') setProject(pRes.value.data?.data);
+      if (pRes.status === 'fulfilled' && pRes.value.data?.data) {
+        setProject(pRes.value.data.data);
+      } else {
+        const allRes = await projectAPI.getAll();
+        const found = (allRes.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
+        if (found) setProject(found);
+      }
+
       if (rRes.status === 'fulfilled') setRequirements(rRes.value.data?.data || []);
       if (sRes.status === 'fulfilled') setSrs(sRes.value.data?.data);
     } catch (e) {
@@ -67,11 +74,33 @@ export default function ProjectOverviewPage() {
     }
   };
 
-  if (loading || !project) {
+  if (loading && !project) {
     return (
-      <div className="flex min-h-screen bg-slate-950">
+      <div className="flex h-screen bg-slate-950 overflow-hidden">
         <Sidebar />
-        <div className="flex-1 p-8 text-center text-slate-400 text-xs">Loading project overview...</div>
+        <div className="flex-1 flex items-center justify-center p-8 text-slate-400 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+            <span>Loading project specification...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex h-screen bg-slate-950 overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 text-xs space-y-3">
+          <p>Project specification not found or may have been deleted.</p>
+          <Link
+            href="/projects"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold"
+          >
+            ← Back to Projects Directory
+          </Link>
+        </div>
       </div>
     );
   }

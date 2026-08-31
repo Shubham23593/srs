@@ -86,25 +86,35 @@ export default function InterviewPage() {
 
   const loadSession = async () => {
     try {
-      const [pRes, iRes, rRes] = await Promise.all([
+      const [pRes, iRes, rRes] = await Promise.allSettled([
         projectAPI.getById(projectId),
         interviewAPI.start(projectId),
         requirementAPI.getAll(projectId)
       ]);
 
-      if (pRes.data?.success) setProject(pRes.data.data);
-      if (iRes.data?.success) {
-        setSession(iRes.data.data.session);
-        setMessages(iRes.data.data.messages || []);
-        if (iRes.data.data.sectionsConfig) {
-          setSectionsConfig(iRes.data.data.sectionsConfig);
+      if (pRes.status === 'fulfilled' && pRes.value.data?.success) {
+        setProject(pRes.value.data.data);
+      } else {
+        try {
+          const all = await projectAPI.getAll();
+          const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
+          if (f) setProject(f);
+        } catch (err) {}
+      }
+
+      if (iRes.status === 'fulfilled' && iRes.value.data?.success) {
+        setSession(iRes.value.data.data.session);
+        setMessages(iRes.value.data.data.messages || []);
+        if (iRes.value.data.data.sectionsConfig) {
+          setSectionsConfig(iRes.value.data.data.sectionsConfig);
         }
-        if (iRes.data.data.summary) {
-          setSummary(iRes.data.data.summary);
+        if (iRes.value.data.data.summary) {
+          setSummary(iRes.value.data.data.summary);
         }
       }
-      if (rRes.data?.success) {
-        setExtractedReqs(rRes.data.data || []);
+
+      if (rRes.status === 'fulfilled' && rRes.value.data?.success) {
+        setExtractedReqs(rRes.value.data.data || []);
       }
     } catch (e) {
       console.error('Failed to initialize interview session:', e);

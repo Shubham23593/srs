@@ -89,7 +89,15 @@ export default function SRSWorkbenchPage() {
         srsAPI.getVersions(projectId)
       ]);
 
-      if (pRes.status === 'fulfilled') setProject(pRes.value.data?.data);
+      if (pRes.status === 'fulfilled' && pRes.value.data?.data) {
+        setProject(pRes.value.data.data);
+      } else {
+        try {
+          const all = await projectAPI.getAll();
+          const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
+          if (f) setProject(f);
+        } catch (err) {}
+      }
       if (sRes.status === 'fulfilled') setSrs(sRes.value.data?.data);
       if (tRes.status === 'fulfilled') setTraceabilityData(tRes.value.data?.data?.matrix || []);
       if (vRes.status === 'fulfilled') setVersionsList(vRes.value.data?.data || []);
