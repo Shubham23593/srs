@@ -185,10 +185,10 @@ export default function ValidationPage() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex h-screen bg-slate-950 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Header
           title="Step 5: Requirements Validation & Verification"
           subtitle="Verification against ISO/IEC/IEEE 29148 criteria and project context relevance"
@@ -217,7 +217,7 @@ export default function ValidationPage() {
         {/* Guided Step-by-Step Stepper */}
         <ProjectStepper projectId={projectId} currentStatus={project?.status} />
 
-        <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full custom-scrollbar">
           {/* Validation Scorecards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex items-center gap-4">

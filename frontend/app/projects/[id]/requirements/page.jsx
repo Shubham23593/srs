@@ -240,10 +240,10 @@ export default function RequirementsPage() {
   const selectedCount = previewCandidates.filter(c => c.selected).length;
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex h-screen bg-slate-950 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Header
           title="Step 3: Requirements Engineering Catalog"
           subtitle="Atomic, categorized, and traceable specifications with provenance and context relevance"
@@ -251,25 +251,25 @@ export default function RequirementsPage() {
           actions={
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsExtractOpen(true)}
-                className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5 transition-colors"
+                onClick={() => setIsExtractModalOpen(true)}
+                className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-lg shadow-lg shadow-purple-500/20 transition-all flex items-center gap-1.5"
               >
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-                AI Batch Extract
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI NLP Bulk Extract</span>
               </button>
               <button
                 onClick={() => setIsAddOpen(true)}
-                className="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 text-slate-950 text-xs font-bold shadow-lg shadow-brand-500/20 flex items-center gap-1.5 transition-all"
+                className="px-3.5 py-2 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs rounded-lg shadow-lg shadow-brand-500/20 transition-all flex items-center gap-1.5"
               >
-                <Plus className="w-4 h-4" />
-                Add Requirement
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Requirement</span>
               </button>
               <Link
                 href={`/projects/${projectId}/analysis`}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 ml-2"
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5"
               >
-                <span>Next: Step 4 (Quality Audit)</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>Next: Step 4 (Analysis)</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           }
@@ -278,7 +278,7 @@ export default function RequirementsPage() {
         {/* Guided Step-by-Step Stepper */}
         <ProjectStepper projectId={projectId} currentStatus={project?.status} />
 
-        <main className="flex-1 p-8 space-y-6 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-8 space-y-6 overflow-y-auto max-w-7xl mx-auto w-full custom-scrollbar">
           {/* Controls & Filter Bar */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
             <div className="flex items-center gap-2 flex-wrap">

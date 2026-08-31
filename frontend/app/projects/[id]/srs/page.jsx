@@ -191,10 +191,10 @@ export default function SRSWorkbenchPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex h-screen bg-slate-950 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Header
           title="Step 6: SRS Engineering Workbench"
           subtitle="Exact IEEE template generation, bidirectional traceability, review audits, and incremental versioning"
@@ -314,7 +314,7 @@ export default function SRSWorkbenchPage() {
         {activeTab === 'document' && (
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
             {/* Left Column: Section Outline Navigator */}
-            <div className="w-full md:w-64 border-r border-slate-800 bg-slate-950/60 p-4 space-y-1 overflow-y-auto shrink-0 select-none text-xs">
+            <div className="w-full md:w-64 border-r border-slate-800 bg-slate-950/60 p-4 space-y-1 overflow-y-auto shrink-0 select-none text-xs custom-scrollbar">
               <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">
                 Template Sections
               </div>
@@ -342,7 +342,7 @@ export default function SRSWorkbenchPage() {
             </div>
 
             {/* Center Column: Exact Template SRS Document */}
-            <div className="flex-1 p-8 overflow-y-auto min-w-0 bg-slate-950">
+            <div className="flex-1 p-8 overflow-y-auto min-w-0 bg-slate-950 custom-scrollbar scroll-smooth">
               <div className="max-w-4xl mx-auto">
                 <SRSViewer
                   srs={srs}
@@ -352,7 +352,7 @@ export default function SRSWorkbenchPage() {
             </div>
 
             {/* Right Column: AI Assistant & Quality Inspector */}
-            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 bg-slate-900/40 p-5 space-y-6 overflow-y-auto shrink-0">
+            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 bg-slate-900/40 p-5 space-y-6 overflow-y-auto shrink-0 custom-scrollbar">
               <div>
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -414,7 +414,7 @@ export default function SRSWorkbenchPage() {
 
         {/* Tab 2: Traceability Matrix & Flow Graph */}
         {activeTab === 'traceability' && (
-          <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+          <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full custom-scrollbar">
             <TraceabilityMatrix matrixData={traceabilityData} />
             <TraceabilityGraph matrixData={traceabilityData} />
           </main>
@@ -422,7 +422,7 @@ export default function SRSWorkbenchPage() {
 
         {/* Tab 3: Version History & Comparative Diff */}
         {activeTab === 'versions' && (
-          <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+          <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full custom-scrollbar">
             <VersionDiffViewer
               diffData={diffData?.diff || {
                 added: [],
@@ -463,7 +463,7 @@ export default function SRSWorkbenchPage() {
 
         {/* Tab 4: Incremental SRS Update Demo Scenario */}
         {activeTab === 'update' && (
-          <main className="flex-1 p-8 max-w-4xl mx-auto w-full overflow-y-auto space-y-8">
+          <main className="flex-1 p-8 max-w-4xl mx-auto w-full overflow-y-auto space-y-8 custom-scrollbar">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
               <div className="border-b border-slate-800 pb-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-semibold uppercase tracking-wider mb-2">

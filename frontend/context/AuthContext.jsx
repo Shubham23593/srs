@@ -75,6 +75,16 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateProfile = async ({ name, organization, avatar }) => {
+    const res = await authAPI.updateProfile({ name, organization, avatar });
+    if (res.data?.success) {
+      setUser(res.data.data);
+      return res.data.data;
+    } else {
+      throw new Error(res.data?.message || 'Failed to update profile');
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -84,7 +94,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, handleOAuthToken, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, handleOAuthToken, updateProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );

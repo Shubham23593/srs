@@ -210,10 +210,10 @@ export default function InterviewPage() {
   });
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex h-screen bg-slate-950 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Header
           title="Step 2: AI Requirements Interview"
           subtitle="9-Stage ISO/IEC/IEEE 29148 State Machine Elicitation with Real-Time Context Guard & Deduplication"
@@ -262,7 +262,7 @@ export default function InterviewPage() {
 
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Left Column: 9-Section State Machine Navigator */}
-          <div className="w-full lg:w-72 border-r border-slate-800 bg-slate-950/80 p-4 space-y-4 overflow-y-auto shrink-0 select-none">
+          <div className="w-full lg:w-72 border-r border-slate-800 bg-slate-950/80 p-4 space-y-4 overflow-y-auto shrink-0 select-none custom-scrollbar">
             {/* Overall Coverage Card */}
             <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-lg space-y-2">
               <div className="flex items-center justify-between text-xs">
@@ -375,7 +375,7 @@ export default function InterviewPage() {
             </div>
 
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar scroll-smooth">
               {messages.map((msg, idx) => {
                 const isAI = msg.sender === 'AI';
                 const isOutOfScopeAlert = msg.isOutOfScope;
@@ -385,14 +385,20 @@ export default function InterviewPage() {
                     key={idx}
                     className={`flex items-start gap-3 ${isAI ? '' : 'flex-row-reverse'}`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-950 font-bold text-xs shrink-0 ${
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-950 font-bold text-xs shrink-0 overflow-hidden ${
                       isAI
                         ? isOutOfScopeAlert
                           ? 'bg-gradient-to-tr from-amber-500 to-rose-400 text-white'
                           : 'bg-gradient-to-tr from-brand-500 to-emerald-400'
-                        : 'bg-blue-600 text-white'
+                        : 'bg-blue-600 text-white border border-blue-400/30'
                     }`}>
-                      {isAI ? (isOutOfScopeAlert ? <ShieldAlert className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4" />) : <User className="w-4 h-4" />}
+                      {isAI ? (
+                        isOutOfScopeAlert ? <ShieldAlert className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4" />
+                      ) : user?.avatar ? (
+                        <img src={user.avatar} alt={user?.name || 'User DP'} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{user?.name ? user.name.charAt(0).toUpperCase() : 'U'}</span>
+                      )}
                     </div>
 
                     <div className={`max-w-xl rounded-2xl p-4 text-xs leading-relaxed ${
@@ -404,7 +410,7 @@ export default function InterviewPage() {
                     }`}>
                       <div className="flex items-center justify-between gap-4 mb-1.5 text-[10px] opacity-75">
                         <span className="font-bold">
-                          {isAI ? (isOutOfScopeAlert ? 'Context Guard Warning' : 'AI Requirements Engineer') : 'You (Requirements Analyst)'}
+                          {isAI ? (isOutOfScopeAlert ? 'Context Guard Warning' : 'AI Requirements Engineer') : `${user?.name || 'You'} (Requirements Analyst)`}
                         </span>
                         <div className="flex items-center gap-2">
                           {msg.languageDetected && msg.languageDetected !== 'English' && (
@@ -605,7 +611,7 @@ export default function InterviewPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
               {filteredExtractedReqs.length === 0 ? (
                 <div className="p-6 text-center text-slate-500 text-xs">
                   Respond to AI interview questions to extract atomic requirements live.

@@ -6,6 +6,7 @@ const { protect } = require('../middleware/auth.middleware');
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.get('/me', protect, authController.getMe);
+router.put('/profile', protect, authController.updateProfile);
 
 // OAuth Routes
 router.get('/google', authController.googleAuth);

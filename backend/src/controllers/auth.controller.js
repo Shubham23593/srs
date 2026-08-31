@@ -82,6 +82,45 @@ exports.getMe = async (req, res, next) => {
   }
 };
 
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { name, organization, avatar } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (name) user.name = name.trim();
+    if (organization) user.organization = organization.trim();
+    if (avatar !== undefined) user.avatar = avatar;
+
+    if (typeof user.save === 'function') {
+      await user.save();
+    } else {
+      await User.findByIdAndUpdate(user._id, {
+        name: user.name,
+        organization: user.organization,
+        avatar: user.avatar
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organization: user.organization,
+        avatar: user.avatar,
+        authProvider: user.authProvider
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GOOGLE OAUTH
 // ─────────────────────────────────────────────────────────────────────────────
