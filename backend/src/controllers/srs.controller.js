@@ -15,25 +15,27 @@ exports.generateSRS = async (req, res, next) => {
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
     // Only requirements that survived the full validation pipeline may be used.
-    const requirements = await Requirement.find({ projectId });
+    const requirements = await Requirement.find({ projectId, archived: { $ne: true } });
     if (requirements.length === 0) {
       return res.status(400).json({ success: false, message: 'Cannot generate SRS without requirements' });
     }
 
     // === AUTHORITATIVE PIPELINE: cluster -> map -> section-wise generation ->
     //     language guard -> quality audit. NEVER reads rawSourceText as content.
-    const { srs, audit, clusters, issues, languageAudit } = await pipeline.generateSRS(project);
+    const { srs, audit, clusters, issues, languageAudit, generationSummary } = await pipeline.generateSRS(project);
 
     // Generate traceability links from normalized requirements
     await traceabilityService.generateLinksForProject(projectId, srs);
     try { await ragService.indexProjectKnowledge(projectId); } catch (e) { /* RAG is best-effort */ }
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
+      message: 'SRS generated and synchronized successfully',
       data: srs,
       audit,
       languageAudit,
       clusters,
+      generationSummary,
       issueCount: issues.length
     });
   } catch (error) {
@@ -67,14 +69,26 @@ exports.updateSRS = async (req, res, next) => {
 
 exports.reviewSRS = async (req, res, next) => {
   try {
-    const srs = await SRS.findById(req.params.id);
+    let srs = await SRS.findById(req.params.id);
+    if (!srs) {
+      srs = await SRS.findOne({ projectId: req.params.id });
+    }
     if (!srs) return res.status(404).json({ success: false, message: 'SRS not found' });
 
-    const requirements = await Requirement.find({ projectId: srs.projectId });
-    const reviewResult = await srsReviewAgent.reviewSRS(srs, requirements);
+    // Always fetch fresh active requirements from database
+    const requirements = await Requirement.find({ projectId: srs.projectId, archived: { $ne: true } });
+    
+    // Always fetch fresh SRS document directly from database to avoid stale cached snapshot
+    const freshSrs = await SRS.findById(srs._id);
+    const targetSrs = freshSrs || srs;
 
-    srs.reviewNotes = reviewResult.recommendations;
-    await srs.save();
+    const reviewResult = await srsReviewAgent.reviewSRS(targetSrs, requirements);
+
+    targetSrs.reviewNotes = reviewResult.recommendations;
+    if (reviewResult.complianceScore != null) {
+      targetSrs.complianceScore = reviewResult.complianceScore;
+    }
+    await targetSrs.save();
 
     res.json({ success: true, data: reviewResult });
   } catch (error) {

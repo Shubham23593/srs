@@ -50,6 +50,7 @@ export default function SRSWorkbenchPage() {
   const [traceabilityData, setTraceabilityData] = useState([]);
   const [versionsList, setVersionsList] = useState([]);
   const [diffData, setDiffData] = useState(null);
+  const [syncing, setSyncing] = useState(false);
 
   // Review findings modal
   const [reviewResult, setReviewResult] = useState(null);
@@ -121,6 +122,21 @@ export default function SRSWorkbenchPage() {
     }
   };
 
+  const handleSyncSRS = async () => {
+    try {
+      setSyncing(true);
+      const res = await srsAPI.generate(projectId);
+      if (res.data?.success) {
+        setSrs(res.data.data);
+        await loadAllData();
+      }
+    } catch (err) {
+      console.error('Failed to sync SRS:', err);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleReviewSRS = async () => {
     if (!srs?._id) return;
     try {
@@ -185,6 +201,15 @@ export default function SRSWorkbenchPage() {
           project={project}
           actions={
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleSyncSRS}
+                disabled={syncing || generating}
+                className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/40 transition-all flex items-center gap-1.5 shadow-sm"
+                title="Sync and rebuild SRS from latest requirements and Quality Audit"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing SRS...' : 'Sync & Regenerate SRS'}
+              </button>
               <a
                 href={srsAPI.getExportPDFUrl(projectId)}
                 target="_blank"
@@ -254,14 +279,24 @@ export default function SRSWorkbenchPage() {
 
           <div className="flex items-center gap-3">
             {srs ? (
-              <button
-                onClick={handleReviewSRS}
-                disabled={reviewing}
-                className="text-xs px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 font-semibold hover:bg-purple-500/20 transition-all flex items-center gap-1.5"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                {reviewing ? 'Auditing...' : 'Run ISO/IEEE Compliance Audit'}
-              </button>
+              <>
+                <button
+                  onClick={handleSyncSRS}
+                  disabled={syncing || generating}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold hover:bg-emerald-500/20 transition-all flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync & Regenerate SRS'}
+                </button>
+                <button
+                  onClick={handleReviewSRS}
+                  disabled={reviewing}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 font-semibold hover:bg-purple-500/20 transition-all flex items-center gap-1.5"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {reviewing ? 'Auditing...' : 'Run ISO/IEEE Compliance Audit'}
+                </button>
+              </>
             ) : (
               <button
                 onClick={handleGenerateSRS}
@@ -504,17 +539,24 @@ export default function SRSWorkbenchPage() {
 
             <div>
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Findings & Observations</h4>
-              <div className="space-y-2">
-                {(reviewResult.findings || []).map((f, i) => (
-                  <div key={i} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-xs space-y-1">
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={f.severity} size="xs" />
-                      <span className="font-semibold text-white">{f.section}</span>
+              {(!reviewResult.findings || reviewResult.findings.length === 0) ? (
+                <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-xs text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>No compliance gaps detected. All requirements map directly to Section 3 system features.</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {reviewResult.findings.map((f, i) => (
+                    <div key={i} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={f.severity} size="xs" />
+                        <span className="font-semibold text-white">{f.section}</span>
+                      </div>
+                      <p className="text-slate-300">{f.comment}</p>
                     </div>
-                    <p className="text-slate-300">{f.comment}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>

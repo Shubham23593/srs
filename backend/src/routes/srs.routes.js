@@ -4,6 +4,9 @@ const srsController = require('../controllers/srs.controller');
 const { protect } = require('../middleware/auth.middleware');
 
 router.post('/generate', protect, srsController.generateSRS);
+router.post('/sync', protect, srsController.generateSRS);
+router.post('/regenerate', protect, srsController.generateSRS);
+router.post('/review', protect, srsController.reviewSRS);
 router.get('/', protect, srsController.getSRS);
 router.post('/update', protect, srsController.incrementalSRSUpdate);
 

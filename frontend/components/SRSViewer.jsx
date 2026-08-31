@@ -324,15 +324,38 @@ export default function SRSViewer({ srs, activeSection = 'all', onSelectSection 
               <p className="text-xs text-slate-400">All requirements validated. No pending TBDs or conflicts.</p>
             ) : (
               <div className="space-y-2">
-                {srs.appendixC_issuesList.map((iss, iIdx) => (
-                  <div key={iIdx} className="p-3 bg-amber-500/5 border border-amber-500/20 rounded text-xs flex justify-between items-center">
-                    <div>
-                      <span className="font-mono font-bold text-amber-400 mr-2">[{iss.issueId}]</span>
-                      <span className="text-slate-200">{iss.description}</span>
+                {srs.appendixC_issuesList.map((iss, iIdx) => {
+                  const isResolved = iss.status === 'RESOLVED' || iss.status === 'CLOSED' || iss.status === 'MERGED' || iss.status === 'KEPT_BOTH';
+                  return (
+                    <div
+                      key={iIdx}
+                      className={`p-3 rounded text-xs flex justify-between items-center border ${
+                        isResolved
+                          ? 'bg-emerald-950/20 border-emerald-500/20'
+                          : 'bg-amber-500/5 border-amber-500/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-mono font-bold ${isResolved ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          [{iss.issueId}]
+                        </span>
+                        <span className="text-slate-200">{iss.description}</span>
+                        {iss.relatedRequirement && iss.relatedRequirement !== 'N/A' && (
+                          <span className="text-[11px] text-slate-400">({iss.relatedRequirement})</span>
+                        )}
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                          isResolved
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}
+                      >
+                        {iss.status || 'OPEN'}
+                      </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-semibold">{iss.status || 'OPEN'}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

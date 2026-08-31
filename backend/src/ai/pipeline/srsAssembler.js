@@ -216,17 +216,21 @@ function buildGlossary() {
 
 function buildIssuesList(issues) {
   if (!issues || !issues.length) {
-    return [{ issueId: 'ISSUE-000', description: 'No open issues at time of generation.', relatedRequirement: 'N/A', priority: 'LOW', status: 'CLOSED' }];
+    return [{
+      issueId: 'ISSUE-000',
+      description: 'All requirements validated. No pending open issues or conflicts.',
+      relatedRequirement: 'N/A',
+      priority: 'LOW',
+      status: 'CLOSED'
+    }];
   }
-  return issues
-    .filter((i) => i.status !== 'RESOLVED' && i.status !== 'IGNORED')
-    .map((i, idx) => ({
-      issueId: i.issueId || `ISSUE-${String(idx + 1).padStart(3, '0')}`,
-      description: i.description,
-      relatedRequirement: (i.relatedRequirementIds || []).join(', ') || 'TBD',
-      priority: i.severity || 'MEDIUM',
-      status: i.status || 'OPEN'
-    }));
+  return issues.map((i, idx) => ({
+    issueId: i.issueId || `ISSUE-${String(idx + 1).padStart(3, '0')}`,
+    description: i.description,
+    relatedRequirement: (i.relatedRequirementIds || []).join(', ') || 'TBD',
+    priority: i.severity || 'MEDIUM',
+    status: i.status || 'OPEN'
+  }));
 }
 
 /**

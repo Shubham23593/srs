@@ -703,14 +703,34 @@ class RequirementsPipeline {
       await Requirement.findByIdAndUpdate(r._id, update);
     }
 
-    // Persist issues
-    await RequirementIssue.deleteMany({ projectId, status: 'OPEN' });
-    const savedIssues = [];
-    for (const iss of issues) {
-      savedIssues.push(await RequirementIssue.create({ projectId, ...iss }));
+    // Load existing resolved / handled issues to preserve user decisions
+    const existingIssues = await RequirementIssue.find({ projectId });
+    const resolvedSignatures = new Set();
+    for (const ex of existingIssues) {
+      if (['RESOLVED', 'MERGED', 'KEPT_BOTH', 'IGNORED', 'CLOSED'].includes(ex.status)) {
+        const key = `${ex.issueType || ''}_${(ex.relatedRequirementIds || []).slice().sort().join(',')}`;
+        resolvedSignatures.add(key);
+        if (ex.description) {
+          resolvedSignatures.add(ex.description.trim().toLowerCase());
+        }
+      }
     }
 
-    return { requirements, issues: savedIssues };
+    // Persist issues: delete existing OPEN issues before syncing newly detected ones
+    await RequirementIssue.deleteMany({ projectId, status: 'OPEN' });
+    for (const iss of issues) {
+      const sig1 = `${iss.issueType || ''}_${(iss.relatedRequirementIds || []).slice().sort().join(',')}`;
+      const sig2 = (iss.description || '').trim().toLowerCase();
+      // If user already resolved this issue, preserve their decision and do not re-open
+      if (!resolvedSignatures.has(sig1) && !resolvedSignatures.has(sig2)) {
+        await RequirementIssue.create({ projectId, ...iss, status: 'OPEN' });
+      }
+    }
+
+    // Return complete authoritative issue set from DB (both OPEN and RESOLVED)
+    const allIssues = await RequirementIssue.find({ projectId }).sort({ severity: 1, createdAt: -1 });
+
+    return { requirements, issues: allIssues };
   }
 
   /**

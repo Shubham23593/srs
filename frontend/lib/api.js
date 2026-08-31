@@ -79,6 +79,8 @@ export const analysisAPI = {
 
 export const srsAPI = {
   generate: (projectId) => api.post(`/projects/${projectId}/srs/generate`),
+  sync: (projectId) => api.post(`/projects/${projectId}/srs/generate`),
+  regenerate: (projectId) => api.post(`/projects/${projectId}/srs/generate`),
   get: (projectId) => api.get(`/projects/${projectId}/srs`),
   update: (id, data) => api.put(`/srs/${id}`, data),
   review: (id) => api.post(`/srs/${id}/review`),
