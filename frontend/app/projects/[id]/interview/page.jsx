@@ -293,6 +293,7 @@ export default function InterviewPage() {
                 const secState = session?.sectionsState?.find(s => s.id === sec.id) || { status: idx === 0 ? 'IN_PROGRESS' : 'NOT_STARTED' };
                 const isCurrent = session?.sectionIndex === idx;
                 const isDone = secState.status === 'COMPLETED';
+                const isSkipped = secState.status === 'SKIPPED';
 
                 return (
                   <div
@@ -302,6 +303,8 @@ export default function InterviewPage() {
                         ? 'bg-brand-500/10 border-brand-500/40 text-white shadow-md'
                         : isDone
                         ? 'bg-slate-900/40 border-slate-800/80 text-slate-300'
+                        : isSkipped
+                        ? 'bg-slate-900/20 border-slate-800/40 text-slate-400 opacity-70'
                         : 'bg-transparent border-transparent text-slate-400'
                     }`}
                   >
@@ -309,6 +312,10 @@ export default function InterviewPage() {
                       {isDone ? (
                         <div className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </div>
+                      ) : isSkipped ? (
+                        <div className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/40">
+                          <SkipForward className="w-2.5 h-2.5" />
                         </div>
                       ) : isCurrent ? (
                         <div className="w-4 h-4 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center border border-brand-500/40 animate-pulse">
@@ -323,12 +330,17 @@ export default function InterviewPage() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-emerald-300' : isDone ? 'text-slate-200' : 'text-slate-400'}`}>
+                        <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-emerald-300' : isDone ? 'text-slate-200' : isSkipped ? 'text-slate-400' : 'text-slate-400'}`}>
                           {sec.stepIndex}. {sec.name}
                         </span>
                         {isDone && (
-                          <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                          <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
                             Done
+                          </span>
+                        )}
+                        {isSkipped && (
+                          <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                            Skipped
                           </span>
                         )}
                       </div>

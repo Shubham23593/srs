@@ -402,10 +402,31 @@ const DEPENDENCY_PATTERNS = [
 const INTERFACE_PATTERNS = [
   {
     id: 'INT_API',
-    keywords: ['api', 'interface', 'integrate', 'integration', 'webhook', 'rest api', 'external interface', 'एपीआई', 'इंटरफेस'],
-    statement: 'The system shall expose and consume well-defined external interfaces for integration with other systems.'
+    keywords: [
+      'api', 'webhook', 'rest api', 'external interface', 'gateway', 'payment gateway',
+      'sms gateway', 'email gateway', 'notification gateway', 'sms api', 'twilio', 'sendgrid',
+      'maps api', 'google maps', 'mqtt', 'lorawan', 'kafka', 'whatsapp', 'stripe', 'paypal', 'razorpay',
+      'third-party', 'third party', 'external service', 'external system',
+      'एपीआई', 'इंटरफेस'
+    ],
+    statement: (ctx) => `The system shall integrate with ${ctx?.intf ? (startsWithVowel(ctx.intf) ? 'an ' : 'the ') + ctx.intf : 'well-defined external interfaces for external system communication'}.`,
+    extract: (t) => {
+      const knownInterfaces = [
+        'twilio sms api', 'twilio', 'sms gateway', 'sendgrid email service', 'sendgrid', 'email service',
+        'mqtt broker', 'mqtt iot sensor interface', 'mqtt', 'lorawan gateway', 'lorawan',
+        'google maps api', 'maps api', 'whatsapp messaging api', 'whatsapp',
+        'stripe payment gateway', 'paypal payment gateway', 'razorpay payment gateway', 'payment gateway',
+        'external rest api', 'rest api', 'webhook', 'kafka message queue'
+      ];
+      const found = knownInterfaces.filter((x) => t.includes(x));
+      if (!found.length && /\bsms\b/.test(t)) found.push('sms gateway');
+      if (!found.length && /\bmqtt\b/.test(t)) found.push('mqtt broker');
+      if (!found.length && /\bapi\b/.test(t)) found.push('external rest api');
+      return found.length ? [...new Set(found)].map((x) => titleCaseTech(x)).join(', ') : null;
+    }
   }
 ];
+
 
 // Out-of-scope / unrelated topics (Phase 2)
 const OUT_OF_SCOPE_PATTERNS = [

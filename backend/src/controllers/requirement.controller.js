@@ -44,8 +44,15 @@ exports.createRequirement = async (req, res, next) => {
     const rawSourceText = sourceText || description || '';
     const normalizedDescription = formalNormalize(description || title || '');
 
-    const reqType = type || 'FUNCTIONAL';
-    const prefix = TYPE_PREFIX[reqType] || 'FR';
+    // Type is REQUIRED for manual entry. Never silently default to FUNCTIONAL.
+    if (!type || !TYPE_PREFIX[type]) {
+      return res.status(400).json({
+        success: false,
+        message: `'type' is required for manual requirement creation. Must be one of: ${Object.keys(TYPE_PREFIX).join(', ')}.`
+      });
+    }
+    const reqType = type;
+    const prefix = TYPE_PREFIX[reqType];
     const count = await Requirement.countDocuments({ projectId, type: reqType });
     const reqId = req.body.requirementId || `${prefix}-${String(count + 1).padStart(3, '0')}`;
 
@@ -284,8 +291,14 @@ exports.batchCreate = async (req, res, next) => {
 
     const savedDocs = [];
     for (const item of candidateList) {
-      const reqType = item.type || 'FUNCTIONAL';
-      const prefix = TYPE_PREFIX[reqType] || 'FR';
+      // Type is REQUIRED for batch persistence. Never silently default to FUNCTIONAL.
+      const itemType = (item.type || '').toUpperCase().trim();
+      if (!itemType || !TYPE_PREFIX[itemType]) {
+        console.warn(`[requirement.controller] Skipping item '${item.title}' — missing or invalid type '${item.type}'.`);
+        continue;
+      }
+      const reqType = itemType;
+      const prefix = TYPE_PREFIX[reqType];
       const count = await Requirement.countDocuments({ projectId, type: reqType });
       const reqId = `${prefix}-${String(count + 1).padStart(3, '0')}`;
 

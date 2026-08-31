@@ -7,6 +7,7 @@ const interviewAgent = require('../ai/agents/InterviewAgent');
 const pipeline = require('../ai/pipeline/requirementsPipeline');
 const ragService = require('../services/ragService');
 const { SECTIONS_CONFIG } = require('../constants/interviewSections');
+const InterviewContext = require('../ai/pipeline/InterviewContext');
 
 function calculateCoverage(sectionsState, totalRequirementsCount) {
   const completedCount = sectionsState.filter(s => s.status === 'COMPLETED' && s.id !== 'REVIEW_AND_CONFIRMATION').length;
@@ -67,8 +68,14 @@ exports.startInterview = async (req, res, next) => {
         }))
       });
 
-      // Tailored welcome question for Step 1
-      const initialQuestion = `Hello! I am your AI Requirements Engineer for "${project.projectName}". We will conduct a structured 9-stage elicitation interview conforming to ISO/IEC/IEEE 29148 standards.\n\nTo begin Step 1 (Project Information): What is the core problem that "${project.projectName}" solves, and what is its primary business or operational objective?`;
+      // Dynamic tailored welcome question for Step 1 using InterviewContext
+      const initialContext = await InterviewContext.fromProjectAndSession(project, session);
+      const initialQuestion = await interviewAgent.generateStageIntroQuestion(
+        SECTIONS_CONFIG[0],
+        initialContext,
+        'English',
+        []
+      );
 
       await InterviewMessage.create({
         sessionId: session._id,
@@ -85,7 +92,32 @@ exports.startInterview = async (req, res, next) => {
       await Project.findByIdAndUpdate(projectId, { status: 'INTERVIEWING' });
     }
 
-    const messages = await InterviewMessage.find({ projectId }).sort({ timestamp: 1 });
+    let messages = await InterviewMessage.find({ projectId }).sort({ timestamp: 1 });
+    if (messages.length === 0) {
+      const activeSection = SECTIONS_CONFIG[session.sectionIndex || 0] || SECTIONS_CONFIG[0];
+      const initialContext = await InterviewContext.fromProjectAndSession(project, session);
+      const initialQuestion = await interviewAgent.generateStageIntroQuestion(
+        activeSection,
+        initialContext,
+        'English',
+        []
+      );
+
+      const initialMsg = await InterviewMessage.create({
+        sessionId: session._id,
+        projectId,
+        sender: 'AI',
+        content: initialQuestion,
+        section: activeSection.id,
+        topic: activeSection.name,
+        stepIndex: activeSection.stepIndex,
+        languageDetected: 'English',
+        isOutOfScope: false
+      });
+      messages = [initialMsg];
+      await Project.findByIdAndUpdate(projectId, { status: 'INTERVIEWING' });
+    }
+
     const summary = await buildProjectRequirementsSummary(projectId);
 
     res.json({
@@ -207,14 +239,16 @@ exports.sendMessage = async (req, res, next) => {
       : rawQuestion;
     const currentQuestion = cleanQuestion || interviewAgent.getSectionInitialQuestion(currentSectionConfig.id, project.projectName, detectedLang);
 
+    // Build Single Source of Truth InterviewContext
+    const interviewContext = await InterviewContext.fromProjectAndSession(project, session, {
+      userLanguage: detectedLang,
+      existingRequirements: existingReqs
+    });
+
     // Run AI Interview Agent (with Strict Context Guard, Language & Quality Engine)
     const turnResult = await interviewAgent.processInterviewTurn({
-      projectContext: project,
-      conversationHistory: history,
-      currentSectionConfig,
+      interviewContext,
       currentQuestion,
-      existingRequirements: existingReqs,
-      currentStats: { coverage: session.coverage },
       lastUserMessage: content || '',
       sectionRequirementsCount: currentSecState.requirementsExtracted || 0
     });
@@ -312,6 +346,7 @@ exports.sendMessage = async (req, res, next) => {
         projectModified = merge('targetUsers', stakeholdersInfo.primaryUsers) || projectModified;
         projectModified = merge('targetUsers', stakeholdersInfo.beneficiaries) || projectModified;
         projectModified = merge('stakeholders', stakeholdersInfo.stakeholders) || projectModified;
+        projectModified = merge('stakeholders', stakeholdersInfo.administrators) || projectModified;
         projectModified = merge('stakeholders', stakeholdersInfo.partnerOrganizations) || projectModified;
       }
 
@@ -403,7 +438,7 @@ exports.sendMessage = async (req, res, next) => {
     if (shouldAdvanceSection) {
       // Mark current section complete
       if (session.sectionsState[currentSectionIdx]) {
-        session.sectionsState[currentSectionIdx].status = 'COMPLETED';
+        session.sectionsState[currentSectionIdx].status = userExplicitlySkipped && !extractedIds.length && !turnResult.analysis?.entities ? 'SKIPPED' : 'COMPLETED';
       }
 
       // Advance to next section if not already at the end
@@ -424,13 +459,20 @@ exports.sendMessage = async (req, res, next) => {
           const totalReqs = await Requirement.countDocuments({ projectId });
           aiQuestionText = `I have collected requirements across all elicitation sections with ${session.coverage}% coverage (${totalReqs} requirements captured).\n\nPlease review the summary below. When ready, click "Confirm & Generate SRS" to lock requirements and generate your IEEE 830 / ISO 29148 compliant SRS.`;
         } else {
-          aiQuestionText = interviewAgent.getSectionInitialQuestion(nextSec.id, project.projectName, detectedLang);
+          const prevQuestions = history.filter((m) => m.sender === 'AI').map((m) => m.content);
+          aiQuestionText = await interviewAgent.generateStageIntroQuestion(nextSec, interviewContext, detectedLang, prevQuestions);
         }
       }
     } else {
       // 🟢 STAY IN CURRENT SECTION:
       // Ask a targeted follow-up question for the CURRENT section
-      aiQuestionText = turnResult.question || interviewAgent.getSectionFollowUpQuestion(currentSectionConfig.id, project.projectName, detectedLang);
+      aiQuestionText = turnResult.question || interviewAgent.buildSmartDeterministicQuestion({
+        projectContext: interviewContext,
+        currentSectionConfig,
+        missingInformation: turnResult.missingInformation,
+        isNewStage: false,
+        detectedLanguage: detectedLang
+      });
     }
 
     // Recompute total requirements & coverage
@@ -443,6 +485,9 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     session.summary = await buildProjectRequirementsSummary(projectId);
+    if (typeof session.markModified === 'function') {
+      session.markModified('sectionsState');
+    }
     await session.save();
 
     const activeSecConfig = SECTIONS_CONFIG[session.sectionIndex];
@@ -474,7 +519,6 @@ exports.sendMessage = async (req, res, next) => {
       }
     });
   } catch (error) {
-
     next(error);
   }
 };

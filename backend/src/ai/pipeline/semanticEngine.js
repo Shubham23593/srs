@@ -155,21 +155,27 @@ function isExplicitRequirementEvidence(clause, stageConfig = {}) {
 // ---------------------------------------------------------------------------
 function extractStakeholdersAndUsers(text) {
   const s = String(text || '');
-  const lower = s.toLowerCase();
 
   const userKeywords = [
-    { key: 'citizens', pattern: /\b(?:citizens?|affected citizens?|public|nagrik|loka|lok)\b/i },
-    { key: 'government officials', pattern: /\b(?:government officials?|disaster management officers?|shasan|adhikari|sarkari)\b/i },
-    { key: 'NGO workers', pattern: /\b(?:ngo workers?|ngo staff|ngos?|non-profit|samajik sanstha)\b/i },
-    { key: 'volunteers', pattern: /\b(?:volunteers?|swayamsevak|sevak)\b/i },
-    { key: 'emergency responders', pattern: /\b(?:emergency responders?|first responders?|firefighters?|paramedics?|police|rescue team)\b/i },
-    { key: 'administrators', pattern: /\b(?:administrators?|admins?|system admins?|prashasak)\b/i },
-    { key: 'doctors', pattern: /\b(?:doctors?|physicians?|clinicians?|vaidya|doctor)\b/i },
-    { key: 'patients', pattern: /\b(?:patients?|rogi|rujna)\b/i },
-    { key: 'managers', pattern: /\b(?:managers?|supervisors?|prabandhak)\b/i },
-    { key: 'field workers', pattern: /\b(?:field workers?|ground staff|karyakarta)\b/i },
-    { key: 'customers', pattern: /\b(?:customers?|clients?|grahak)\b/i },
-    { key: 'students', pattern: /\b(?:students?|learners?|vidyarthi)\b/i }
+    { key: 'citizens', pattern: /(?:citizens?|affected citizens?|public|nagrik|नागरिक|loka|lok)/i },
+    { key: 'government officials', pattern: /(?:government officials?|disaster management officers?|shasan|adhikari|अधिकारी|sarkari)/i },
+    { key: 'NGO workers', pattern: /(?:ngo workers?|ngo staff|ngos?|non-profit|samajik sanstha|सामाजिक संस्था)/i },
+    { key: 'volunteers', pattern: /(?:volunteers?|swayamsevak|sevak|स्वयंसेवक)/i },
+    { key: 'emergency responders', pattern: /(?:emergency responders?|first responders?|firefighters?|paramedics?|police|rescue team|आपत्ती व्यवस्थापन)/i },
+    { key: 'administrators', pattern: /(?:administrators?|admins?|system admins?|prashasak|प्रशासक|ॲडमिन)/i },
+    { key: 'doctors', pattern: /(?:doctors?|physicians?|clinicians?|vaidya|doctor|डॉक्टर|वैद्य)/i },
+    { key: 'patients', pattern: /(?:patients?|rogi|rujna|मरीज|रोगी|रुग्ण)/i },
+    { key: 'managers', pattern: /(?:managers?|supervisors?|prabandhak|व्यवस्थापक)/i },
+    { key: 'field workers', pattern: /(?:field workers?|ground staff|karyakarta|कार्यकर्ते)/i },
+    { key: 'customers', pattern: /(?:customers?|clients?|grahak|ग्राहक)/i },
+    { key: 'students', pattern: /(?:students?|learners?|vidyarthi|विद्यार्थी)/i },
+    { key: 'farmers', pattern: /(?:farmers?|kisan|shetkari|शेतकरी|किसान)/i },
+    { key: 'owners', pattern: /(?:owners?|proprietors?|malik|मालक|मालिक)/i },
+    { key: 'maintenance staff', pattern: /(?:maintenance staff|technicians?|caretakers?|operators?|staff|कर्मचारी|स्टाफ)/i },
+    { key: 'drivers', pattern: /(?:drivers?|truck drivers?|chalak|चालक)/i },
+    { key: 'inspectors', pattern: /(?:inspectors?|auditors?|officers?|supervisor|nirikshak|निरीक्षक)/i },
+    { key: 'workers', pattern: /(?:workers?|waste collectors?|sanitation workers?|labour|कामगार)/i },
+    { key: 'enthusiasts', pattern: /(?:enthusiasts?|hobbyists?|specialists?)/i }
   ];
 
   const primaryUsers = [];
@@ -182,7 +188,7 @@ function extractStakeholdersAndUsers(text) {
     if (item.pattern.test(s)) {
       if (item.key === 'administrators') {
         administrators.push(item.key);
-      } else if (['citizens', 'patients', 'customers', 'students'].includes(item.key)) {
+      } else if (['citizens', 'patients', 'customers', 'students', 'farmers', 'owners', 'enthusiasts'].includes(item.key)) {
         primaryUsers.push(item.key);
         beneficiaries.push(item.key);
       } else if (['NGO workers', 'government officials'].includes(item.key)) {
@@ -192,6 +198,15 @@ function extractStakeholdersAndUsers(text) {
         primaryUsers.push(item.key);
         stakeholders.push(item.key);
       }
+    }
+  }
+
+  // Generic fallback if text has words like "users", "owners", "members"
+  if (primaryUsers.length === 0 && s.length >= 10) {
+    const rawTokens = s.match(/\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/g) || [];
+    const candidates = rawTokens.filter(t => !['System', 'Project', 'Smart', 'The', 'And', 'What', 'Will'].includes(t));
+    if (candidates.length > 0) {
+      primaryUsers.push(...candidates.slice(0, 3).map(c => c.toLowerCase()));
     }
   }
 
@@ -205,8 +220,8 @@ function extractStakeholdersAndUsers(text) {
   };
 }
 
-// Known role nouns (open set; also captures "<word> worker/officer/admin" patterns).
-const ROLE_NOUNS = /\b(?:admin|admins|administrator|administrators|manager|managers|field worker|field workers|ground staff|volunteer|volunteers|citizen|citizens|officer|officers|supervisor|supervisors|user|users|doctor|doctors|patient|patients|nurse|nurses|agent|agents|operator|operators|farmer|farmers|responders?|coordinator|coordinators|clerk|clerks)\b/gi;
+// Known role nouns across all domains + multilingual terms.
+const ROLE_NOUNS = /(?:admin|admins|administrator|administrators|manager|managers|field worker|field workers|ground staff|volunteer|volunteers|citizen|citizens|officer|officers|supervisor|supervisors|user|users|doctor|doctors|patient|patients|nurse|nurses|agent|agents|operator|operators|farmer|farmers|waste collector|waste collectors|collector|collectors|responders?|coordinator|coordinators|clerk|clerks|owner|owners|maintenance staff|technician|technicians|staff|caretaker|caretakers|viewer|viewers|moderator|moderators|driver|drivers|customer|customers|client|clients|teacher|teachers|student|students|auditor|auditors|analyst|analysts|मालक|कर्मचारी|स्टाफ|व्यवस्थापक|ॲडमिन|प्रशासक|ग्राहक|शेतकरी|वापरकर्ता|चालक|विद्यार्थी)/gi;
 
 function extractRolesAndPermissions(text) {
   const s = String(text || '');
@@ -217,27 +232,54 @@ function extractRolesAndPermissions(text) {
   const roleMatches = s.match(ROLE_NOUNS) || [];
   roleMatches.forEach(r => roles.push(r.toLowerCase().replace(/s$/, (m) => m === 's' ? 's' : m)));
 
-  // 2. Generic actor pattern: "<Role> can/should <action> ..." (any domain).
-  //    e.g. "Field workers can update only their assigned repair tasks."
-  const actorClauses = s.match(/[A-Za-z][A-Za-z\s-]{1,40}?\s+(?:can|could|should|must|shall|are able to|is able to)\s+[^.!?]+/gi) || [];
-  for (const clause of actorClauses) {
-    // The role is the leading noun phrase up to the modal.
-    const rolePart = clause.split(/\s+(?:can|could|should|must|shall|are able to|is able to)\b/i)[0];
-    const role = rolePart.toLowerCase()
-      .replace(/^(the|a|an|all|only|these|those)\s+/i, '')
-      .trim();
-    if (role && role.length <= 40 && /[a-z]/.test(role)) roles.push(role);
+  // 2. Generic enumeration: e.g. "System has 3 roles: Owner, Maintenance Staff, and Admin"
+  const enumMatches = s.match(/(?:roles?|users?|bhumika|भूमिका)\s*(?:are|will be|honge|honge:|astil|astil:|:)\s*([^.]+)/i);
+  if (enumMatches && enumMatches[1]) {
+    const parts = enumMatches[1].split(/,|\band\b|\baur\b|\bani\b|\bआणि\b|\bतथा\b/i).map(p => p.trim()).filter(p => p.length > 2 && p.length < 35);
+    for (const p of parts) {
+      const clean = p.replace(/^(?:the|a|an|only|all)\s+/i, '').trim();
+      if (clean && !clean.includes('manage') && !clean.includes('system')) {
+        roles.push(clean.toLowerCase());
+      }
+    }
+  }
 
-    // The permission/action is the remainder.
-    const action = clause.replace(/^[^]+?\b(?:can|could|should|must|shall|are able to|is able to)\s*/i, '').trim();
-    if (action) {
-      const perm = action.replace(/[.,;!]+$/, '').trim();
-      if (perm.length > 2) permissions.push(perm);
+  // 3. Generic actor pattern: SVO & SOV (English, Hindi, Marathi, Hinglish)
+  //    SVO: "<Role> can/should/must <action>"
+  //    SOV: "<Role> <action> kar sakega / karega / karel / kar shakto / करू शकेल"
+  const subClauses = s.split(/[;\n.!?]+/).map(c => c.trim()).filter(Boolean);
+  for (const clause of subClauses) {
+    // Check SVO (English / Hinglish)
+    const svoMatch = clause.match(/^([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s-]{1,30}?)\s+(?:can|could|should|must|shall|are able to|is able to)\s+(.+)$/i);
+    if (svoMatch) {
+      const role = svoMatch[1].toLowerCase().replace(/^(the|a|an|all|only|these|those)\s+/i, '').trim();
+      const action = svoMatch[2].trim();
+      if (role && !['there', 'it', 'this', 'that', 'system', 'here', 'we', 'they'].includes(role)) {
+        roles.push(role);
+        if (action && !/^be\s+/i.test(action)) {
+          permissions.push(action.replace(/[.,;!]+$/, '').trim());
+        }
+      }
+      continue;
+    }
+
+    // Check SOV (Hindi / Marathi / Hinglish)
+    const sovMatch = clause.match(/^([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s-]{1,30}?)\s+(.+?)\s+(?:kar sakega|kar sakegi|kar sakta hai|kar sakti hai|karega|karegi|kare|kar shakto|kar shakte|karel|करेल|शकेल|करू शकेल|पाहिजे|करेगा|करेगी|कर सकते हैं)$/i);
+    if (sovMatch) {
+      const role = sovMatch[1].toLowerCase().replace(/^(the|a|an|all|only|these|those)\s+/i, '').trim();
+      const action = sovMatch[2].trim();
+      if (role && !['there', 'it', 'this', 'that', 'system', 'here', 'we', 'they'].includes(role)) {
+        roles.push(role);
+        if (action && !/^(honge|astil|hota|hoti)\b/i.test(action)) {
+          permissions.push(action.replace(/[.,;!]+$/, '').trim());
+        }
+      }
+      continue;
     }
   }
 
   const canonicalRoles = [...new Set(roles.map(normalizeRole))].filter(Boolean);
-  const canonicalPerms = [...new Set(permissions.map((p) => p.toLowerCase().replace(/\s+/g, ' ').trim()))];
+  const canonicalPerms = [...new Set(permissions.map((p) => p.toLowerCase().replace(/\s+/g, ' ').trim()))].filter(p => p.length > 2);
 
   return {
     userRoles: canonicalRoles,
@@ -250,15 +292,20 @@ function extractRolesAndPermissions(text) {
 function normalizeRole(role) {
   const r = String(role || '').trim().toLowerCase();
   if (!r) return '';
-  if (/admin/.test(r)) return 'administrator';
+  if (/admin|प्रशासक|ॲडमिन/.test(r)) return 'administrator';
+  if (/owner|malik|मालक|मालिक/.test(r)) return 'owner';
+  if (/maintenance|caretaker|technician|staff|कर्मचारी|स्टाफ/.test(r)) return 'maintenance staff';
   if (/field worker|ground staff/.test(r)) return 'field worker';
-  if (/officer/.test(r)) return 'officer';
-  if (/manager/.test(r)) return 'manager';
-  if (/volunteer/.test(r)) return 'volunteer';
-  if (/citizen/.test(r)) return 'citizen';
-  if (/doctor/.test(r)) return 'doctor';
-  if (/patient/.test(r)) return 'patient';
-  if (/farmer/.test(r)) return 'farmer';
+  if (/officer|अधिकारी/.test(r)) return 'officer';
+  if (/manager|व्यवस्थापक|प्रबंधक/.test(r)) return 'manager';
+  if (/volunteer|स्वयंसेवक/.test(r)) return 'volunteer';
+  if (/citizen|नागरिक/.test(r)) return 'citizen';
+  if (/doctor|डॉक्टर/.test(r)) return 'doctor';
+  if (/patient|मरीज|रोगी/.test(r)) return 'patient';
+  if (/farmer|शेतकरी|किसान/.test(r)) return 'farmer';
+  if (/customer|grahak|ग्राहक/.test(r)) return 'customer';
+  if (/student|विद्यार्थी/.test(r)) return 'student';
+  if (/teacher|शिक्षक/.test(r)) return 'teacher';
   return r.replace(/s$/, '');
 }
 
@@ -267,7 +314,7 @@ function extractProjectInfo(text) {
   return {
     problemStatement: s,
     projectContext: s,
-    primaryObjective: s.slice(0, 120),
+    primaryObjective: s.slice(0, 150),
     projectScope: s,
     businessGoal: s
   };
@@ -281,12 +328,16 @@ function extractConstraints(text) {
   if (/mysql/i.test(s)) tech.push('MySQL');
   if (/aws|amazon web services/i.test(s)) tech.push('AWS Cloud');
   if (/docker/i.test(s)) tech.push('Docker Containers');
+  if (/node|express/i.test(s)) tech.push('Node.js / Express');
+  if (/react|next/i.test(s)) tech.push('React / Next.js');
+  if (/esp32|arduino|raspberry pi|iot/i.test(s)) tech.push('Embedded IoT Hardware (ESP32/Arduino)');
+  if (/budget|timeline|deadline|time limit/i.test(s)) tech.push('Timeline & Budget Constraints');
   return {
     technologyConstraints: tech,
     deploymentConstraints: tech.filter(t => ['AWS Cloud', 'Docker Containers'].includes(t)),
-    budgetConstraints: [],
-    regulatoryConstraints: [],
-    timelineConstraints: []
+    budgetConstraints: /budget/i.test(s) ? ['Specified budget limit'] : [],
+    regulatoryConstraints: /gdpr|hipaa|compliance|iso/i.test(s) ? ['Regulatory Compliance'] : [],
+    timelineConstraints: /deadline|timeline|months?|weeks?/i.test(s) ? ['Specified delivery timeline'] : []
   };
 }
 
@@ -299,8 +350,10 @@ function extractAssumptionsDependencies(text) {
   if (/whatsapp/i.test(s)) deps.push('WhatsApp Messaging API');
   if (/google maps|maps api|map service/i.test(s)) deps.push('Maps API');
   if (/payment|stripe|paypal|razorpay/i.test(s)) deps.push('Payment Gateway');
+  if (/wi-?fi|internet|cloud|network/i.test(s)) deps.push('Stable Internet & Cloud Connectivity');
+  if (/sensor|hardware|probe/i.test(s)) deps.push('Hardware Sensor Reliability');
   return {
-    assumptions: /assume|assumption|assuming|man liya|गृहीत/i.test(s) ? [s.trim()] : [],
+    assumptions: /assume|assumption|assuming|man liya|गृहीत/i.test(s) ? [s.trim()] : (deps.length ? ['System operates under standard network and hardware availability'] : []),
     dependencies: deps,
     thirdPartyServices: deps,
     environmentalDependencies: []
@@ -318,7 +371,7 @@ function extractInterfaces(text) {
     [/\bemail\b|smtp/i, 'Email Service API'],
     [/rest api|webhook|third-party api|external api/i, 'External REST API'],
     [/kafka|message queue|rabbitmq/i, 'Message Queue'],
-    [/database integration|integrat.*database/i, 'Database Integration']
+    [/mqtt|iot|sensor|temperature sensor|ph sensor/i, 'MQTT IoT Sensor Interface']
   ];
   for (const [re, label] of known) if (re.test(s)) interfaces.push(label);
   return { interfaces: [...new Set(interfaces)] };
@@ -872,7 +925,13 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
     }
 
     // ---------- DEPENDENCY ----------
-    if (stageId === 'ASSUMPTIONS_AND_DEPENDENCIES' || !isDescriptiveStage) {
+    // Only extract DEPENDENCY items in the ASSUMPTIONS_AND_DEPENDENCIES stage,
+    // or in FUNCTIONAL_REQUIREMENTS where a dependency keyword cross-signals.
+    // NEVER extract dependencies in CONSTRAINTS, EXTERNAL_INTERFACES, NFR, or
+    // other stages — that is cross-stage information-type leakage.
+    const depStageAllowed = stageId === 'ASSUMPTIONS_AND_DEPENDENCIES' ||
+      stageId === 'FUNCTIONAL_REQUIREMENTS';
+    if (depStageAllowed) {
       for (const dep of DEPENDENCY_PATTERNS) {
         const hit = dep.keywords.find((kw) => hasKeyword(clauseLower, clause, kw));
         if (hit) {
@@ -905,7 +964,13 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
     }
 
     // ---------- CONSTRAINT ----------
-    if (stageId === 'CONSTRAINTS' || !isDescriptiveStage) {
+    // Only extract CONSTRAINT items in the CONSTRAINTS stage.
+    // Technology mentions (React, Node.js, PostgreSQL) in FUNCTIONAL_REQUIREMENTS
+    // or ASSUMPTIONS_AND_DEPENDENCIES are NOT constraints — they are implementation
+    // preferences or dependencies. Extracting them as CONSTRAINTs in those stages
+    // is information-type leakage.
+    const conStageAllowed = stageId === 'CONSTRAINTS';
+    if (conStageAllowed) {
       for (const con of CONSTRAINT_PATTERNS) {
         const hit = con.keywords.find((kw) => hasKeyword(clauseLower, clause, kw));
         if (hit) {
@@ -938,26 +1003,36 @@ function extractAtomicRequirements(rawText, sectionConfig = {}, project = {}) {
     }
 
     // ---------- INTERFACE ----------
-    if (stageId === 'EXTERNAL_INTERFACES' || !isDescriptiveStage) {
+    // Only extract INTERFACE items in the EXTERNAL_INTERFACES stage.
+    // Interface keywords (API, gateway, SMS) appearing in FUNCTIONAL_REQUIREMENTS
+    // or other stages describe capabilities, NOT external interface specifications.
+    // Extracting them as INTERFACE in those stages is information-type leakage.
+    // Also, databases, languages, and cloud infrastructure are NOT external interfaces.
+    const intfStageAllowed = stageId === 'EXTERNAL_INTERFACES';
+    const isDatabaseOrInfra = /(?:mongodb|postgres|postgresql|mysql|sqlite|redis|oracle|cassandra|dynamodb|mariadb|cloud hosting|aws|azure|gcp|docker|kubernetes|node\.?js|react|vue|angular)/i.test(clauseLower);
+    if (intfStageAllowed && !isDatabaseOrInfra) {
       for (const intf of INTERFACE_PATTERNS) {
         const hit = intf.keywords.find((kw) => hasKeyword(clauseLower, clause, kw));
         if (hit && !/depend/i.test(clauseLower)) {
-          if (!seenCapIds.has(intf.id)) {
-            seenCapIds.add(intf.id);
+          const intfName = intf.extract ? intf.extract(clauseLower) : null;
+          const statement = typeof intf.statement === 'function' ? intf.statement({ intf: intfName }) : (intf.statement || 'The system shall integrate with external interfaces.');
+          const key = intf.id + '|' + (intfName || '');
+          if (!seenCapIds.has(key)) {
+            seenCapIds.add(key);
             found.push({
-              title: 'External Interface',
-              normalizedDescription: intf.statement,
+              title: intfName ? `External Interface: ${intfName.split(',')[0]}` : 'External Interface Integration',
+              normalizedDescription: statement,
               type: 'INTERFACE',
               nfrSubcategory: 'N/A',
               category: 'External Interfaces',
               topicCluster: 'External Interfaces',
               priority: 'MEDIUM',
               status: 'PROPOSED',
-              ambiguityFlags: [],
-              clarificationQuestion: '',
+              ambiguityFlags: intfName ? [] : ['INTERFACE_UNSPECIFIED'],
+              clarificationQuestion: intfName ? '' : 'Which specific external interface, API, or hardware protocol should be integrated?',
               isAtomic: true, atomic: true,
-              confidence: 0.75,
-              qualityFlags: [],
+              confidence: intfName ? 0.9 : 0.75,
+              qualityFlags: intfName ? [] : ['NEEDS_CLARIFICATION'],
               isRequirementEvidence: true,
               sourceInterviewStage: stageName
             });

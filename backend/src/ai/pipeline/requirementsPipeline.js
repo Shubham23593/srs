@@ -39,6 +39,7 @@ const { clusterRequirements } = require('./topicClusterer');
 const { mapRequirementsToSections, SRS_SECTIONS } = require('./sectionMapper');
 const { assembleSRS, auditSrsLanguage } = require('./srsAssembler');
 const { auditSRS } = require('./qualityAudit');
+const { assessProjectRelevance, isNonInterfaceInfrastructure, isIntegrationGrounded, isGenericInfrastructure } = require('./contextRelevanceEngine');
 const embeddingService = require('../EmbeddingService');
 const { getAIProvider } = require('../index');
 
@@ -52,6 +53,87 @@ const TYPE_PREFIX = {
   STAKEHOLDER: 'STK',
   BUSINESS_RULE: 'BR'
 };
+
+/**
+ * Authoritative stage-to-type binding.
+ * The current interview stage OWNS the information type for non-entity stages.
+ * LLM output is UNTRUSTED; the stage gate is the final authority.
+ *
+ * Returns the canonical Requirement `type` string that a requirement extracted
+ * in this stage MUST have. Returns null for entity stages (Stages 1-3, Review)
+ * where no Requirement documents are produced at all.
+ */
+function stageCanonicalType(stageId) {
+  const map = {
+    FUNCTIONAL_REQUIREMENTS:    'FUNCTIONAL',
+    NON_FUNCTIONAL_REQUIREMENTS:'NON_FUNCTIONAL',
+    CONSTRAINTS:                'CONSTRAINT',
+    ASSUMPTIONS_AND_DEPENDENCIES: null, // multi-type: ASSUMPTION or DEPENDENCY (decided by content)
+    EXTERNAL_INTERFACES:        'INTERFACE',
+    // Entity stages: no Requirement documents produced.
+    PROJECT_INFORMATION:        null,
+    STAKEHOLDERS_AND_USERS:     null,
+    USER_ROLES_AND_PERMISSIONS: null,
+    REVIEW_AND_CONFIRMATION:    null
+  };
+  return Object.prototype.hasOwnProperty.call(map, stageId) ? map[stageId] : null;
+}
+
+/**
+ * Re-bind the type to what is valid for this stage.
+ * This is the HARD POST-LLM CLASSIFICATION GUARD.
+ *
+ * MANDATE (NO EXCEPTIONS):
+ *   - NEVER return an arbitrary type as a fallback for unknown information.
+ *   - NEVER default to FUNCTIONAL, DEPENDENCY, or any other type.
+ *   - Unknown / undeterminable type → return null (UNCLASSIFIED).
+ *   - The caller (analyzeAnswer) must handle null by marking the item as
+ *     UNCLASSIFIED; persistRequirements must reject UNCLASSIFIED items.
+ *
+ * Decision matrix:
+ *   Stage has fixed canonical type + deterministic type agrees → canonical
+ *   Stage has fixed canonical type + LLM type agrees → canonical
+ *   Stage has fixed canonical type + type unknown → canonical (stage wins)
+ *   ASSUMPTIONS_AND_DEPENDENCIES + ASSUMPTION or DEPENDENCY → that type
+ *   ASSUMPTIONS_AND_DEPENDENCIES + type unknown or wrong → null (UNCLASSIFIED)
+ *   Entity stage (PROJECT_INFORMATION etc.) → null (no Requirement produced)
+ *   Unknown stage + type missing → null (UNCLASSIFIED)
+ */
+function enforceStageType(llmType, stageId, deterministicType) {
+  const VALID_TYPES = new Set(Object.keys(TYPE_PREFIX));
+
+  // Normalise input types — treat empty / invalid strings as absent.
+  const rawLlm = String(llmType || '').toUpperCase().trim();
+  const trustedLlm = VALID_TYPES.has(rawLlm) ? rawLlm : null;
+
+  const rawDet = String(deterministicType || '').toUpperCase().trim();
+  const trustedDet = VALID_TYPES.has(rawDet) ? rawDet : null;
+
+  // Stages with a single fixed canonical type.
+  const canonical = stageCanonicalType(stageId);
+  if (canonical !== null) {
+    // The canonical type is absolute for this stage — LLM and deterministic
+    // engine type hints are advisory only.
+    return canonical;
+  }
+
+  // Multi-type stage: ASSUMPTIONS_AND_DEPENDENCIES.
+  // Only ASSUMPTION and DEPENDENCY are valid here. Anything else → UNCLASSIFIED.
+  if (stageId === 'ASSUMPTIONS_AND_DEPENDENCIES') {
+    const ALLOWED = new Set(['ASSUMPTION', 'DEPENDENCY']);
+    // Deterministic engine has higher authority than LLM here.
+    if (trustedDet && ALLOWED.has(trustedDet)) return trustedDet;
+    if (trustedLlm && ALLOWED.has(trustedLlm)) return trustedLlm;
+    // Both are absent or invalid → UNCLASSIFIED. NEVER default to DEPENDENCY.
+    return null;
+  }
+
+  // Entity stages (PROJECT_INFORMATION, STAKEHOLDERS_AND_USERS,
+  // USER_ROLES_AND_PERMISSIONS, REVIEW_AND_CONFIRMATION): canonical returns null,
+  // but we reach here when stageId is unknown. Return null in all cases.
+  // Unknown / unrecognised stage → UNCLASSIFIED.
+  return null;
+}
 
 class RequirementsPipeline {
   /**
@@ -113,30 +195,70 @@ class RequirementsPipeline {
     let engineUsed = false;
     let aiProviderFailed = false;
 
-    // For custom domain projects, try LLM extraction first if AI is healthy
-    const ai = getAIProvider();
-    if (ai && (await ai.isHealthy())) {
-      const llmResult = await this._llmExtract(rawSourceText, project, sectionConfig);
-      if (llmResult && llmResult.providerFailed) {
-        // AI failure: record and fall through to the deterministic engine.
-        // Must NOT be treated as "user provided no requirement".
-        aiProviderFailed = true;
-      } else if (llmResult && llmResult.requirements.length > 0) {
-        extracted = llmResult;
-        engineUsed = false;
+    // For entity stages (1: PROJECT_INFORMATION, 2: STAKEHOLDERS_AND_USERS, 3: USER_ROLES_AND_PERMISSIONS),
+    // ISO 29148 dictates that we extract structured entity KNOWLEDGE, NOT requirement candidates.
+    const isEntityStage = ['PROJECT_INFORMATION', 'STAKEHOLDERS_AND_USERS', 'USER_ROLES_AND_PERMISSIONS'].includes(sectionConfig?.id);
+
+    if (isEntityStage) {
+      extracted = extractAtomicRequirements(rawSourceText, sectionConfig, project);
+      engineUsed = true;
+    } else {
+      // For requirement stages (4-8), try LLM extraction first if AI is healthy
+      const ai = getAIProvider();
+      if (ai && (await ai.isHealthy())) {
+        const llmResult = await this._llmExtract(rawSourceText, project, sectionConfig);
+        if (llmResult && llmResult.providerFailed) {
+          aiProviderFailed = true;
+        } else if (llmResult && llmResult.requirements.length > 0) {
+          extracted = llmResult;
+          const engineResult = extractAtomicRequirements(rawSourceText, sectionConfig, project);
+          extracted.entities = { ...(engineResult.entities || {}), ...(llmResult.entities || {}) };
+          engineUsed = false;
+        }
+      }
+
+      if (!extracted || extracted.requirements.length === 0) {
+        const engineResult = extractAtomicRequirements(rawSourceText, sectionConfig, project);
+        extracted = engineResult;
+        engineUsed = true;
       }
     }
 
-    if (!extracted || extracted.requirements.length === 0) {
-      const engineResult = extractAtomicRequirements(rawSourceText, sectionConfig, project);
-      extracted = engineResult;
-      engineUsed = true;
-    }
-
     // ---- PHASE 7: Formal normalization (never let raw text through) ----
-    const { assessProjectRelevance } = require('./contextRelevanceEngine');
+    const { assessProjectRelevance, isNonInterfaceInfrastructure, isIntegrationGrounded, isGenericInfrastructure } = require('./contextRelevanceEngine');
+    const stageId = sectionConfig?.id || 'UNKNOWN';
+    const crossStageCandidates = []; // Items that belong to a different stage — not persisted as Requirements.
+
     const requirements = await Promise.all((extracted.requirements || []).map(async (r) => {
       const normalizedDescription = formalNormalize(r.normalizedDescription || r.description || '');
+
+      // ---- HARD POST-LLM CLASSIFICATION GUARD ----
+      // enforceStageType() returns null when the type cannot be determined
+      // without guessing. A null type = UNCLASSIFIED. UNCLASSIFIED items are
+      // NEVER persisted as Requirement documents. They are either returned as
+      // cross-stage candidates (if they belong to another known stage) or
+      // flagged for clarification.
+      const resolvedType = enforceStageType(r.type, stageId, r.type);
+
+      // ---- CROSS-STAGE POLICY (OPTION C): ----
+      // If we are in FUNCTIONAL_REQUIREMENTS and the deterministic engine found
+      // a DEPENDENCY item (e.g. user mentions an external service while describing
+      // features), capture it as a cross-stage candidate — project knowledge only.
+      // It is NOT persisted as a Requirement document in this stage.
+      if (stageId === 'FUNCTIONAL_REQUIREMENTS' && r.type === 'DEPENDENCY') {
+        crossStageCandidates.push({
+          type: 'DEPENDENCY',
+          title: r.title,
+          normalizedDescription,
+          rawSourceText,
+          sourceInterviewStage: 'FUNCTIONAL_REQUIREMENTS',
+          crossStagePolicy: 'DEFERRED_TO_ASSUMPTIONS_STAGE',
+          note: 'Dependency information found during FR stage. Stored as project knowledge; not persisted as a Requirement document. Will surface in ASSUMPTIONS_AND_DEPENDENCIES stage.'
+        });
+        // Return a sentinel that will be filtered out of validReqs.
+        return null;
+      }
+
       const item = {
         title: r.title,
         source: 'AI_INTERVIEW',
@@ -145,33 +267,79 @@ class RequirementsPipeline {
         sourceLanguage: language.language,
         sourceInterviewStage: sectionConfig?.name || '',
         normalizedDescription,
-        // Legacy alias always points to normalized statement
         description: normalizedDescription,
-        type: r.type || 'FUNCTIONAL',
-        nfrSubcategory: r.nfrSubcategory || (r.type === 'NON_FUNCTIONAL' ? r.nfrSubcategory || 'PERFORMANCE' : 'N/A'),
+        // type is null when UNCLASSIFIED — caller must filter these out.
+        type: resolvedType,
+        classification: resolvedType === null ? 'UNCLASSIFIED' : 'CLASSIFIED',
+        nfrSubcategory: resolvedType === 'NON_FUNCTIONAL'
+          ? (['PERFORMANCE', 'SECURITY', 'SCALABILITY', 'AVAILABILITY', 'RELIABILITY', 'USABILITY', 'MAINTAINABILITY', 'SAFETY', 'OTHER'].includes(String(r.nfrSubcategory || '').toUpperCase()) ? String(r.nfrSubcategory).toUpperCase() : 'PERFORMANCE')
+          : 'N/A',
         category: r.category || r.topicCluster || sectionConfig?.name || 'Core Features',
         topicCluster: r.topicCluster || r.category || '',
         priority: ['HIGH', 'MEDIUM', 'LOW'].includes(r.priority) ? r.priority : 'MEDIUM',
-        status: r.status || 'PROPOSED',
-        ambiguityFlags: r.ambiguityFlags || [],
-        clarificationQuestion: r.clarificationQuestion || '',
+        status: resolvedType === null ? 'NEEDS_CLARIFICATION' : (r.status || 'PROPOSED'),
+        ambiguityFlags: resolvedType === null
+          ? [...(r.ambiguityFlags || []), 'UNCLASSIFIED_TYPE']
+          : (r.ambiguityFlags || []),
+        clarificationQuestion: resolvedType === null
+          ? (r.clarificationQuestion || 'Could you clarify what type of requirement or constraint this describes?')
+          : (r.clarificationQuestion || ''),
         qualityFlags: r.qualityFlags || [],
         duplicateCandidates: [],
         conflictReferences: [],
         isAtomic: r.isAtomic !== false,
         confidence: r.confidence || (engineUsed ? 0.78 : 0.9),
-        validationStatus: r.status === 'NEEDS_CLARIFICATION' ? 'NEEDS_CLARIFICATION' : 'VALID'
+        validationStatus: resolvedType === null ? 'UNCLASSIFIED' : (r.status === 'NEEDS_CLARIFICATION' ? 'NEEDS_CLARIFICATION' : 'VALID')
       };
 
+      // Sync nfrSubcategory after type is locked.
+      if (item.type !== 'NON_FUNCTIONAL') {
+        item.nfrSubcategory = 'N/A';
+      } else if (!['PERFORMANCE', 'SECURITY', 'SCALABILITY', 'AVAILABILITY', 'RELIABILITY', 'USABILITY', 'MAINTAINABILITY', 'SAFETY', 'OTHER'].includes(item.nfrSubcategory)) {
+        item.nfrSubcategory = 'PERFORMANCE';
+      }
+
+      // Check if requirement is database / framework / cloud infrastructure trying to be an INTERFACE
+      const fullReqText = `${item.title} ${normalizedDescription}`;
+      if (item.type === 'INTERFACE' || stageId === 'EXTERNAL_INTERFACES') {
+        if (isNonInterfaceInfrastructure(fullReqText)) {
+          item.type = null;
+          item.classification = 'UNCLASSIFIED';
+          item.status = 'NEEDS_CLARIFICATION';
+          item.ambiguityFlags = [...(item.ambiguityFlags || []), 'INFRASTRUCTURE_NOT_INTERFACE'];
+          item.clarificationQuestion = 'Databases, frameworks, and cloud hosting infrastructure represent technical constraints or dependencies, not external API interfaces. Could you clarify which external systems or APIs need to be integrated?';
+        } else if (!isIntegrationGrounded(fullReqText, rawSourceText, project)) {
+          item.type = null;
+          item.classification = 'UNCLASSIFIED';
+          item.status = 'NEEDS_CLARIFICATION';
+          item.ambiguityFlags = [...(item.ambiguityFlags || []), 'UNSUPPORTED_INTEGRATION_HALLUCINATION'];
+          item.clarificationQuestion = 'This external integration was not requested or supported by user context. Could you clarify if this integration is required?';
+        }
+      }
+
       if (project) {
-        const relevanceResult = await assessProjectRelevance(item, project);
+        const relevanceResult = await assessProjectRelevance(item, project, rawSourceText);
         item.contextRelevance = relevanceResult;
+        if (relevanceResult.status === 'CONTEXT_MISMATCH' && !isGenericInfrastructure(fullReqText)) {
+          item.type = null;
+          item.classification = 'UNCLASSIFIED';
+          item.status = 'OUT_OF_SCOPE';
+          item.ambiguityFlags = [...(item.ambiguityFlags || []), 'OUT_OF_SCOPE'];
+          item.clarificationQuestion = relevanceResult.reason || 'This requirement appears unrelated to the active project scope.';
+        }
       }
 
       return item;
     }));
 
-    const validReqs = requirements.filter((r) => r.normalizedDescription && r.title);
+    // Remove cross-stage deferred sentinels (null) from the requirements array.
+    const classifiedReqs = requirements.filter(Boolean);
+
+    // UNCLASSIFIED items: separate them from valid requirements. They are
+    // returned in the analysis for transparency but MUST NOT be persisted.
+    const unclassifiedReqs = classifiedReqs.filter((r) => r.classification === 'UNCLASSIFIED');
+    const validReqs = classifiedReqs.filter((r) => r.classification === 'CLASSIFIED' && r.normalizedDescription && r.title);
+
 
     // ---- PHASE 9: per-requirement quality (ambiguity, testability, grammar)
     const { scoreQuality } = require('./qualityEngine');
@@ -209,15 +377,17 @@ class RequirementsPipeline {
     const { issues } = await analyzeRequirementSet(workingSet, project);
 
     // Map catalog-duplicate/conflict results back onto the NEW requirements.
-    for (let i = 0; i < requirements.length; i++) {
-      const req = requirements[i];
+    for (let i = 0; i < validReqs.length; i++) {
+      const req = validReqs[i];
       const analyzed = workingSet[catalog.length + i];
-      const dupOfCatalog = (analyzed.duplicateCandidates || []).filter((id) => id !== 'NEW');
-      const conflictWithCatalog = (analyzed.conflictReferences || []).filter((id) => id !== 'NEW');
-      req.duplicateCandidates = dupOfCatalog;
-      req.conflictReferences = conflictWithCatalog;
-      if (dupOfCatalog.length && req.status === 'PROPOSED') req.status = 'NEEDS_REVIEW';
-      if (conflictWithCatalog.length && req.status === 'PROPOSED') req.status = 'NEEDS_REVIEW';
+      if (analyzed) {
+        const dupOfCatalog = (analyzed.duplicateCandidates || []).filter((id) => id !== 'NEW');
+        const conflictWithCatalog = (analyzed.conflictReferences || []).filter((id) => id !== 'NEW');
+        req.duplicateCandidates = dupOfCatalog;
+        req.conflictReferences = conflictWithCatalog;
+        if (dupOfCatalog.length && req.status === 'PROPOSED') req.status = 'NEEDS_REVIEW';
+        if (conflictWithCatalog.length && req.status === 'PROPOSED') req.status = 'NEEDS_REVIEW';
+      }
     }
 
     // Only surface issues that reference a NEW requirement (i.e. matter here)
@@ -241,10 +411,12 @@ class RequirementsPipeline {
       rawSourceText,
       language,
       relevance,
-      requirements,
+      requirements: validReqs,
+      unclassifiedRequirements: unclassifiedReqs,
+      crossStageCandidates,
       entities: extracted.entities || {},
       informationType: extracted.informationType || 'REQUIREMENT_EVIDENCE',
-      isRequirementEvidence: extracted.isRequirementEvidence || requirements.length > 0,
+      isRequirementEvidence: extracted.isRequirementEvidence || validReqs.length > 0,
       ignoredClauses: extracted.ignoredClauses || [],
       issues: relevantIssues,
       allCatalogIssues: issues,
@@ -255,9 +427,11 @@ class RequirementsPipeline {
       stageId: sectionConfig?.id || '',
       stageName: sectionConfig?.name || '',
       providerStatus: aiProviderFailed ? 'FAILED_DETERMINISTIC_FALLBACK' : (engineUsed ? 'DETERMINISTIC_ENGINE' : 'AI_PROVIDER'),
-      message: requirements.length
-        ? `Extracted ${requirements.length} atomic requirement(s).`
-        : 'The answer is relevant. Captured project metadata.'
+      message: validReqs.length
+        ? `Extracted ${validReqs.length} atomic requirement(s).`
+        : (unclassifiedReqs.length
+          ? `${unclassifiedReqs.length} item(s) could not be classified — clarification needed.`
+          : 'The answer is relevant. Captured project metadata.')
     };
   }
 
@@ -286,7 +460,9 @@ class RequirementsPipeline {
         requirements: result.requirements.map((r) => ({
           title: r.title,
           normalizedDescription: r.normalizedDescription || r.description,
-          type: (r.type || 'FUNCTIONAL').toUpperCase(),
+          // LLM type is a suggestion; it is UNCLASSIFIED if absent, not FUNCTIONAL.
+          // enforceStageType() will make the final determination in analyzeAnswer().
+          type: (r.type || 'UNCLASSIFIED').toUpperCase(),
           nfrSubcategory: (r.nfrSubcategory || 'N/A').toUpperCase(),
           category: r.category,
           topicCluster: r.topicCluster,
@@ -344,20 +520,64 @@ class RequirementsPipeline {
   }
 
   async persistRequirements(projectId, analysis, { sourceMessageId = null } = {}) {
+    const Project = require('../../models/Project');
+    const project = projectId ? await Project.findById(projectId).lean() : null;
     const existing = await Requirement.find({ projectId });
     const saved = [];
     const skippedDuplicates = [];
     const rejectedByGate = [];
+    const rejectedUnclassified = []; // UNCLASSIFIED items never reach the DB.
 
     // Counters per type for ID assignment
     const counters = {};
     for (const t of Object.keys(TYPE_PREFIX)) counters[t] = existing.filter((r) => r.type === t).length;
 
     for (const req of analysis.requirements) {
+      // ---- HARD GUARD #1: UNCLASSIFIED items are NEVER persisted. ----
+      // An UNCLASSIFIED item means enforceStageType() could not determine the
+      // type without guessing. Persisting it would be information-type leakage.
+      if (!req.type || req.type === 'UNCLASSIFIED' || req.classification === 'UNCLASSIFIED') {
+        rejectedUnclassified.push({
+          title: req.title || '(untitled)',
+          reason: 'UNCLASSIFIED_TYPE — cannot persist without a deterministically verified type',
+          ambiguityFlags: req.ambiguityFlags || [],
+          clarificationQuestion: req.clarificationQuestion || 'Could you clarify what type of requirement this describes?'
+        });
+        continue;
+      }
+
+      // ---- HARD GUARD #2: Type must be a known valid catalog type. ----
+      if (!TYPE_PREFIX[req.type]) {
+        rejectedUnclassified.push({
+          title: req.title || '(untitled)',
+          reason: `INVALID_TYPE '${req.type}' is not a known Requirement type`,
+          ambiguityFlags: req.ambiguityFlags || []
+        });
+        continue;
+      }
+
       // Eligibility gate: never persist a requirement from a non-requirement
       // stage (project info / stakeholders / roles / review).
       if (!this._isRequirementAllowedInStage(req, analysis)) {
         rejectedByGate.push({ title: req.title, reason: `Not a requirement for stage ${analysis.stageId || req.sourceInterviewStage}` });
+        continue;
+      }
+
+      // Hard check: Databases, frameworks, and cloud hosting infrastructure cannot be saved as INTERFACE
+      const fullDocText = `${req.title} ${req.normalizedDescription || req.description}`;
+      if (req.type === 'INTERFACE' || analysis.stageId === 'EXTERNAL_INTERFACES') {
+        if (isNonInterfaceInfrastructure(fullDocText)) {
+          rejectedByGate.push({ title: req.title, reason: 'INFRASTRUCTURE_OR_DATABASE_NOT_AN_INTERFACE — MongoDB, Node.js, and cloud hosting cannot be saved as INTERFACE' });
+          continue;
+        }
+        if (!isIntegrationGrounded(fullDocText, analysis.rawSourceText, project)) {
+          rejectedByGate.push({ title: req.title, reason: 'UNSUPPORTED_INTEGRATION_HALLUCINATION — Integration was not requested or supported by user or project context' });
+          continue;
+        }
+      }
+
+      if (req.contextRelevance?.status === 'CONTEXT_MISMATCH') {
+        rejectedByGate.push({ title: req.title, reason: 'OUT_OF_SCOPE — Requirement appears unrelated to active project scope' });
         continue;
       }
 
@@ -390,7 +610,9 @@ class RequirementsPipeline {
         normalizedDescription: req.normalizedDescription,
         description: req.normalizedDescription,
         type,
-        nfrSubcategory: req.nfrSubcategory || 'N/A',
+        nfrSubcategory: type === 'NON_FUNCTIONAL'
+          ? (['PERFORMANCE', 'SECURITY', 'SCALABILITY', 'AVAILABILITY', 'RELIABILITY', 'USABILITY', 'MAINTAINABILITY', 'SAFETY', 'OTHER'].includes(String(req.nfrSubcategory || '').toUpperCase()) ? String(req.nfrSubcategory).toUpperCase() : 'PERFORMANCE')
+          : 'N/A',
         category: req.category,
         topicCluster: req.topicCluster || '',
         priority: req.priority,
@@ -413,7 +635,7 @@ class RequirementsPipeline {
       saved.push(doc);
     }
 
-    return { saved, skippedDuplicates, rejectedByGate };
+    return { saved, skippedDuplicates, rejectedByGate, rejectedUnclassified };
   }
 
   async _findPersistedDuplicate(req, existing, justSaved) {
@@ -578,42 +800,74 @@ class RequirementsPipeline {
 
 function buildLlmExtractionPrompt(rawText, project, sectionConfig) {
   const stageId = sectionConfig?.id || '';
+
+  // Per-stage type mandate sent verbatim to the LLM (defense in depth, before the
+  // post-LLM enforceStageType() guard fires on the way back).
+  const stageTypeRules = {
+    FUNCTIONAL_REQUIREMENTS:
+      'MANDATORY: Every extracted item MUST have type="FUNCTIONAL". ' +
+      'Technology choices (React, Node.js, PostgreSQL), deployment decisions (cloud/on-premise), ' +
+      'and integration mentions are NOT Functional Requirements \u2014 do not extract them here.',
+    NON_FUNCTIONAL_REQUIREMENTS:
+      'MANDATORY: Every extracted item MUST have type="NON_FUNCTIONAL". ' +
+      'Only extract measurable quality attributes. Do NOT invent metrics the user did not state.',
+    CONSTRAINTS:
+      'MANDATORY: Every extracted item MUST have type="CONSTRAINT". ' +
+      'Extract only mandated technologies, platforms, compliance rules, or budget/timeline limits. ' +
+      'nfrSubcategory must be "N/A".',
+    ASSUMPTIONS_AND_DEPENDENCIES:
+      'MANDATORY: Every extracted item MUST have type="ASSUMPTION" or type="DEPENDENCY" ONLY. ' +
+      'NEVER output type FUNCTIONAL, NON_FUNCTIONAL, CONSTRAINT, or INTERFACE here. ' +
+      'nfrSubcategory must be "N/A".',
+    EXTERNAL_INTERFACES:
+      'MANDATORY: Every extracted item MUST have type="INTERFACE". ' +
+      'Extract only external API / hardware / protocol integration specifications. ' +
+      'nfrSubcategory must be "N/A".',
+    PROJECT_INFORMATION:
+      'Entity stage. MANDATORY: Return {"requirements":[]} unless user writes an explicit modal-verb system statement.',
+    STAKEHOLDERS_AND_USERS:
+      'Entity stage. MANDATORY: Return {"requirements":[]}. User descriptions do NOT become requirements.',
+    USER_ROLES_AND_PERMISSIONS:
+      'Entity stage. MANDATORY: Return {"requirements":[]}. Role/permission descriptions do NOT become requirements.',
+    REVIEW_AND_CONFIRMATION:
+      'MANDATORY: Return {"requirements":[]}.'
+  };
+
+  const typeRule = stageTypeRules[stageId] || 'Classify type accurately for the current stage.';
+
   return `You are a Senior Requirements Engineer following ISO/IEC/IEEE 29148.
 The user's interview answer may be in English, Hindi, Marathi, Hinglish, or mixed languages.
 Understand the SEMANTIC INTENT without copying raw text or inventing features.
 
 Project: ${project.projectName}
 Scope: ${project.scope || project.description || ''}
-Current interview stage: ${sectionConfig?.name} (${stageId}) — ${sectionConfig?.description || ''}
+Current interview stage: ${sectionConfig?.name} (${stageId}) \u2014 ${sectionConfig?.description || ''}
 User answer:
 """
 ${rawText}
 """
 
-STAGE RULES:
-1. If Stage is PROJECT_INFORMATION, STAKEHOLDERS_AND_USERS, or USER_ROLES_AND_PERMISSIONS:
-   - Descriptive statements about users, actors, problem context, or background DO NOT create requirements.
-   - Return {"requirements": []} unless the user explicitly provides an explicit system capability requirement.
-2. If Stage is FUNCTIONAL_REQUIREMENTS:
-   - Extract only explicit functional features ("The system shall allow <actor> to <action>").
-   - Do NOT create fake NFRs (Availability, Performance, etc.).
-3. If Stage is NON_FUNCTIONAL_REQUIREMENTS:
-   - Extract quality attributes. Do NOT invent response times or percentage metrics.
-4. If Stage is CONSTRAINTS, extract technology/deployment/regulatory constraints.
-5. If Stage is ASSUMPTIONS_AND_DEPENDENCIES, extract dependencies or assumptions.
-6. If Stage is REVIEW_AND_CONFIRMATION, return {"requirements": []}.
+STAGE TYPE RULE (CRITICAL \u2014 DO NOT VIOLATE):
+${typeRule}
 
-Return ONLY JSON:
+UNIVERSAL RULES (ALL stages):
+- NEVER label an Assumption as FUNCTIONAL.
+- NEVER label a Dependency as FUNCTIONAL.
+- NEVER label a technology choice (React, Node.js, PostgreSQL, Docker) as FUNCTIONAL.
+- NEVER label a deployment decision (cloud, AWS, Docker) as FUNCTIONAL.
+- NEVER invent features, behaviors, or metrics the user did not explicitly state.
+
+Return ONLY valid JSON:
 {
   "requirements": [
     {
-      "title": "short atomic capability title in English",
+      "title": "short atomic title in English (max 60 chars)",
       "normalizedDescription": "formal English statement starting with 'The system shall ...'",
       "type": "FUNCTIONAL|NON_FUNCTIONAL|CONSTRAINT|ASSUMPTION|DEPENDENCY|INTERFACE",
       "nfrSubcategory": "PERFORMANCE|SECURITY|USABILITY|AVAILABILITY|SCALABILITY|RELIABILITY|N/A",
-      "category": "short topic",
+      "category": "short topic label",
       "priority": "HIGH|MEDIUM|LOW",
-      "needsClarification": boolean,
+      "needsClarification": false,
       "ambiguityFlags": [],
       "clarificationQuestion": "exactly one focused question if needsClarification is true, else empty string",
       "confidence": 0.9

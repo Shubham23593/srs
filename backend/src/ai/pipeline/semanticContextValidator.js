@@ -116,14 +116,17 @@ INTERVIEW CONTEXT:
 USER ANSWER (Language may be English, Hindi, Marathi, Hinglish, or mixed):
 "${text}"
 
-TASK:
-1. Understand the semantic meaning and intent of the user's answer in its source language (English, Hindi, Marathi, Hinglish, or mixed).
-2. Determine whether it describes features, workflows, roles, rules, or answers relevant to "${projName}".
-3. Classify into EXACTLY one category:
-   - "RELEVANT": The answer meaningfully specifies software capabilities, workflows, personas, or requirements for ${projName} in any language.
-   - "PARTIALLY_RELEVANT": The answer is on-topic but excessively vague (e.g. "make it fast", "good quality") or missing necessary specifics.
-   - "UNRELATED": The answer discusses an entirely different subject or domain (e.g. sports, weather, cooking, personal budgeting in a hospital app, random chit-chat).
-   - "INVALID": Gibberish, random keystrokes ("asdfgh", "12345"), or nonsensical tokens.
+CRITICAL MULTILINGUAL & RELEVANCE RULES:
+1. The user may answer in English, Hindi (हिंदी), Marathi (मराठी), Hinglish, or mixed.
+2. Translate and understand the semantic meaning: e.g., "ऋण/कर्ज" = loan/credit, "आवेदक" = applicant, "मंजूरी/स्वीकृति" = approval/authorization, "शेतकरी/किसान" = farmer, "रुग्ण/मरीज" = patient, "डॉक्टर" = physician.
+3. If the meaning discusses capabilities, roles, workflows, or rules relevant to "${projName}" (${projDomain}), you MUST classify it as "RELEVANT" or "PARTIALLY_RELEVANT".
+4. NEVER classify meaningful Hindi/Marathi/Hinglish text as "INVALID" or "UNRELATED". "INVALID" is strictly reserved for keyboard mash/gibberish (e.g. "asdfgh", "123456").
+
+Classify into EXACTLY one category:
+- "RELEVANT": The answer meaningfully specifies software capabilities, workflows, personas, or requirements for ${projName} in any language.
+- "PARTIALLY_RELEVANT": The answer is on-topic but excessively vague (e.g. "make it fast", "good quality") or missing necessary specifics.
+- "UNRELATED": The answer discusses an entirely different subject or domain (e.g. sports, weather, cooking, personal budgeting in a hospital app, random chit-chat).
+- "INVALID": Gibberish, random keystrokes ("asdfgh", "12345"), or nonsensical tokens.
 
 Respond ONLY with a JSON object:
 {
@@ -136,7 +139,25 @@ Respond ONLY with a JSON object:
 
         const result = await ai.generateStructuredJSON(prompt);
         if (result && ['RELEVANT', 'PARTIALLY_RELEVANT', 'UNRELATED', 'INVALID'].includes(result.classification)) {
-          const classification = result.classification;
+          let classification = result.classification;
+
+          // Hybrid safety guard: If LLM marked a real Hindi/Marathi/English domain sentence as INVALID or UNRELATED,
+          // check deterministic semantic fallback to ensure genuine multilingual answers are never wrongly rejected.
+          if ((classification === 'INVALID' || classification === 'UNRELATED') && (/[ऀ-ॿ]/.test(text) || text.length >= 10)) {
+            const fallbackCheck = this._semanticFallbackEvaluation({
+              text,
+              project,
+              projName,
+              projDomain,
+              stageName,
+              questionText,
+              embeddingScore
+            });
+            if (fallbackCheck.isRelevant) {
+              classification = fallbackCheck.classification;
+            }
+          }
+
           const isRelevant = classification === 'RELEVANT' || classification === 'PARTIALLY_RELEVANT';
           const isOutOfScope = classification === 'UNRELATED' || classification === 'INVALID';
 
@@ -356,16 +377,22 @@ Respond ONLY with a JSON object:
       domainHits === 0 && embeddingScore < 0.80 && !technologyOrNativeModal &&
       words.length >= 5;
     const explicitReqInReqStage = explicitSystemReq && requirementStage && !crossDomainExplicitReq;
+    const actorReqGrounded = explicitSystemReq && (domainHits >= 1 || embeddingScore >= 0.82);
 
-    const actorReqGrounded = explicitSystemReq &&
-      (domainHits >= 1 || embeddingScore >= 0.82);
+    const isRolesStage = /roles?|permissions?|stakeholders?|users?/i.test(stageName);
+    const rolesSignal = isRolesStage && (
+      /[ऀ-ॿ]/.test(text) ||
+      devanagariRequirement ||
+      /\b(roles?|permissions?|users?|admins?|officers?|borrowers?|applicants?|underwriters?|managers?|auditors?|doctors?|patients?|farmers?|operators?|citizens?|clients?|customers?|members?|staff)\b/i.test(text)
+    );
 
     const isRelevant =
       domainHits >= 1 ||
       actorReqGrounded ||
       explicitReqInReqStage ||
       softwareSignal ||
-      devanagariRequirement;
+      devanagariRequirement ||
+      rolesSignal;
 
     if (!isRelevant) {
       return {
