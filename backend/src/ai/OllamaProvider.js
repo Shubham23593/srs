@@ -45,6 +45,7 @@ class OllamaProvider extends AIProvider {
       this._isHealthyCached = response.status === 200;
     } catch (error) {
       this._isHealthyCached = false;
+      this._lastError = error.message;
     }
 
     this._lastHealthCheck = now;
@@ -52,17 +53,112 @@ class OllamaProvider extends AIProvider {
   }
 
   /**
-   * Generate standard text completion
+   * Perform live health check against Ollama API (tags + running models via /api/ps)
+   */
+  async checkLiveHealth() {
+    const startTime = Date.now();
+    let online = false;
+    let installedModels = [];
+    let runningModels = [];
+    let errorMsg = null;
+
+    try {
+      const [tagsRes, psRes] = await Promise.allSettled([
+        axios.get(`${this.baseUrl}/api/tags`, { timeout: 2500 }),
+        axios.get(`${this.baseUrl}/api/ps`, { timeout: 2500 })
+      ]);
+
+      if (tagsRes.status === 'fulfilled' && tagsRes.value?.status === 200) {
+        online = true;
+        installedModels = (tagsRes.value.data?.models || []).map((m) => m.name || m.model);
+      }
+
+      if (psRes.status === 'fulfilled' && psRes.value?.status === 200) {
+        runningModels = (psRes.value.data?.models || []).map((m) => m.name || m.model);
+      }
+
+      this._isHealthyCached = online;
+      this._lastHealthCheck = Date.now();
+      if (!online && tagsRes.status === 'rejected') {
+        errorMsg = tagsRes.reason?.message || 'Connection refused';
+        this._lastError = errorMsg;
+      }
+    } catch (err) {
+      online = false;
+      this._isHealthyCached = false;
+      errorMsg = err.message;
+      this._lastError = errorMsg;
+    }
+
+    const latencyMs = Date.now() - startTime;
+    const modelLower = (this.model || '').toLowerCase().trim();
+    const cleanModel = modelLower.replace(/:latest$/, '');
+    
+    const isModelMatch = (mName) => {
+      const clean = (mName || '').toLowerCase().trim().replace(/:latest$/, '');
+      return clean === cleanModel || clean.split(':')[0] === cleanModel.split(':')[0] && (clean === cleanModel || clean.startsWith(cleanModel));
+    };
+
+    const modelInstalled = installedModels.some(isModelMatch);
+    const modelRunning = runningModels.some(isModelMatch);
+
+    return {
+      provider: 'ollama',
+      status: online ? 'ONLINE' : 'OFFLINE',
+      connected: online,
+      baseUrl: this.baseUrl,
+      configuredModel: this.model,
+      model: this.model,
+      modelInstalled,
+      modelRunning,
+      installedModels,
+      runningModels,
+      lastRequestStatus: this._lastRequestStatus || (online ? 'READY' : 'OFFLINE'),
+      lastResponseTimeMs: this._lastResponseTimeMs || latencyMs,
+      latencyMs,
+      lastError: errorMsg || this._lastError || null
+    };
+  }
+
+  /**
+   * Get real-time health and telemetry details (Priority 11)
+   */
+  getHealthDetails() {
+    return {
+      provider: 'ollama',
+      status: this._isHealthyCached ? 'ONLINE' : 'OFFLINE',
+      connected: this._isHealthyCached,
+      baseUrl: this.baseUrl,
+      configuredModel: this.model,
+      model: this.model,
+      modelInstalled: this._isHealthyCached,
+      modelRunning: false,
+      installedModels: [],
+      runningModels: [],
+      lastRequestStatus: this._lastRequestStatus || 'IDLE',
+      lastResponseTimeMs: this._lastResponseTimeMs || 0,
+      latencyMs: 0,
+      lastError: this._lastError || null
+    };
+  }
+
+  /**
+   * Generate standard text completion.
+   * Bounded timeout + at most one safe retry; on failure returns an EMPTY
+   * string (never fabricated content) so the caller uses its deterministic
+   * question bank. An empty string is the "no AI output" contract.
    */
   async generateCompletion(prompt, options = {}) {
-    const isLive = await this.isHealthy();
+    const startTime = Date.now();
+    const timeoutMs = options.timeout || env.ai?.ollamaTimeout || 45000;
+    const maxRetries = options.retries ?? 1;
 
-    if (isLive) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const isLive = await this.isHealthy();
+      if (!isLive) break; // provider down -> no waiting; deterministic fallback
       try {
-        console.log(
-          `[OllamaProvider] Generating completion using "${this.model}"`
-        );
-
+        if (attempt > 0) console.warn(`[OllamaProvider] completion retry ${attempt}/${maxRetries}`);
+        const { temperature, topP, retries, timeout, ...restOptions } = options;
         const response = await axios.post(
           `${this.baseUrl}/api/generate`,
           {
@@ -70,49 +166,56 @@ class OllamaProvider extends AIProvider {
             prompt,
             stream: false,
             options: {
-              temperature: options.temperature ?? 0.2,
-              top_p: options.top_p ?? 0.9,
-              ...options
+              temperature: temperature ?? 0.2,
+              top_p: topP ?? 0.9,
+              ...restOptions
             }
           },
-          {
-            timeout: 30000
-          }
+          { timeout: timeoutMs }
         );
 
+        this._lastRequestStatus = 'SUCCESS';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = null;
         return response.data?.response || '';
       } catch (error) {
-        console.warn(
-          `[OllamaProvider] Live completion failed: ${error.message}`
-        );
+        this._lastRequestStatus = 'FAILED';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = error.message;
+        console.warn(`[OllamaProvider] Live completion failed (attempt ${attempt + 1}): ${error.message}`);
+        if (!error.code && !(error.response && error.response.status >= 500)) break;
       }
     }
 
-    return this._generateDeterministicFallback(prompt);
+    // Empty string = "AI unavailable"; callers fall back to deterministic text.
+    this._lastRequestStatus = 'FALLBACK';
+    this._lastResponseTimeMs = Date.now() - startTime;
+    return '';
   }
 
   /**
-   * Generate structured JSON conforming to schema
+   * Generate structured JSON conforming to schema.
+   *
+   * SAFETY: LLM output is treated as UNTRUSTED. On timeout, connection error,
+   * malformed JSON, or schema mismatch the method returns a structured
+   * `{ providerFailed: true, requirements: [] }` marker instead of fabricating
+   * data. Callers detect `providerFailed` and route to the deterministic engine
+   * (an AI failure is NEVER misreported as a valid-but-empty user answer, nor as
+   * invalid user input).
    */
-  async generateStructuredJSON(prompt, zodSchema = null) {
-    const isLive = await this.isHealthy();
+  async generateStructuredJSON(prompt, zodSchema = null, options = {}) {
+    const startTime = Date.now();
+    const timeoutMs = options.timeout || env.ai?.ollamaTimeout || 45000;
+    const maxRetries = options.retries ?? 1; // bounded: at most one safe retry
     let rawText = '';
+    let lastErr = null;
 
-    if (isLive) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const isLive = await this.isHealthy();
+      if (!isLive) break; // provider down -> deterministic path, no infinite wait
       try {
-        console.log(
-          `[OllamaProvider] Generating JSON using "${this.model}"`
-        );
-
-        const systemPrompt = `
-${prompt}
-
-IMPORTANT RULES:
-1. Return ONLY valid, parseable JSON.
-2. Do not use markdown formatting or explanations.
-3. Do not wrap output in code fences like \`\`\`json.
-4. extractedRequirements must always be an array.
-`;
+        if (attempt > 0) console.warn(`[OllamaProvider] JSON generation retry ${attempt}/${maxRetries}`);
+        const systemPrompt = `${prompt}\n\nIMPORTANT RULES:\n1. Return ONLY valid, parseable JSON.\n2. Do not use markdown formatting or explanations.\n3. Do not wrap output in code fences.\n4. Never invent features, metrics, stakeholders, or requirements not present in the user answer.\n5. If the answer contains no requirement, return {"requirements": []}.`;
 
         const response = await axios.post(
           `${this.baseUrl}/api/generate`,
@@ -121,196 +224,140 @@ IMPORTANT RULES:
             prompt: systemPrompt,
             format: 'json',
             stream: false,
-            options: {
-              temperature: 0.1
-            }
+            options: { temperature: 0.1 }
           },
-          {
-            timeout: 30000
-          }
+          { timeout: timeoutMs }
         );
 
         rawText = response.data?.response || '';
+        this._lastRequestStatus = 'SUCCESS';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = null;
+        break;
       } catch (error) {
-        console.warn(
-          `[OllamaProvider] Live JSON generation failed: ${error.message}`
-        );
+        lastErr = error;
+        this._lastRequestStatus = 'FAILED';
+        this._lastResponseTimeMs = Date.now() - startTime;
+        this._lastError = error.message;
+        console.warn(`[OllamaProvider] Live JSON generation failed (attempt ${attempt + 1}): ${error.message}`);
+        rawText = '';
+        // Retry only on transient 5xx/timeout; do not retry on a hard config error.
+        if (!error.code && !(error.response && error.response.status >= 500)) break;
       }
     }
 
-    // Fallback to deterministic reasoning if model didn't return text
-    if (!rawText) {
-      rawText = this._generateDeterministicFallback(prompt);
+    // No usable LLM text -> signal failure explicitly (NO fabrication).
+    if (!rawText || !rawText.trim()) {
+      this._lastRequestStatus = this._lastRequestStatus === 'FAILED' ? 'FAILED' : 'FALLBACK';
+      return { providerFailed: true, requirements: [], reason: lastErr ? lastErr.message : 'no-output' };
     }
 
-    let parsed;
-
+    let parsed = null;
     try {
       const cleaned = rawText
         .replace(/```json/gi, '')
         .replace(/```/g, '')
         .trim();
-
       parsed = JSON.parse(cleaned);
     } catch (parseError) {
-      console.warn('[OllamaProvider] JSON parsing failed, attempting regex extraction.');
-
       const jsonMatch = rawText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
       if (jsonMatch) {
-        try {
-          parsed = JSON.parse(jsonMatch[0]);
-        } catch (error) {
-          parsed = this._extractFallbackFromPrompt(prompt);
-        }
-      } else {
-        parsed = this._extractFallbackFromPrompt(prompt);
+        try { parsed = JSON.parse(jsonMatch[0]); } catch { parsed = null; }
+      }
+      if (!parsed) {
+        console.warn('[OllamaProvider] JSON parsing failed; returning providerFailed marker (no fabrication).');
+        return { providerFailed: true, parseFailed: true, requirements: [] };
       }
     }
 
-    // Zod schema validation
+    // Zod schema validation when provided.
     if (zodSchema && parsed) {
       const validation = zodSchema.safeParse(parsed);
-      if (validation.success) {
-        return validation.data;
-      }
+      if (validation.success) return validation.data;
+      console.warn('[OllamaProvider] Schema validation failed; using deterministic engine.');
+      return { providerFailed: true, schemaFailed: true, requirements: [] };
+    }
+
+    // Normalize: ensure requirements is an array and every entry has the
+    // minimum fields; drop any entry lacking a statement so nothing malformed
+    // reaches persistence.
+    if (parsed && Array.isArray(parsed.requirements)) {
+      parsed.requirements = parsed.requirements
+        .filter((r) => r && typeof r === 'object')
+        .filter((r) => (r.normalizedDescription || r.description || '').trim().length > 0);
+      return parsed;
     }
 
     return parsed;
   }
 
   /**
-   * Deterministic structured fallback generator
+   * Deterministic structured fallback.
+   *
+   * SAFETY CONTRACT: this method MUST NEVER fabricate requirements, metrics,
+   * stakeholders, or any domain content. On LLM failure the pipeline treats the
+   * result as "no usable AI output" and relies on its DETERMINISTIC semantic
+   * engine (which extracts only what the user actually said) — so we return an
+   * explicitly-empty, structurally-valid payload here instead of inventing data.
    */
   _generateDeterministicFallback(prompt) {
     const p = (prompt || '').toLowerCase();
 
+    // Interview / follow-up / relevance prompts: empty result signals the
+    // caller to use its own deterministic question bank / guards. No content
+    // is invented.
     if (
       p.includes('interview') ||
-      p.includes('elicitation')
+      p.includes('elicitation') ||
+      p.includes('follow-up') ||
+      p.includes('follow up') ||
+      p.includes('relevance') ||
+      p.includes('classify')
     ) {
-      let sectionName = 'Project Information';
-      let followUpQuestion =
-        'What are the secondary objectives and high-level boundaries of this project?';
-      let requirementType = 'FUNCTIONAL';
-      let subcategory = 'N/A';
-
-      if (
-        p.includes('stakeholders_and_users') ||
-        p.includes('stakeholders & users')
-      ) {
-        sectionName = 'Stakeholders & Users';
-        requirementType = 'STAKEHOLDER';
-        followUpQuestion =
-          'Are there administrators, managers, support staff, or partner organizations who will interact with the system?';
-      } else if (
-        p.includes('user_roles_and_permissions') ||
-        p.includes('user roles & permissions')
-      ) {
-        sectionName = 'User Roles & Permissions';
-        requirementType = 'STAKEHOLDER';
-        followUpQuestion =
-          'What specific permissions, restrictions, and approval workflows should apply to each role?';
-      } else if (
-        p.includes('functional_requirements') ||
-        p.includes('functional requirements')
-      ) {
-        sectionName = 'Functional Requirements';
-        requirementType = 'FUNCTIONAL';
-        followUpQuestion =
-          'What additional search, filtering, reporting, notification, or data processing operations should users have?';
-      } else if (
-        p.includes('non_functional_requirements') ||
-        p.includes('non-functional requirements')
-      ) {
-        sectionName = 'Non-Functional Requirements';
-        requirementType = 'NON_FUNCTIONAL';
-        subcategory = 'PERFORMANCE';
-        followUpQuestion =
-          'What specific response time, uptime, security, scalability, and backup requirements should the system satisfy?';
-      } else if (
-        p.includes('external_interfaces') ||
-        p.includes('external interfaces')
-      ) {
-        sectionName = 'External Interfaces';
-        requirementType = 'INTERFACE';
-        followUpQuestion =
-          'Which APIs or third-party services must be integrated, and what authentication method should be used?';
-      } else if (
-        p.includes('assumptions_and_dependencies') ||
-        p.includes('assumptions & dependencies')
-      ) {
-        sectionName = 'Assumptions & Dependencies';
-        requirementType = 'ASSUMPTION';
-        followUpQuestion =
-          'What external services, infrastructure, devices, or network conditions does this project depend upon?';
-      } else if (p.includes('constraints')) {
-        sectionName = 'Constraints';
-        requirementType = 'CONSTRAINT';
-        followUpQuestion =
-          'Are there technology, budget, timeline, deployment, or compliance limitations for this project?';
-      } else if (
-        p.includes('review_and_confirmation') ||
-        p.includes('review & confirmation')
-      ) {
-        sectionName = 'Review & Confirmation';
-        followUpQuestion =
-          'Please review the collected requirements and confirm when you are ready to finalize the SRS.';
-      }
-
       return JSON.stringify({
-        section: sectionName,
-        question: followUpQuestion,
-        language: 'English',
-        progress: 50,
+        requirements: [],
+        classification: null,
+        question: '',
         isOutOfScope: false,
         sectionCompleted: false,
-        interviewCompleted: false,
         extractedRequirements: [],
-        missingInformation: [],
-        notes: 'Deterministic fallback response.'
+        providerFailed: true,
+        notes: 'AI provider unavailable; deterministic engine handling this turn.'
       });
     }
 
+    // Extraction prompts: return an EMPTY requirement set. The deterministic
+    // semantic engine (not this fallback) is responsible for extracting the
+    // requirements the user actually provided. Returning fabricated requirements
+    // here would inject hallucinated content into the catalog.
     if (p.includes('extract') || p.includes('extraction')) {
       return JSON.stringify({
-        requirements: [
-          {
-            title: 'Core System Functionality',
-            description: 'The system shall execute primary user actions and validate data.',
-            type: 'FUNCTIONAL',
-            nfrSubcategory: 'N/A',
-            category: 'Core',
-            priority: 'HIGH',
-            completenessScore: 85,
-            isAtomic: true
-          }
-        ]
+        requirements: [],
+        providerFailed: true,
+        notes: 'AI provider unavailable during extraction; deterministic engine used.'
       });
     }
 
-    // Generic fallback
+    // Generic safe fallback — never fabricates.
     return JSON.stringify({
-      status: 'SUCCESS',
-      extractedRequirements: [],
-      message: 'Processed successfully.'
+      requirements: [],
+      providerFailed: true,
+      message: ''
     });
   }
 
   /**
-   * Last fallback when JSON parsing fails
+   * Last-resort fallback when JSON parsing fails.
+   * SAFETY CONTRACT: returns a structurally-valid EMPTY object so callers treat
+   * the turn as "no AI output" and fall back to deterministic logic — never as
+   * a fabricated requirement or answer.
    */
   _extractFallbackFromPrompt(prompt) {
     return {
-      section: 'Unknown',
-      question: 'Please provide more details about the project requirements.',
-      language: 'English',
-      progress: 0,
-      isOutOfScope: false,
-      sectionCompleted: false,
-      interviewCompleted: false,
-      extractedRequirements: [],
-      missingInformation: [],
-      notes: 'Fallback response due to JSON parsing failure.'
+      requirements: [],
+      providerFailed: true,
+      parseFailed: true,
+      notes: 'AI output unparseable; deterministic engine handling this turn.'
     };
   }
 }

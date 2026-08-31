@@ -70,6 +70,11 @@ export default function InterviewPage() {
 
   useEffect(() => {
     if (projectId && user) {
+      setProject(null);
+      setSession(null);
+      setMessages([]);
+      setExtractedReqs([]);
+      setSummary(null);
       loadSession();
     }
   }, [projectId, user]);

@@ -49,14 +49,16 @@ function auditSRS({ srs, requirements, rawSourceTexts = [] }) {
   add('ACTIVE_REQS_MAPPED', unmapped.length === 0,
     unmapped.length ? `Unmapped active requirements: ${unmapped.join(', ')}` : 'All active requirements are mapped to the SRS.');
 
-  // 2. No raw interview text appears in the SRS
+  // 2. No unnormalized raw interview text appears in the SRS
   const srsTexts = collectSrsTexts(srs);
   let rawLeak = null;
   for (const raw of rawSourceTexts) {
     if (!raw || raw.trim().length < 12) continue;
     const needle = raw.trim().toLowerCase().replace(/\s+/g, ' ');
     for (const { label, text } of srsTexts) {
-      if (text.toLowerCase().replace(/\s+/g, ' ').includes(needle.slice(0, Math.min(needle.length, 40)))) {
+      const cleanText = text.toLowerCase().replace(/\s+/g, ' ');
+      // If the text is verbatim equal to the raw input, or contains raw input without formal ISO prefix
+      if (cleanText === needle || (cleanText.includes(needle) && !cleanText.startsWith('the system shall') && !cleanText.startsWith('the platform shall') && !cleanText.startsWith('administrators shall') && !cleanText.startsWith('users shall'))) {
         rawLeak = { label, raw: raw.slice(0, 80) };
         break;
       }

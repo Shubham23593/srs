@@ -41,12 +41,15 @@ export default function AnalysisPage() {
     }
   }, [user, authLoading, router]);
 
+  // Priority 13: Reset state on projectId switch
   useEffect(() => {
     if (projectId && user) {
+      setIssues([]);
+      setProject(null);
+      setLoading(true);
       loadData();
     }
   }, [projectId, user]);
-
 
   const loadData = async () => {
     try {
@@ -78,10 +81,15 @@ export default function AnalysisPage() {
     }
   };
 
-  const handleResolveIssue = async (issueId, status, resolutionNotes) => {
+  // Priority 7: Enriched Issue Resolution Handler
+  const handleResolveIssue = async (issueId, status, payload) => {
     try {
-      await analysisAPI.resolveIssue(issueId, { status, resolutionNotes });
-      setIssues(prev => prev.map(iss => iss._id === issueId ? { ...iss, status, resolutionNotes } : iss));
+      const data = typeof payload === 'object'
+        ? { status, ...payload }
+        : { status, resolutionNotes: payload };
+
+      await analysisAPI.resolveIssue(issueId, data);
+      await loadData();
       setActiveIssue(null);
     } catch (err) {
       console.error('Error resolving issue:', err);

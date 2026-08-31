@@ -1,24 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, CheckCircle2, AlertCircle, Database, FileDown } from 'lucide-react';
-import api from '../lib/api';
+import React from 'react';
+import AIStatusIndicator from './AIStatusIndicator';
 
 export default function Header({ title, subtitle, project = null, actions = null }) {
-  const [aiOnline, setAiOnline] = useState(true);
-
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        await api.get('/health');
-        setAiOnline(true);
-      } catch (e) {
-        setAiOnline(false);
-      }
-    };
-    checkHealth();
-  }, []);
-
   return (
     <header className="h-16 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-30">
       <div>
@@ -33,12 +18,9 @@ export default function Header({ title, subtitle, project = null, actions = null
         {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Ollama AI Status indicator */}
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs">
-          <div className={`w-2 h-2 rounded-full ${aiOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-          <span className="text-slate-300 font-medium">Ollama: codellama:7b</span>
-        </div>
+      <div className="flex items-center gap-3">
+        {/* Real-Time AI Status indicator */}
+        <AIStatusIndicator />
 
         {actions}
       </div>

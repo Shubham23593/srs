@@ -113,10 +113,14 @@ exports.sendMessage = async (req, res, next) => {
     let session = await InterviewSession.findOne({ projectId });
     if (!session) return res.status(400).json({ success: false, message: 'No active interview session found. Please start interview first.' });
 
-    // Optional: caller may state which elicitation section the answer belongs to
-    // (used when answers arrive out of band). The interview UI drives the
-    // current section; this hint just aligns semantic classification context.
-    if (sectionId && !action) {
+    // Optional: caller may state which elicitation section the answer belongs to.
+    // The stage is the authoritative guard for extraction/follow-up/completion,
+    // so an ANSWER carrying an explicit sectionId MUST be evaluated against that
+    // stage (the client/UI is the source of the current step). This applies to
+    // plain answers AND explicit 'ANSWER' actions; only navigation/lock actions
+    // below override the stage themselves.
+    const isLockOrReopen = action === 'CONFIRM_AND_LOCK' || action === 'REOPEN';
+    if (sectionId && !isLockOrReopen) {
       const idx = SECTIONS_CONFIG.findIndex((s) => s.id === sectionId);
       if (idx >= 0) {
         session.sectionIndex = idx;
@@ -195,20 +199,52 @@ exports.sendMessage = async (req, res, next) => {
     const history = await InterviewMessage.find({ projectId }).sort({ timestamp: -1 }).limit(8);
     history.reverse();
 
+    // Identify the active question being answered
+    const lastAiMsg = [...history].reverse().find(m => m.sender === 'AI' && !m.isOutOfScope);
+    const rawQuestion = lastAiMsg?.content || '';
+    const cleanQuestion = rawQuestion.includes('👉 **Current Question:**')
+      ? rawQuestion.split('👉 **Current Question:**').pop().trim()
+      : rawQuestion;
+    const currentQuestion = cleanQuestion || interviewAgent.getSectionInitialQuestion(currentSectionConfig.id, project.projectName, detectedLang);
+
     // Run AI Interview Agent (with Strict Context Guard, Language & Quality Engine)
     const turnResult = await interviewAgent.processInterviewTurn({
       projectContext: project,
       conversationHistory: history,
       currentSectionConfig,
+      currentQuestion,
       existingRequirements: existingReqs,
       currentStats: { coverage: session.coverage },
       lastUserMessage: content || '',
       sectionRequirementsCount: currentSecState.requirementsExtracted || 0
     });
 
-    // 🔴 HARD BLOCK: If out-of-scope or casual greeting, STOP and STAY in the same section!
+    // 🔴 HARD BLOCK: If out-of-scope, casual greeting, or context mismatch, STOP and STAY in the same section!
     if (turnResult.isOutOfScope && !userExplicitlySkipped) {
       userMsg.isOutOfScope = true;
+      userMsg.analysisResult = {
+        // --- structured contract (out-of-scope branch) ---
+        accepted: false,
+        relevanceStatus: turnResult.analysis?.relevance?.status || 'UNRELATED',
+        informationType: 'OUT_OF_SCOPE',
+        stage: { stageId: currentSectionConfig.id, stageName: currentSectionConfig.name },
+        extractedEntities: {},
+        requirementCandidates: [],
+        rejectedCandidates: [{ clause: content, reason: turnResult.analysis?.relevance?.reason || 'Out of project scope' }],
+        clarificationNeeded: false,
+        clarificationQuestion: null,
+        missingInformation: [],
+        stageComplete: false,
+        shouldAdvance: false,
+        nextStage: null,
+        followUpQuestion: turnResult.question || '',
+        providerStatus: turnResult.analysis?.providerStatus || 'DETERMINISTIC_ENGINE',
+        warnings: ['Answer rejected as out of scope; stage not advanced'],
+        // --- detail fields ---
+        status: 'CONTEXT_MISMATCH',
+        reason: turnResult.analysis?.relevance?.reason,
+        confidence: turnResult.analysis?.relevance?.confidence
+      };
       await userMsg.save();
 
       const aiMsg = await InterviewMessage.create({
@@ -233,6 +269,7 @@ exports.sendMessage = async (req, res, next) => {
           userMessage: userMsg,
           aiMessage: aiMsg,
           isOutOfScope: true,
+          contextMismatch: true,
           currentSection: currentSectionConfig.id,
           stageChanged: false,
           newRequirementsExtracted: []
@@ -245,7 +282,7 @@ exports.sendMessage = async (req, res, next) => {
     // NORMALIZED requirements are stored (raw text lives only in rawSourceText).
     let persistResult = { saved: [], skippedDuplicates: [] };
     let extractedIds = [];
-    if (turnResult.analysis && turnResult.analysis.requirements && turnResult.analysis.requirements.length > 0) {
+    if (turnResult.analysis && turnResult.analysis.requirements && turnResult.analysis.requirements.length > 0 && turnResult.analysis.isRequirementEvidence !== false) {
       persistResult = await pipeline.persistRequirements(projectId, turnResult.analysis, {
         sourceMessageId: userMsg.messageId
       });
@@ -259,11 +296,90 @@ exports.sendMessage = async (req, res, next) => {
       }
     }
 
-    // Store the structured Phase-13 analysis result on the message (evidence)
+    // Persist extracted structured KNOWLEDGE (kept separate from requirements)
+    if (turnResult.analysis?.entities) {
+      const ent = turnResult.analysis.entities;
+      const { stakeholdersInfo, constraintsInfo, dependenciesInfo, rolesInfo, projectInfo, interfacesInfo } = ent;
+      let projectModified = false;
+      const merge = (field, values) => {
+        const vals = (values || []).filter((v) => v && String(v).trim());
+        if (!vals.length) return false;
+        project[field] = [...new Set([...(project[field] || []), ...vals])];
+        return true;
+      };
+
+      if (stakeholdersInfo) {
+        projectModified = merge('targetUsers', stakeholdersInfo.primaryUsers) || projectModified;
+        projectModified = merge('targetUsers', stakeholdersInfo.beneficiaries) || projectModified;
+        projectModified = merge('stakeholders', stakeholdersInfo.stakeholders) || projectModified;
+        projectModified = merge('stakeholders', stakeholdersInfo.partnerOrganizations) || projectModified;
+      }
+
+      if (rolesInfo) {
+        projectModified = merge('roles', rolesInfo.userRoles) || projectModified;
+        projectModified = merge('permissions', rolesInfo.permissions) || projectModified;
+        projectModified = merge('permissions', rolesInfo.accessRules) || projectModified;
+      }
+
+      projectModified = merge('constraints', constraintsInfo?.technologyConstraints) || projectModified;
+      projectModified = merge('dependencies', dependenciesInfo?.dependencies) || projectModified;
+      projectModified = merge('dependencies', dependenciesInfo?.thirdPartyServices) || projectModified;
+      projectModified = merge('assumptions', dependenciesInfo?.assumptions) || projectModified;
+      projectModified = merge('externalInterfaces', interfacesInfo?.interfaces) || projectModified;
+
+      // Project information knowledge (problem/objective) — store as text, not requirement.
+      if (projectInfo?.problemStatement && !project.problemStatement) {
+        project.problemStatement = String(projectInfo.problemStatement).slice(0, 2000);
+        projectModified = true;
+      }
+
+      if (projectModified) {
+        await project.save();
+      }
+    }
+
+    // Store the structured analysis result on the message (evidence). This is
+    // the ISO 29148 structured result contract for one answer: information type
+    // classification, relevance, stage, extracted entities/requirement
+    // candidates, rejected candidates, clarification/missing info, stage
+    // completion/advance, follow-up question, and provider status.
+    const analysis = turnResult.analysis || {};
+    const relevance = analysis.relevance || {};
     userMsg.analysisResult = {
-      language: turnResult.analysis?.language?.language || detectedLang,
-      informationQuality: turnResult.analysis?.informationQuality || null,
-      clarificationQuestion: turnResult.analysis?.clarificationQuestion || null,
+      // --- structured contract ---
+      accepted: !turnResult.isOutOfScope,
+      relevanceStatus: relevance.status || relevance.classification || (turnResult.isOutOfScope ? 'UNRELATED' : 'RELEVANT'),
+      informationType: analysis.informationType || (analysis.requirements?.length ? 'REQUIREMENT_EVIDENCE' : 'KNOWLEDGE'),
+      stage: { stageId: analysis.stageId || currentSectionConfig.id, stageName: analysis.stageName || currentSectionConfig.name },
+      extractedEntities: analysis.entities || {},
+      requirementCandidates: (analysis.requirements || []).map((r) => ({
+        type: r.type,
+        nfrSubcategory: r.nfrSubcategory,
+        title: r.title,
+        normalizedDescription: r.normalizedDescription,
+        status: r.status,
+        sourceInterviewStage: r.sourceInterviewStage
+      })),
+      rejectedCandidates: persistResult.rejectedByGate || analysis.ignoredClauses || [],
+      clarificationNeeded: Boolean(analysis.clarificationQuestion) ||
+        (analysis.requirements || []).some((r) => r.status === 'NEEDS_CLARIFICATION'),
+      clarificationQuestion: analysis.clarificationQuestion || null,
+      missingInformation: turnResult.missingInformation || turnResult.stageGate?.missingFields || [],
+      stageComplete: Boolean(turnResult.sectionCompleted),
+      shouldAdvance: Boolean(userExplicitlySkipped || turnResult.sectionCompleted),
+      nextStage: (userExplicitlySkipped || turnResult.sectionCompleted)
+        ? SECTIONS_CONFIG[Math.min(currentSectionIdx + 1, SECTIONS_CONFIG.length - 1)]?.id
+        : null,
+      followUpQuestion: turnResult.question || null,
+      providerStatus: analysis.providerStatus || 'DETERMINISTIC_ENGINE',
+      warnings: [
+        ...(analysis.providerStatus === 'FAILED_DETERMINISTIC_FALLBACK' ? ['AI provider unavailable; deterministic fallback used'] : []),
+        ...((persistResult.skippedDuplicates || []).length ? ['Duplicate requirement(s) flagged, not duplicated'] : []),
+        ...((persistResult.rejectedByGate || []).length ? ['Requirement candidate(s) not allowed in current stage'] : [])
+      ],
+      // --- detail fields ---
+      language: analysis.language?.language || detectedLang,
+      informationQuality: analysis.informationQuality || null,
       skippedDuplicates: persistResult.skippedDuplicates
     };
     userMsg.extractedRequirementIds = extractedIds;
@@ -275,16 +391,12 @@ exports.sendMessage = async (req, res, next) => {
       session.sectionsState[currentSectionIdx].requirementsExtracted = (session.sectionsState[currentSectionIdx].requirementsExtracted || 0) + extractedIds.length;
     }
 
-    const currentSectionReqsTotal = session.sectionsState[currentSectionIdx]?.requirementsExtracted || 0;
-
-    // 🔴 STRICT STAGE ADVANCEMENT GATE:
-    // Only advance to the next section IF:
-    // 1. User clicked Skip Section button (userExplicitlySkipped), OR
-    // 2. We have at least 1 extracted requirement AND AI marked sectionCompleted: true, OR
-    // 3. We have 2 or more extracted requirements for this section
-    const shouldAdvanceSection = userExplicitlySkipped ||
-      (currentSectionReqsTotal >= 1 && turnResult.sectionCompleted) ||
-      (currentSectionReqsTotal >= 2);
+    // 🔴 STRICT STAGE ADVANCEMENT GATE (deterministic, stage-gate driven):
+    // Advance ONLY when (a) the user explicitly skipped, or (b) the agent's
+    // stage gate decided the current section has collected sufficient
+    // stage-appropriate knowledge/requirements. A message on its own never
+    // advances the stage, nor does a raw requirement count.
+    const shouldAdvanceSection = userExplicitlySkipped || turnResult.sectionCompleted === true;
 
     let aiQuestionText = '';
 

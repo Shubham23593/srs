@@ -14,6 +14,13 @@ const definition = {
     constraints: { type: [String], default: [] },
     assumptions: { type: [String], default: [] },
     dependencies: { type: [String], default: [] },
+    // Structured project KNOWLEDGE (kept separate from requirements).
+    roles: { type: [String], default: [] },
+    permissions: { type: [String], default: [] },
+    // Free-form problem/objective knowledge captured in the PROJECT_INFORMATION stage.
+    problemStatement: { type: String, default: '' },
+    primaryObjective: { type: String, default: '' },
+    externalInterfaces: { type: [String], default: [] },
     status: { type: String, enum: ['DRAFT', 'INTERVIEWING', 'ANALYZED', 'SRS_GENERATED', 'SRS_APPROVED', 'UPDATING'], default: 'DRAFT' },
     owner: { type: 'ObjectId', ref: 'User' },
     createdAt: { type: Date, default: Date.now },

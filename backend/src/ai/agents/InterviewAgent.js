@@ -15,6 +15,7 @@
 
 const pipeline = require('../pipeline/requirementsPipeline');
 const { detectLanguage } = require('../pipeline/languageDetector');
+const { evaluateStageCompletion } = require('../pipeline/stageGate');
 
 class InterviewAgent {
   detectLanguage(text = '') {
@@ -39,12 +40,13 @@ class InterviewAgent {
    */
   async processInterviewTurn({
     projectContext,
-    conversationHistory,
+    conversationHistory = [],
     currentSectionConfig,
     existingRequirements = [],
     currentStats = {},
     lastUserMessage = '',
-    sectionRequirementsCount = 0
+    sectionRequirementsCount = 0,
+    currentQuestion = ''
   }) {
     const detectedLanguage = this.detectLanguage(lastUserMessage);
 
@@ -53,16 +55,21 @@ class InterviewAgent {
       rawText: lastUserMessage,
       project: projectContext,
       sectionConfig: currentSectionConfig,
+      currentQuestion,
+      conversationHistory,
       existingRequirements
     });
 
-    // ---- Out of scope: redirect, create nothing ----
-    if (analysis.isOutOfScope) {
+    const isMismatch = analysis.isOutOfScope || analysis.relevance?.status === 'CONTEXT_MISMATCH' || analysis.relevance?.status === 'INVALID';
+
+    // ---- Out of scope / Context Mismatch: redirect, create nothing ----
+    if (isMismatch) {
       const redirection = this._redirectionMessage(
         analysis.message,
         projectContext,
         currentSectionConfig,
-        detectedLanguage
+        detectedLanguage,
+        currentQuestion
       );
       return {
         question: redirection,
@@ -71,24 +78,37 @@ class InterviewAgent {
         language: detectedLanguage,
         progress: currentStats.coverage || 15,
         isOutOfScope: true,
+        contextMismatch: true,
         isRelevant: false,
         sectionCompleted: false,
         interviewCompleted: false,
         extractedRequirements: [],
         analysis,
         missingInformation: [],
-        notes: `Out-of-scope input intercepted (${analysis.relevance?.reason}).`
+        notes: `Out-of-scope/Context-mismatch input intercepted (${analysis.relevance?.reason || analysis.relevance?.status}).`
       };
     }
+
+    // ---- Partially Relevant: ask for clarification, do NOT complete section ----
+    const isPartial = analysis.relevance?.status === 'PARTIALLY_RELEVANT' || analysis.relevance?.classification === 'PARTIALLY_RELEVANT';
 
     // ---- Relevant answer ----
     const newRequirementCount = analysis.requirements.length;
     const totalSectionRequirements = sectionRequirementsCount + newRequirementCount;
-    const isDetailedAnswer = (lastUserMessage || '').length >= 40 || newRequirementCount >= 2;
 
-    const sectionCompleted =
-      (totalSectionRequirements >= 1 && isDetailedAnswer) ||
-      totalSectionRequirements >= 2;
+    // ---- STAGE GATE (deterministic): completeness decided by stage-appropriate
+    //      knowledge/requirements, NOT message count. Partial answers never
+    //      auto-complete a stage.
+    const gate = evaluateStageCompletion({
+      stageId: currentSectionConfig?.id,
+      entities: analysis.entities || {},
+      project: projectContext || {},
+      stageRequirements: totalSectionRequirements,
+      outOfScope: false,
+      userSkipped: false
+    });
+    const sectionCompleted = !isPartial && gate.complete;
+    const stageGateReason = gate.reason;
 
     // Normalized requirements in the shape the controller expects for display
     const extractedRequirements = analysis.requirements.map((r) => ({
@@ -100,7 +120,7 @@ class InterviewAgent {
       category: r.category,
       topicCluster: r.topicCluster,
       priority: r.priority,
-      status: r.status,
+      status: isPartial ? 'NEEDS_CLARIFICATION' : r.status,
       ambiguityFlags: r.ambiguityFlags,
       clarificationQuestion: r.clarificationQuestion,
       qualityFlags: r.qualityFlags,
@@ -108,14 +128,35 @@ class InterviewAgent {
       confidence: r.confidence
     }));
 
-    // Build next question: prefer a clarification question if we have one
+    // Build next question. Priority: relevance feedback > clarification >
+    // targeted missing-info hint (from the stage gate) > LLM dynamic > static bank.
     let nextQuestion;
-    if (analysis.clarificationQuestion && !sectionCompleted) {
+    if (isPartial && (analysis.relevance?.feedbackMessage || analysis.relevance?.message)) {
+      nextQuestion = analysis.relevance.feedbackMessage || analysis.relevance.message;
+    } else if (analysis.clarificationQuestion && !sectionCompleted) {
       nextQuestion = analysis.clarificationQuestion;
     } else if (!sectionCompleted) {
-      nextQuestion = this.getSectionFollowUpQuestion(
-        currentSectionConfig.id, projectContext.projectName, detectedLanguage
-      );
+      const missingHint = (gate.missingFields && gate.missingFields[0]) || '';
+      nextQuestion = await this.generateDynamicFollowUp({
+        sectionConfig: currentSectionConfig,
+        projectName: projectContext.projectName,
+        detectedLanguage,
+        userAnswer: lastUserMessage,
+        extractedEntities: analysis.entities,
+        extractedRequirements,
+        conversationHistory,
+        missingHint
+      });
+      // Fall back to the deterministic, non-repetitive missing-info hint,
+      // then to the static section follow-up bank.
+      if ((!nextQuestion || nextQuestion.length < 5) && missingHint) {
+        nextQuestion = missingHint;
+      }
+      if (!nextQuestion) {
+        nextQuestion = this.getSectionFollowUpQuestion(
+          currentSectionConfig.id, projectContext.projectName, detectedLanguage
+        );
+      }
     } else {
       nextQuestion = this.getSectionFollowUpQuestion(
         currentSectionConfig.id, projectContext.projectName, detectedLanguage
@@ -130,32 +171,86 @@ class InterviewAgent {
       progress: currentStats.coverage || 15,
       isOutOfScope: false,
       isRelevant: true,
+      isPartiallyRelevant: isPartial,
       sectionCompleted,
       interviewCompleted: false,
       extractedRequirements,
       analysis,
-      missingInformation: analysis.informationQuality?.ambiguities ? [] : [],
+      stageGate: gate,
+      missingInformation: gate.missingFields || [],
       notes: newRequirementCount
         ? `Pipeline extracted ${newRequirementCount} atomic normalized requirement(s); ${analysis.informationQuality.ambiguities} need clarification.`
         : analysis.message
     };
   }
 
-  _redirectionMessage(reasonMessage, projectContext, sectionConfig, language) {
-    const base = reasonMessage ||
-      `This input appears unrelated to ${projectContext.projectName}. Please provide information relevant to the current interview topic.`;
+  /**
+   * Generates an intelligent, non-repetitive follow-up question using the LLM.
+   * Falls back to the QUESTIONS dictionary if LLM is unavailable.
+   */
+  async generateDynamicFollowUp({
+    sectionConfig,
+    projectName,
+    detectedLanguage = 'English',
+    userAnswer = '',
+    extractedEntities = {},
+    extractedRequirements = [],
+    conversationHistory = [],
+    missingHint = ''
+  }) {
+    const { getAIProvider } = require('../index');
+    const ai = getAIProvider();
 
-    const question = this.getSectionInitialQuestion(
+    if (ai && (await ai.isHealthy())) {
+      try {
+        const prompt = `You are a Senior Requirements Engineer (ISO/IEC/IEEE 29148).
+Write ONE concise, friendly, non-repetitive follow-up question for the CURRENT interview stage only.
+
+PROJECT: ${projectName}
+CURRENT STAGE: ${sectionConfig.name}
+STAGE FOCUS: ${sectionConfig.description}
+USER'S LAST ANSWER: "${userAnswer}"
+ALREADY COLLECTED: ${JSON.stringify(extractedEntities || {})}; ${extractedRequirements.length} requirements captured.
+SPECIFIC MISSING INFORMATION TO ASK FOR: ${missingHint || '(ask for the key remaining detail for this stage)'}
+
+RULES:
+1. Do NOT repeat what the user already provided.
+2. Ask ONLY for the specific missing information above.
+3. Do not invent features, metrics, or assumptions.
+4. Write in the user's language: ${detectedLanguage} (English, Hindi, Marathi, or Hinglish).
+5. Return ONLY the question, no markdown, no quotes, no preamble.`;
+
+        // Bounded timeout so a slow model can never hang the interview.
+        const response = await ai.generateCompletion(prompt, { temperature: 0.3, maxTokens: 120, timeout: 20000, retries: 0 });
+        const clean = (response || '').trim().replace(/^["'👉*\s]+|["'*\s]+$/g, '');
+        // Reject trivial/echoed/empty LLM output; fall through to deterministic.
+        if (clean && clean.length > 12 && clean.includes('?')) {
+          return clean;
+        }
+      } catch (err) {
+        console.warn('[InterviewAgent] Dynamic LLM follow-up failed, using deterministic fallback:', err.message);
+      }
+    }
+
+    // Deterministic: prefer the specific missing-info hint; else a section-aware
+    // non-repetitive prompt from the static bank. Never returns empty so the
+    // interview always has a valid next question even with the LLM offline.
+    if (missingHint) return missingHint;
+    return this.getSectionFollowUpQuestion(sectionConfig.id, projectName, detectedLanguage);
+  }
+
+  _redirectionMessage(reasonMessage, projectContext, sectionConfig, language, currentQuestion = '') {
+    const base = reasonMessage ||
+      `This input appears unrelated to ${projectContext.projectName}. Please provide information relevant to the current interview question.`;
+
+    const activeQuestion = currentQuestion || this.getSectionInitialQuestion(
       sectionConfig.id, projectContext.projectName, language
     );
 
     if (language === 'Hinglish') {
-      return `${base}\n\nAbhi hum **${sectionConfig.name}** section par hain.\n${question}`;
+      return `${base}\n\nHum abhi **${sectionConfig.name}** stage par hain.\n👉 **Current Question:** ${activeQuestion}`;
     }
-    if (language === 'Hindi' || language === 'Marathi') {
-      return `${base}\n\nWe are currently on the **${sectionConfig.name}** section.\n${question}`;
-    }
-    return `${base}\n\nWe are currently on the **${sectionConfig.name}** section.\n${question}`;
+    return `${base}\n\nWe are currently on the **${sectionConfig.name}** stage.\n👉 **Current Question:** ${activeQuestion}`;
   }
 }
 

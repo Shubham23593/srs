@@ -32,14 +32,27 @@ const startServer = async () => {
   try {
     await connectDB();
 
+    // Preload the real multilingual neural embedding model so the active engine
+    // is resolved before printing the startup banner. Failure falls back to the
+    // deterministic engine with a clearly logged warning (never crashes boot).
+    try {
+      await embeddingService.warmup();
+    } catch (e) {
+      console.warn('[Startup] Embedding model warmup failed; deterministic fallback active:', e.message);
+    }
+
+    const embInfo = embeddingService.getInfo();
+    const activeEmbeddingModel = embInfo.realModel ? embInfo.modelId : 'deterministic-fallback';
+
     app.listen(PORT, () => {
       console.log(`====================================================`);
       console.log(` IntelliSDLC AI Requirements Engineering Platform `);
       console.log(` Backend Server running on port: ${PORT}`);
       console.log(` Environment: ${env.nodeEnv}`);
       console.log(` AI Provider: ${env.ai.provider} (${env.ai.ollamaModel})`);
-      console.log(` Embedding Model: ${env.ai.embeddingModel}`);
+      console.log(` Embedding Model: ${activeEmbeddingModel}`);
       console.log(`====================================================`);
+      console.log(`[Startup] Embedding engine ready: ${embInfo.engine} (dimensions=${embInfo.dimensions}, realModel=${embInfo.realModel})`);
     });
 
     // Preload the real multilingual neural embedding model in the background so

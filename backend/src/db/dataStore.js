@@ -52,13 +52,20 @@ function toMongooseSchema(definition) {
 
   const schema = new mongoose.Schema(out, { strict: false });
   for (const idx of definition.indexes || []) {
+    const fieldKeys = Object.keys(idx.fields || {});
+    if (fieldKeys.length === 1) {
+      const fieldName = fieldKeys[0];
+      const fieldSpec = fields[fieldName];
+      if (fieldSpec && typeof fieldSpec === 'object' && (fieldSpec.unique || fieldSpec.index)) {
+        continue; // Already indexed by field definition in Mongoose
+      }
+    }
     if (idx.unique) schema.index(idx.fields, { unique: true });
     else schema.index(idx.fields);
   }
   for (const hook of definition.preSave || []) {
-    schema.pre('save', function (next) {
-      hook(this);
-      next();
+    schema.pre('save', async function () {
+      await hook(this);
     });
   }
   return schema;
@@ -87,25 +94,60 @@ function buildDefaults(definition) {
 function registerModel(name, definition) {
   if (modelCache.has(name)) return modelCache.get(name);
 
-  let model;
+  let mongooseModel = null;
   try {
-    if (mongoose.connection.readyState === 1 && mongoose.models[name]) {
-      model = mongoose.models[name];
-    } else if (mongoose.connection.readyState === 1) {
-      model = mongoose.model(name, toMongooseSchema(definition));
-    } else {
-      throw new Error('mongoose-not-connected');
-    }
+    mongooseModel = mongoose.models[name] || mongoose.model(name, toMongooseSchema(definition));
   } catch (e) {
-    const defaults = buildDefaults(definition);
-    model = new InMemoryModel(name, {
-      _defaults: () => JSON.parse(JSON.stringify(defaults, (k, v) => (typeof v === 'function' ? v() : v))),
-      _preSaveHooks: definition.preSave || []
-    });
+    mongooseModel = null;
   }
 
-  modelCache.set(name, model);
-  return model;
+  const defaults = buildDefaults(definition);
+  const inMemoryModel = new InMemoryModel(name, {
+    _defaults: () => JSON.parse(JSON.stringify(defaults, (k, v) => (typeof v === 'function' ? v() : v))),
+    _preSaveHooks: definition.preSave || []
+  });
+
+  function getActiveModel() {
+    const useMongo = mongoose.connection.readyState === 1 && PERSIST_MODE.mode !== 'inmemory';
+    if (useMongo && mongooseModel) {
+      return mongooseModel;
+    }
+    return inMemoryModel;
+  }
+
+  function ModelConstructor(data) {
+    const Active = getActiveModel();
+    return new Active(data);
+  }
+
+  const proxy = new Proxy(ModelConstructor, {
+    get(target, prop, receiver) {
+      if (prop in target) return target[prop];
+      const Active = getActiveModel();
+      const value = Active[prop];
+      if (typeof value === 'function') {
+        return value.bind(Active);
+      }
+      return value;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      if (mongooseModel) mongooseModel[prop] = value;
+      if (inMemoryModel) inMemoryModel[prop] = value;
+      return true;
+    },
+    construct(target, args) {
+      const Active = getActiveModel();
+      return new Active(...args);
+    },
+    apply(target, thisArg, args) {
+      const Active = getActiveModel();
+      return Active.apply(thisArg, args);
+    }
+  });
+
+  modelCache.set(name, proxy);
+  return proxy;
 }
 
 function setPersistMode(mode, connected) {

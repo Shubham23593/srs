@@ -67,6 +67,12 @@ export default function SRSWorkbenchPage() {
 
   useEffect(() => {
     if (projectId && user) {
+      setProject(null);
+      setSrs(null);
+      setTraceabilityData([]);
+      setVersionsList([]);
+      setDiffData(null);
+      setLoading(true);
       loadAllData();
     }
   }, [projectId, user]);

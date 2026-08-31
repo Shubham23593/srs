@@ -111,18 +111,18 @@ const CAPABILITIES = [
   },
   {
     id: 'REPORT_VIEW',
-    title: 'Monthly Report Viewing',
+    title: 'Report Viewing',
     topic: 'Reporting',
     type: 'FUNCTIONAL', section: '3',
     keywords: ['report', 'reports', 'monthly report', 'view report', 'generate report', 'see report', 'report dekhna', 'report dekh',
       'ahwal', 'report bagh', 'रिपोर्ट', 'अहवाल', 'मासिक रिपोर्ट', 'मासिक अहवाल', 'रिपोर्ट देख', 'अहवाल पहा'],
     statement: 'The system shall allow users to view monthly expense reports.',
     statementFor: (ctx) => {
-      if (ctx.has('weekly')) return 'The system shall allow users to view weekly expense reports.';
-      if (ctx.has('daily')) return 'The system shall allow users to view daily expense reports.';
-      if (ctx.has('year') || ctx.has('annual') || ctx.has('varshik')) return 'The system shall allow users to view annual expense reports.';
+      if (ctx.has('weekly')) return 'The system shall allow users to view weekly reports.';
+      if (ctx.has('daily')) return 'The system shall allow users to view daily reports.';
+      if (ctx.has('year') || ctx.has('annual') || ctx.has('varshik')) return 'The system shall allow users to view annual reports.';
       if (ctx.has('monthly') || ctx.has('mahine') || ctx.has('masik') || ctx.has('month')) return 'The system shall allow users to view monthly expense reports.';
-      return 'The system shall allow users to view and generate expense reports.';
+      return 'The system shall allow users to view and generate reports.';
     }
   },
   {
@@ -132,7 +132,7 @@ const CAPABILITIES = [
     type: 'FUNCTIONAL', section: '3',
     keywords: ['generate report', 'create report', 'report banane', 'report banao', 'report generate', 'auto report',
       'रिपोर्ट बना', 'अहवाल तयार', 'रिपोर्ट तैयार'],
-    statement: 'The system shall generate expense reports on request.'
+    statement: 'The system shall generate reports on request.'
   },
   {
     id: 'BUDGET_MANAGE',
@@ -141,15 +141,15 @@ const CAPABILITIES = [
     type: 'FUNCTIONAL', section: '3',
     keywords: ['budget', 'set budget', 'budget limit', 'spending limit', 'andajpatrak', 'budget bagh', 'budget manage',
       'बजट', 'अंदाजपत्रक', 'बजेट सेट'],
-    statement: 'The system shall allow users to define and track budgets against expense categories.'
+    statement: 'The system shall allow users to define and track budgets against categories.'
   },
   {
     id: 'CATEGORY_MANAGE',
-    title: 'Expense Categorization',
-    topic: 'Expense Management',
+    title: 'Item Categorization',
+    topic: 'Core Management',
     type: 'FUNCTIONAL', section: '3',
-    keywords: ['categorize', 'categorise', 'classify expense', 'tag expense', 'categories', 'by category', 'expense category', 'varg', 'प्रकार', 'वर्ग', 'श्रेणी'],
-    statement: 'The system shall allow expenses to be organized into categories.'
+    keywords: ['categorize', 'categorise', 'classify', 'tag records', 'categories', 'by category', 'varg', 'प्रकार', 'वर्ग', 'श्रेणी'],
+    statement: 'The system shall allow records to be organized into categories.'
   },
   // ---- Authentication / users ----
   {
@@ -244,6 +244,34 @@ const CAPABILITIES = [
       }
       return 'The system shall allow users to view financial information according to their authorized access scope.';
     }
+  },
+  {
+    id: 'EMERGENCY_REQUEST',
+    title: 'Emergency Request Submission',
+    topic: 'Emergency Services',
+    type: 'FUNCTIONAL', section: '3',
+    keywords: ['emergency request', 'submit emergency', 'request emergency', 'emergency requests', 'submit request',
+      'request help', 'distress ticket', 'emergency relief', 'emergency help', 'request submit', 'madat maang',
+      'आपातकालीन अनुरोध', 'मदत विनंती', 'आपत्ती मदत'],
+    statement: 'The system shall allow users to submit emergency requests.'
+  },
+  {
+    id: 'RESOURCE_UPDATE',
+    title: 'Resource Management',
+    topic: 'Resource Management',
+    type: 'FUNCTIONAL', section: '3',
+    keywords: ['update available resources', 'update resources', 'manage resources', 'resource tracking', 'resources update',
+      'संसाधन अपडेट', 'संसाधने अद्ययावत'],
+    statement: 'The system shall allow NGO workers to update available resources.'
+  },
+  {
+    id: 'TASK_ASSIGN',
+    title: 'Task Assignment',
+    topic: 'Task Management',
+    type: 'FUNCTIONAL', section: '3',
+    keywords: ['assign tasks', 'assign tasks to volunteers', 'task allocation', 'relief tasks', 'assign task',
+      'कार्य सौंपना', 'कामे वाटप'],
+    statement: 'The system shall assign relief tasks to volunteers.'
   }
 ];
 
@@ -296,12 +324,19 @@ const NFR_PATTERNS = [
     nfrSubcategory: 'AVAILABILITY',
     topic: 'Reliability',
     section: '5.4',
+    // Only treat as an availability REQUIREMENT when the SYSTEM availability is
+    // being discussed with a metric or explicit uptime/24-7 wording. The bare
+    // word "available" (e.g. "NGOs manage available resources") must NOT create
+    // an availability requirement.
     ambiguous: false,
-    keywords: ['available', 'uptime', 'always on', '24/7', 'available 24', '99.9', '99.99', 'उपलब्ध', 'चालू'],
-    measurable: /(\d{2,3}(?:\.\d+)?)\s*%/,
+    keywords: ['system availability', 'availability of the system', 'uptime', 'always on', '24/7', 'available 24', 'available 99', '99.9%', '99.99%', 'high availability', 'सिस्टम उपलब्ध'],
+    measurable: /(\d{2,3}(?:\.\d+)?)\s*(?:%|percent)/,
     measurableStatement: (m) => `The system shall maintain ${m[1]}% availability.`,
+    // No vague fallback: an availability statement without a metric asks for
+    // clarification rather than fabricating a target.
     vagueStatement: 'The system shall remain available during agreed operating hours.',
-    clarification: '',
+    clarification: 'What availability target is required (e.g., 99.5% uptime or specified operating hours)?',
+    requireMeasurableForMatch: true,
     metricHint: 'availability'
   },
   {
