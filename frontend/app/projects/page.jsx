@@ -139,16 +139,14 @@ export default function ProjectsPage() {
                 <button
                   key={f.id}
                   onClick={() => setStatusFilter(f.id)}
-                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0 ${
-                    statusFilter === f.id
+                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0 ${statusFilter === f.id
                       ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                    }`}
                 >
                   <span>{f.label}</span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                    statusFilter === f.id ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-800 text-slate-500'
-                  }`}>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${statusFilter === f.id ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-800 text-slate-500'
+                    }`}>
                     {f.count}
                   </span>
                 </button>

@@ -60,10 +60,10 @@ export default function VersionsPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Header
           title="Step 8: Version Control & Diff Studio"
           subtitle="Continuous quality improvement: side-by-side SRS version diffs and immutable revision history"
@@ -73,7 +73,7 @@ export default function VersionsPage() {
         {/* Guided Step-by-Step Stepper */}
         <ProjectStepper projectId={projectId} currentStatus={project?.status} />
 
-        <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-6 space-y-6 overflow-y-auto max-w-7xl mx-auto w-full custom-scrollbar">
           {/* Comparative Diff Viewer */}
           <VersionDiffViewer
             diffData={diffData?.diff || {
@@ -88,33 +88,33 @@ export default function VersionsPage() {
           />
 
           {/* Immutable Revision History Table */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                  <History className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-sm font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+                  <History className="w-4 h-4 text-emerald-600" />
                   SRS Revision History
                 </h3>
-                <p className="text-xs text-slate-400">Strictly conforms to Section Revision History in standard SRS template.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Strictly conforms to Section Revision History in standard SRS template.</p>
               </div>
             </div>
 
-            <div className="divide-y divide-slate-800">
+            <div className="divide-y divide-slate-200">
               {versions.map((v) => (
-                <div key={v._id} className="p-6 hover:bg-slate-800/40 transition-colors flex items-start justify-between gap-4">
-                  <div className="space-y-1.5">
+                <div key={v._id} className="p-4 hover:bg-slate-50/60 transition-colors flex items-start justify-between gap-4">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono font-black text-sm text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
+                      <span className="font-mono font-bold text-xs text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
                         v{v.version}
                       </span>
-                      <span className="text-xs text-slate-400">Recorded: {new Date(v.createdAt).toLocaleString()}</span>
+                      <span className="text-xs text-slate-500">Recorded: {new Date(v.createdAt).toLocaleString()}</span>
                     </div>
-                    <div className="text-xs font-bold text-white">Reason: {v.reasonForChanges}</div>
-                    <p className="text-xs text-slate-400">{v.summaryOfChanges}</p>
+                    <div className="text-xs font-semibold text-slate-900">Reason: {v.reasonForChanges}</div>
+                    <p className="text-xs text-slate-600">{v.summaryOfChanges}</p>
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <span className="font-mono text-xs text-slate-400 bg-slate-950 px-3 py-1 rounded border border-slate-800 block">
+                    <span className="font-mono text-xs text-slate-600 bg-slate-100 px-3 py-1 rounded border border-slate-200 block">
                       {v.changedRequirementIds?.length || 0} Reqs Impacted
                     </span>
                   </div>
@@ -127,3 +127,4 @@ export default function VersionsPage() {
     </div>
   );
 }
+

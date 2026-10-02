@@ -36,7 +36,7 @@ export default function ProjectStepper({ projectId, currentStatus = 'DRAFT' }) {
         {steps.map((step, index) => {
           const Icon = step.icon;
           const isActive = pathname === step.href;
-          
+
           return (
             <React.Fragment key={step.id}>
               <Link

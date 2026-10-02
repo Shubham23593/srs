@@ -108,30 +108,30 @@ export default function AIStatusIndicator() {
     if (!ollamaOnline) {
       return {
         color: 'red',
-        bg: 'bg-rose-500/10 border-rose-500/30 text-rose-300',
+        bg: 'bg-rose-50 border-rose-200 text-rose-700',
         dot: 'bg-rose-500',
         text: 'Ollama: Offline',
         runningText: 'Server Offline',
-        icon: <XCircle className="w-3.5 h-3.5 text-rose-400" />
+        icon: <XCircle className="w-3.5 h-3.5 text-rose-600" />
       };
     }
     if (ollamaRunning) {
       return {
         color: 'green',
-        bg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
-        dot: 'bg-emerald-400 animate-pulse',
+        bg: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+        dot: 'bg-emerald-500 animate-pulse',
         text: `Ollama: ${configuredModelName}`,
         runningText: 'Running in Memory',
-        icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+        icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
       };
     }
     return {
       color: 'yellow',
-      bg: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
-      dot: 'bg-amber-400',
+      bg: 'bg-amber-50 border-amber-200 text-amber-800',
+      dot: 'bg-amber-500',
       text: `Ollama: ${configuredModelName}`,
       runningText: data.ollama.modelInstalled ? 'Installed (Standby)' : 'Not Installed',
-      icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+      icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
     };
   };
 
@@ -144,20 +144,20 @@ export default function AIStatusIndicator() {
     if (isRealEmbedding) {
       return {
         color: 'green',
-        bg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
-        dot: 'bg-emerald-400',
+        bg: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+        dot: 'bg-emerald-500',
         text: embeddingModelName.split('/').pop(),
         statusText: 'Neural Model Active',
-        icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+        icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
       };
     }
     return {
       color: 'yellow',
-      bg: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
-      dot: 'bg-amber-400',
+      bg: 'bg-amber-50 border-amber-200 text-amber-800',
+      dot: 'bg-amber-500',
       text: 'deterministic',
       statusText: 'Deterministic Fallback Active',
-      icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+      icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
     };
   };
 
@@ -170,48 +170,48 @@ export default function AIStatusIndicator() {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800/80 border border-slate-700/60 transition-all text-left group cursor-pointer"
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-100 border border-slate-200 transition-all text-left group cursor-pointer"
         title="Click to view full real-time AI & Embedding status"
       >
         {/* Ollama Pill */}
-        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${ollamaBadge.bg}`}>
+        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium border ${ollamaBadge.bg}`}>
           <div className={`w-1.5 h-1.5 rounded-full ${ollamaBadge.dot}`} />
           <span className="font-semibold truncate max-w-[130px]">{ollamaBadge.text}</span>
           {ollamaRunning ? (
-            <span className="text-[9px] bg-emerald-500/20 text-emerald-200 px-1 rounded font-mono">running</span>
+            <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 rounded font-mono font-medium">running</span>
           ) : ollamaOnline ? (
-            <span className="text-[9px] bg-amber-500/20 text-amber-200 px-1 rounded font-mono">standby</span>
+            <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-mono font-medium">standby</span>
           ) : null}
         </div>
 
         {/* Embedding Pill */}
-        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${embeddingBadge.bg}`}>
-          <Cpu className="w-3 h-3 text-purple-400" />
+        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium border ${embeddingBadge.bg}`}>
+          <Cpu className="w-3 h-3 text-purple-600" />
           <span className="font-mono truncate max-w-[120px]">{embeddingBadge.text}</span>
-          <span className="text-[9px] bg-purple-500/20 text-purple-200 px-1 rounded font-mono">{embeddingDims}d</span>
+          <span className="text-[9px] bg-purple-100 text-purple-800 px-1 rounded font-mono">{embeddingDims}d</span>
         </div>
 
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Real-time Diagnostics Popover */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[420px] rounded-xl bg-slate-900 border border-slate-700/80 shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-xl">
+        <div className="absolute right-0 mt-2 w-[420px] rounded-xl bg-white border border-slate-200 shadow-dropdown z-50 p-4 animate-in fade-in duration-150">
           {/* Popover Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
             <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-semibold text-white">Real-Time AI Diagnostics</h3>
+              <Activity className="w-4 h-4 text-sky-600" />
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Real-Time AI Diagnostics</h3>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => fetchHealth(true)}
                 disabled={loading}
-                className="flex items-center gap-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2 py-1 rounded border border-slate-700 transition cursor-pointer"
+                className="flex items-center gap-1 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded border border-slate-200 transition cursor-pointer font-medium"
                 title="Refresh live status now"
               >
-                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-sky-600' : ''}`} />
                 <span>Refresh</span>
               </button>
             </div>
@@ -219,19 +219,19 @@ export default function AIStatusIndicator() {
 
           <div className="space-y-3 mt-3">
             {/* 1. Ollama Status Card */}
-            <div className="p-3.5 rounded-lg bg-slate-800/60 border border-slate-700/60 space-y-2.5">
+            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Server className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-semibold text-slate-200">Ollama LLM Engine</span>
+                  <Server className="w-4 h-4 text-slate-700" />
+                  <span className="text-xs font-semibold text-slate-900">Ollama LLM Engine</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {ollamaBadge.icon}
                   <span
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                       ollamaOnline
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                        : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : 'bg-rose-100 text-rose-800 border-rose-200'
                     }`}
                   >
                     {ollamaOnline ? 'ONLINE' : 'OFFLINE'}
@@ -241,43 +241,43 @@ export default function AIStatusIndicator() {
 
               {/* Explicit Separated States */}
               <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
-                <div className="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
-                  <span className="text-slate-400 block text-[10px] font-medium">Configured Model</span>
-                  <span className="font-mono font-bold text-white truncate block mt-0.5" title={configuredModelName}>
+                <div className="bg-white p-2 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] font-medium">Configured Model</span>
+                  <span className="font-mono font-bold text-slate-900 truncate block mt-0.5" title={configuredModelName}>
                     {configuredModelName}
                   </span>
                 </div>
-                <div className="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
-                  <span className="text-slate-400 block text-[10px] font-medium">Installed</span>
+                <div className="bg-white p-2 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] font-medium">Installed</span>
                   <span
                     className={`font-bold block mt-0.5 ${
                       data.ollama.modelInstalled
-                        ? 'text-emerald-400'
+                        ? 'text-emerald-700'
                         : ollamaOnline
-                        ? 'text-rose-400'
+                        ? 'text-rose-700'
                         : 'text-slate-500'
                     }`}
                   >
                     {data.ollama.modelInstalled ? 'Yes' : ollamaOnline ? 'No' : 'Unknown'}
                   </span>
                 </div>
-                <div className="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
-                  <span className="text-slate-400 block text-[10px] font-medium truncate" title="Currently Running in Ollama memory (/api/ps)">
+                <div className="bg-white p-2 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] font-medium truncate" title="Currently Running in Ollama memory (/api/ps)">
                     Running in Memory
                   </span>
                   <span
                     className={`font-bold block mt-0.5 flex items-center gap-1.5 ${
-                      ollamaRunning ? 'text-emerald-400' : 'text-slate-400'
+                      ollamaRunning ? 'text-emerald-700' : 'text-slate-500'
                     }`}
                   >
                     {ollamaRunning ? (
                       <>
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         <span>Yes</span>
                       </>
                     ) : (
                       <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                         <span>No</span>
                       </>
                     )}
@@ -286,21 +286,21 @@ export default function AIStatusIndicator() {
               </div>
 
               {data.ollama.baseUrl && (
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
                   <span className="font-mono truncate">{data.ollama.baseUrl}</span>
                   {data.ollama.latencyMs > 0 && (
-                    <span className="text-slate-400 font-mono">{data.ollama.latencyMs}ms latency</span>
+                    <span className="text-slate-500 font-mono">{data.ollama.latencyMs}ms latency</span>
                   )}
                 </div>
               )}
 
               {data.ollama.runningModels?.length > 0 && (
-                <div className="pt-1.5 border-t border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block mb-1">Active Memory Models (/api/ps):</span>
+                <div className="pt-1.5 border-t border-slate-200">
+                  <span className="text-[10px] text-slate-500 block mb-1">Active Memory Models (/api/ps):</span>
                   <div className="flex flex-wrap gap-1">
                     {data.ollama.runningModels.map((m, i) => (
-                      <span key={i} className="text-[10px] font-mono bg-emerald-950/70 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/60 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span key={i} className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                         {m}
                       </span>
                     ))}
@@ -309,26 +309,26 @@ export default function AIStatusIndicator() {
               )}
 
               {!ollamaOnline && data.ollama.lastError && (
-                <div className="text-[10px] text-rose-400 bg-rose-950/30 p-1.5 rounded border border-rose-900/40">
+                <div className="text-[10px] text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-200">
                   {data.ollama.lastError}
                 </div>
               )}
             </div>
 
             {/* 2. Embedding Model Card */}
-            <div className="p-3 rounded-lg bg-slate-800/60 border border-slate-700/60 space-y-2">
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-purple-400" />
-                  <span className="text-xs font-semibold text-slate-200">Neural Embedding Engine</span>
+                  <Cpu className="w-4 h-4 text-purple-600" />
+                  <span className="text-xs font-semibold text-slate-900">Neural Embedding Engine</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {embeddingBadge.icon}
                   <span
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                       isRealEmbedding
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                        : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : 'bg-amber-100 text-amber-800 border-amber-200'
                     }`}
                   >
                     {isRealEmbedding ? 'LOADED' : 'FALLBACK'}
@@ -337,35 +337,35 @@ export default function AIStatusIndicator() {
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="text-slate-400 block text-[10px]">Active Model</span>
-                  <span className="font-mono font-medium text-purple-300 truncate block" title={embeddingModelName}>
+                <div className="bg-white p-2 rounded border border-slate-200">
+                  <span className="text-slate-500 block text-[10px]">Active Model</span>
+                  <span className="font-mono font-medium text-purple-900 truncate block" title={embeddingModelName}>
                     {embeddingModelName}
                   </span>
                 </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="text-slate-400 block text-[10px]">Vector Dimensions</span>
-                  <span className="font-mono font-medium text-white block">
+                <div className="bg-white p-2 rounded border border-slate-200">
+                  <span className="text-slate-500 block text-[10px]">Vector Dimensions</span>
+                  <span className="font-mono font-medium text-slate-900 block">
                     {embeddingDims} Dimensions
                   </span>
                 </div>
               </div>
 
-              <div className="text-[10px] text-slate-400 flex items-center justify-between pt-0.5">
+              <div className="text-[10px] text-slate-500 flex items-center justify-between pt-0.5">
                 <span className="truncate">{data.embedding.engine || (isRealEmbedding ? 'Transformers.js / ONNX Runtime (int8)' : 'Deterministic')}</span>
-                <span className="text-emerald-400 font-medium">EN, HI, MR, HNG</span>
+                <span className="text-emerald-700 font-medium">EN, HI, MR, HNG</span>
               </div>
             </div>
           </div>
 
           {/* Footer Controls & Timestamp */}
-          <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
-            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-300">
+          <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500">
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-700">
               <input
                 type="checkbox"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                className="rounded border-slate-300 text-sky-600 focus:ring-0 w-3 h-3"
               />
               <span>Auto-refresh (10s)</span>
             </label>

@@ -99,7 +99,7 @@ export default function InterviewPage() {
           const all = await projectAPI.getAll();
           const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
           if (f) setProject(f);
-        } catch (err) {}
+        } catch (err) { }
       }
 
       if (iRes.status === 'fulfilled' && iRes.value.data?.success) {
@@ -308,15 +308,14 @@ export default function InterviewPage() {
                 return (
                   <div
                     key={sec.id}
-                    className={`p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
-                      isCurrent
+                    className={`p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${isCurrent
                         ? 'bg-brand-500/10 border-brand-500/40 text-white shadow-md'
                         : isDone
-                        ? 'bg-slate-900/40 border-slate-800/80 text-slate-300'
-                        : isSkipped
-                        ? 'bg-slate-900/20 border-slate-800/40 text-slate-400 opacity-70'
-                        : 'bg-transparent border-transparent text-slate-400'
-                    }`}
+                          ? 'bg-slate-900/40 border-slate-800/80 text-slate-300'
+                          : isSkipped
+                            ? 'bg-slate-900/20 border-slate-800/40 text-slate-400 opacity-70'
+                            : 'bg-transparent border-transparent text-slate-400'
+                      }`}
                   >
                     <div className="mt-0.5 shrink-0">
                       {isDone ? (
@@ -395,13 +394,12 @@ export default function InterviewPage() {
                     key={idx}
                     className={`flex items-start gap-3 ${isAI ? '' : 'flex-row-reverse'}`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-950 font-bold text-xs shrink-0 overflow-hidden ${
-                      isAI
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-slate-950 font-bold text-xs shrink-0 overflow-hidden ${isAI
                         ? isOutOfScopeAlert
                           ? 'bg-gradient-to-tr from-amber-500 to-rose-400 text-white'
                           : 'bg-gradient-to-tr from-brand-500 to-emerald-400'
                         : 'bg-blue-600 text-white border border-blue-400/30'
-                    }`}>
+                      }`}>
                       {isAI ? (
                         isOutOfScopeAlert ? <ShieldAlert className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4" />
                       ) : user?.avatar ? (
@@ -411,13 +409,12 @@ export default function InterviewPage() {
                       )}
                     </div>
 
-                    <div className={`max-w-xl rounded-2xl p-4 text-xs leading-relaxed ${
-                      isAI
+                    <div className={`max-w-xl rounded-2xl p-4 text-xs leading-relaxed ${isAI
                         ? isOutOfScopeAlert
                           ? 'bg-amber-950/20 border border-amber-500/30 text-amber-200 shadow-md'
                           : 'bg-slate-900 border border-slate-800 text-slate-200 shadow-md'
                         : 'bg-brand-600 text-slate-950 font-medium'
-                    }`}>
+                      }`}>
                       <div className="flex items-center justify-between gap-4 mb-1.5 text-[10px] opacity-75">
                         <span className="font-bold">
                           {isAI ? (isOutOfScopeAlert ? 'Context Guard Warning' : 'AI Requirements Engineer') : `${user?.name || 'You'} (Requirements Analyst)`}

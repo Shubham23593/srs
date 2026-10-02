@@ -92,7 +92,7 @@ export default function RequirementsPage() {
           const all = await projectAPI.getAll();
           const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
           if (f) setProject(f);
-        } catch (err) {}
+        } catch (err) { }
       }
       if (rRes.status === 'fulfilled' && rRes.value.data?.success) {
         setRequirements(rRes.value.data.data || []);
@@ -608,9 +608,8 @@ export default function RequirementsPage() {
               {previewCandidates.map((cand) => (
                 <div
                   key={cand.tempId}
-                  className={`p-4 rounded-xl border transition-all ${
-                    cand.selected ? 'bg-slate-900 border-brand-500/40' : 'bg-slate-950 border-slate-800 opacity-60'
-                  }`}
+                  className={`p-4 rounded-xl border transition-all ${cand.selected ? 'bg-slate-900 border-brand-500/40' : 'bg-slate-950 border-slate-800 opacity-60'
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2 flex-1">

@@ -65,7 +65,7 @@ export default function AnalysisPage() {
           const all = await projectAPI.getAll();
           const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
           if (f) setProject(f);
-        } catch (err) {}
+        } catch (err) { }
       }
       if (iRes.status === 'fulfilled' && iRes.value.data?.success) {
         setIssues(iRes.value.data.data || []);

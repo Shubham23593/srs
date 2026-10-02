@@ -75,7 +75,7 @@ export default function ValidationPage() {
           const all = await projectAPI.getAll();
           const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
           if (f) setProject(f);
-        } catch (err) {}
+        } catch (err) { }
       }
       if (rRes.status === 'fulfilled' && rRes.value.data?.success) {
         setRequirements(rRes.value.data.data || []);
@@ -343,11 +343,10 @@ export default function ValidationPage() {
                             return (
                               <div
                                 key={key}
-                                className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium flex items-center justify-between ${
-                                  passed
+                                className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium flex items-center justify-between ${passed
                                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
                                     : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-                                }`}
+                                  }`}
                               >
                                 <span>{label}</span>
                                 {passed ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <X className="w-3.5 h-3.5 text-rose-400" />}

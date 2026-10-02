@@ -34,19 +34,168 @@
   scrollbar-width: thin;
   scrollbar-color: #475569 #090d16;
 }
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: #090d16;
   border-radius: 9999px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #334155;
   border-radius: 9999px;
   border: 1px solid #1e293b;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #10b981;
+}
+
+/* Workspace styling is scoped so the landing experience keeps its own design. */
+body:has(.app-sidebar),
+body:has(.auth-page) {
+  background: #f8fafc;
+  color: #111827;
+  color-scheme: light;
+}
+
+body:has(.app-sidebar) ::-webkit-scrollbar-track,
+body:has(.auth-page) ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+body:has(.app-sidebar) ::-webkit-scrollbar-thumb,
+body:has(.auth-page) ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-color: #f8fafc;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="bg-slate-950"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-slate-950/"] {
+  background-color: #f8fafc !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="bg-slate-900"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-slate-900/"] {
+  background-color: #ffffff !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="bg-slate-800"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-slate-800/"] {
+  background-color: #f1f5f9 !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-white"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-100"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-200"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-300"] {
+  color: #111827 !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-400"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-500"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-600"] {
+  color: #64748b !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="border-slate-950"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="border-slate-900"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="border-slate-800"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="border-slate-700"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="border-slate-800/"] {
+  border-color: #e2e8f0 !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="rounded-2xl"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="rounded-3xl"] {
+  border-radius: 8px !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="rounded-xl"] {
+  border-radius: 6px !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="shadow-xl"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="shadow-2xl"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="shadow-lg"] {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-gradient-to-"] {
+  background-image: none !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="from-brand-"] {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) :is(input, textarea, select) {
+  color-scheme: light;
+}
+
+/* A dark navigation rail gives the light workspace a clear visual boundary. */
+body:has(.app-sidebar) main {
+  background: #f8fafc;
+}
+
+body:has(.app-sidebar) [class~="bg-slate-900"] {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+  transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+body:has(.app-sidebar) [class~="bg-slate-900"]:hover {
+  box-shadow: 0 7px 18px rgba(15, 23, 42, 0.07) !important;
+}
+
+.app-sidebar {
+  background-color: #172033 !important;
+  border-color: #26344d !important;
+  box-shadow: 12px 0 28px rgba(15, 23, 42, 0.08);
+}
+
+.app-sidebar [class~="bg-slate-950"],
+.app-sidebar [class*="bg-slate-950/"] {
+  background-color: #111827 !important;
+}
+
+.app-sidebar [class~="bg-slate-800"],
+.app-sidebar [class*="bg-slate-800/"] {
+  background-color: #26344d !important;
+}
+
+.app-sidebar [class~="text-white"],
+.app-sidebar [class~="text-slate-100"],
+.app-sidebar [class~="text-slate-200"],
+.app-sidebar [class~="text-slate-300"] {
+  color: #f8fafc !important;
+}
+
+.app-sidebar [class~="text-slate-400"],
+.app-sidebar [class~="text-slate-500"] {
+  color: #aab8ce !important;
+}
+
+.app-sidebar [class~="border-slate-200"],
+.app-sidebar [class~="border-slate-800"],
+.app-sidebar [class*="border-slate-800/"] {
+  border-color: #26344d !important;
+}
+
+.app-sidebar a,
+.app-sidebar button {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.app-sidebar a:hover,
+.app-sidebar button:hover {
+  transform: translateX(2px);
+}
+
+.app-sidebar [class*="bg-brand-500/"] {
+  box-shadow: inset 3px 0 0 #38bdf8, 0 4px 14px rgba(2, 132, 199, 0.12);
 }

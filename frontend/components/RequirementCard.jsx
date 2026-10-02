@@ -25,17 +25,16 @@ export default function RequirementCard({ requirement, onEdit, onDelete, onArchi
   const SourceIcon = currentSource.icon;
 
   return (
-    <div className={`bg-slate-900 border rounded-xl p-5 shadow-lg flex flex-col justify-between transition-all ${
-      requirement.archived
-        ? 'opacity-60 border-slate-800 bg-slate-950/80'
-        : relevance.status === 'CONTEXT_MISMATCH'
+    <div className={`bg-slate-900 border rounded-xl p-5 shadow-lg flex flex-col justify-between transition-all ${requirement.archived
+      ? 'opacity-60 border-slate-800 bg-slate-950/80'
+      : relevance.status === 'CONTEXT_MISMATCH'
         ? 'border-rose-600/50 bg-rose-950/10'
         : needsClarification
-        ? 'border-amber-600/50'
-        : needsReview
-        ? 'border-orange-600/40'
-        : 'border-slate-800 hover:border-slate-700'
-    }`}>
+          ? 'border-amber-600/50'
+          : needsReview
+            ? 'border-orange-600/40'
+            : 'border-slate-800 hover:border-slate-700'
+      }`}>
       <div>
         {/* Top Header: ID, Source Badge, Priority, Validation */}
         <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">

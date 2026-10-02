@@ -96,7 +96,7 @@ export default function SRSWorkbenchPage() {
           const all = await projectAPI.getAll();
           const f = (all.data?.data || []).find(p => p._id === projectId || p.projectId === projectId);
           if (f) setProject(f);
-        } catch (err) {}
+        } catch (err) { }
       }
       if (sRes.status === 'fulfilled') setSrs(sRes.value.data?.data);
       if (tRes.status === 'fulfilled') setTraceabilityData(tRes.value.data?.data?.matrix || []);
@@ -474,7 +474,7 @@ export default function SRSWorkbenchPage() {
           <main className="flex-1 p-8 max-w-4xl mx-auto w-full overflow-y-auto space-y-8 custom-scrollbar">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
               <div className="border-b border-slate-800 pb-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-semibold uppercase tracking-wider mb-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-500 text-xs font-semibold uppercase tracking-wider mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
                   Continuous Quality Improvement (Paper 3 Inspired)
                 </div>

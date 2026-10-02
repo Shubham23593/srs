@@ -1,254 +1,501 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import gsap from 'gsap';
+import {
+  FiCheck,
+  FiFileText,
+  FiGitBranch,
+  FiMessageSquare,
+  FiMoreHorizontal,
+  FiSearch,
+} from 'react-icons/fi';
 
-/**
- * Hero3D — the glowing "neural core" rendered behind the hero text.
- * Wireframe icosahedron + vertex particles + orbiting data flecks + beams.
- */
 export default function Hero3D() {
-  const canvasRef = useRef(null);
+  return (
+    <div
+      style={{
+        width: '100%',
+        position: 'relative',
+      }}
+    >
+      <div
+        style={{
+          background: '#ffffff',
+          border: '1px solid #e4e7ec',
+          borderRadius: '16px',
+          boxShadow:
+            '0 24px 60px rgba(16, 24, 40, 0.10)',
+          overflow: 'hidden',
+          transform: 'translateY(0)',
+          animation: 'heroFloat 6s ease-in-out infinite',
+        }}
+      >
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+        {/* Browser header */}
 
-    let renderer, scene, camera, core, coreWire, particles, flecks, beams, rings;
-    let raf = 0;
-    let mouseX = 0, mouseY = 0, tx = 0, ty = 0;
-    let introTween = null;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        <div
+          style={{
+            height: '48px',
+            padding: '0 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            borderBottom: '1px solid #eef0f3',
+            background: '#fafafa',
+          }}
+        >
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#d0d5dd',
+            }}
+          />
 
-    /* ---------- setup ---------- */
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#d0d5dd',
+            }}
+          />
 
-    scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x05060e, 0.045);
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#d0d5dd',
+            }}
+          />
 
-    camera = new THREE.PerspectiveCamera(55, 1, 0.1, 60);
-    camera.position.set(0, 0, 7.2);
+          <div
+            style={{
+              marginLeft: '12px',
+              flex: 1,
+              height: '27px',
+              borderRadius: '6px',
+              background: '#f2f4f7',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 10px',
+              color: '#98a2b3',
+              fontSize: '10px',
+            }}
+          >
+            app.intellisdlc.ai / project / requirements
+          </div>
 
-    const COL_A = new THREE.Color('#38e8ff');
-    const COL_B = new THREE.Color('#8b7bff');
-    const COL_C = new THREE.Color('#3df0b0');
+          <FiMoreHorizontal
+            size={17}
+            color="#98a2b3"
+          />
+        </div>
 
-    /* ---------- core group ---------- */
-    core = new THREE.Group();
-    scene.add(core);
+        {/* Application */}
 
-    const icoGeo = new THREE.IcosahedronGeometry(1.28, 1);
-    const icoMat = new THREE.MeshBasicMaterial({ color: 0x1b2350, wireframe: true, transparent: true, opacity: 0.32 });
-    coreWire = new THREE.Mesh(icoGeo, icoMat);
-    core.add(coreWire);
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '155px 1fr',
+            minHeight: '430px',
+          }}
+        >
 
-    const innerGeo = new THREE.IcosahedronGeometry(0.86, 2);
-    const innerMat = new THREE.MeshBasicMaterial({
-      color: 0x2b3a8f, wireframe: true, transparent: true, opacity: 0.22,
-    });
-    core.add(new THREE.Mesh(innerGeo, innerMat));
+          {/* Sidebar */}
 
-    // glowing vertex particles on the core surface
-    const vCount = 620;
-    const vPositions = new Float32Array(vCount * 3);
-    const vColors = new Float32Array(vCount * 3);
-    const vBase = new Float32Array(vCount * 3);
-    const vPhase = new Float32Array(vCount);
-    for (let i = 0; i < vCount; i++) {
-      const p = new THREE.Vector3().randomDirection().multiplyScalar(1.29);
-      p.toArray(vPositions, i * 3);
-      p.toArray(vBase, i * 3);
-      const c = Math.random() < 0.7 ? COL_A : COL_B;
-      c.toArray(vColors, i * 3);
-      vPhase[i] = Math.random() * Math.PI * 2;
-    }
-    const vGeo = new THREE.BufferGeometry();
-    vGeo.setAttribute('position', new THREE.BufferAttribute(vPositions, 3));
-    vGeo.setAttribute('color', new THREE.BufferAttribute(vColors, 3));
-    const vMat = new THREE.PointsMaterial({
-      size: 0.045, vertexColors: true, transparent: true, opacity: 0.95,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    });
-    particles = new THREE.Points(vGeo, vMat);
-    core.add(particles);
+          <aside
+            style={{
+              borderRight: '1px solid #eef0f3',
+              padding: '18px 12px',
+              background: '#fbfcfd',
+            }}
+          >
 
-    // data flecks floating around the core
-    const fCount = 420;
-    const fPositions = new Float32Array(fCount * 3);
-    const fBase = new Float32Array(fCount * 3);
-    const fPhase = new Float32Array(fCount);
-    const fSpeed = new Float32Array(fCount);
-    for (let i = 0; i < fCount; i++) {
-      const r = 2.1 + Math.random() * 3.6;
-      const dir = new THREE.Vector3().randomDirection().multiplyScalar(r);
-      dir.toArray(fPositions, i * 3);
-      dir.toArray(fBase, i * 3);
-      fPhase[i] = Math.random() * Math.PI * 2;
-      fSpeed[i] = 0.15 + Math.random() * 0.4;
-    }
-    const fGeo = new THREE.BufferGeometry();
-    fGeo.setAttribute('position', new THREE.BufferAttribute(fPositions, 3));
-    const fMat = new THREE.PointsMaterial({
-      size: 0.032, color: 0x6fd7ff, transparent: true, opacity: 0.5,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    });
-    flecks = new THREE.Points(fGeo, fMat);
-    scene.add(flecks);
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 750,
+                color: '#344054',
+                padding: '0 8px',
+                marginBottom: '18px',
+              }}
+            >
+              COLLEGE EVENT SYSTEM
+            </div>
 
-    // light beams radiating from the core
-    const bCount = 46;
-    const bGroup = new THREE.Group();
-    const bMat = new THREE.LineBasicMaterial({
-      color: 0x4d8dff, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending,
-    });
-    for (let i = 0; i < bCount; i++) {
-      const dir = new THREE.Vector3().randomDirection();
-      const len = 2.1 + Math.random() * 1.9;
-      const g = new THREE.BufferGeometry().setFromPoints([
-        dir.clone().multiplyScalar(1.45),
-        dir.clone().multiplyScalar(len),
-      ]);
-      bGroup.add(new THREE.Line(g, bMat));
-    }
-    core.add(bGroup);
-    beams = bGroup;
+            {[
+              ['Overview', FiFileText],
+              ['Interview', FiMessageSquare],
+              ['Requirements', FiCheck],
+              ['Quality Review', FiSearch],
+              ['Traceability', FiGitBranch],
+            ].map(([label, Icon], index) => (
+              <div
+                key={label}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '9px',
+                  padding: '9px 8px',
+                  borderRadius: '7px',
+                  marginBottom: '3px',
+                  color:
+                    index === 2
+                      ? '#0f766e'
+                      : '#667085',
+                  background:
+                    index === 2
+                      ? '#ecfdf5'
+                      : 'transparent',
+                  fontSize: '11px',
+                  fontWeight:
+                    index === 2 ? 650 : 500,
+                }}
+              >
+                <Icon size={14} />
+                {label}
+              </div>
+            ))}
 
-    // orbit rings (world-space, tilted)
-    rings = new THREE.Group();
-    const makeRing = (radius, color, opacity) => {
-      const g = new THREE.RingGeometry(radius - 0.004, radius + 0.004, 128);
-      const m = new THREE.MeshBasicMaterial({
-        color, transparent: true, opacity, side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending, depthWrite: false,
-      });
-      return new THREE.Mesh(g, m);
-    };
-    const r1 = makeRing(2.4, 0x38e8ff, 0.13); r1.rotation.x = Math.PI / 2.3;
-    const r2 = makeRing(3.0, 0x8b7bff, 0.1); r2.rotation.x = Math.PI / 1.9; r2.rotation.y = 0.5;
-    const r3 = makeRing(1.9, 0x3df0b0, 0.09); r3.rotation.x = Math.PI / 2.6; r3.rotation.y = -0.7;
-    rings.add(r1, r2, r3);
-    scene.add(rings);
+            <div
+              style={{
+                height: '1px',
+                background: '#eaecf0',
+                margin: '17px 8px',
+              }}
+            />
 
-    /* ---------- resize ---------- */
-    const resize = () => {
-      const parent = canvas.parentElement;
-      if (!parent) return;
-      const w = parent.clientWidth || window.innerWidth;
-      const h = parent.clientHeight || window.innerHeight;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    };
-    resize();
-    const ro = new ResizeObserver(resize);
-    if (canvas.parentElement) ro.observe(canvas.parentElement);
+            <div
+              style={{
+                padding: '0 8px',
+                color: '#98a2b3',
+                fontSize: '9px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+              }}
+            >
+              Project status
+            </div>
 
-    /* ---------- input ---------- */
-    const onPointer = (e) => {
-      mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-      mouseY = (e.clientY / window.innerHeight) * 2 - 1;
-    };
-    window.addEventListener('pointermove', onPointer, { passive: true });
+            <div
+              style={{
+                margin: '10px 8px',
+                padding: '9px',
+                borderRadius: '7px',
+                border: '1px solid #d1fae5',
+                background: '#f0fdf4',
+              }}
+            >
+              <div
+                style={{
+                  color: '#047857',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                }}
+              >
+                Requirements active
+              </div>
 
-    /* ---------- loop ---------- */
-    const clock = new THREE.Clock();
-    const animate = () => {
-      raf = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-      const scroll = typeof window !== 'undefined' ? window.scrollY : 0;
+              <div
+                style={{
+                  color: '#667085',
+                  fontSize: '9px',
+                  marginTop: '3px',
+                }}
+              >
+                18 requirements
+              </div>
+            </div>
 
-      tx += (mouseX * 0.35 - tx) * 0.04;
-      ty += (mouseY * 0.25 - ty) * 0.04;
+          </aside>
 
-      core.rotation.y = t * 0.12 + tx * 0.5;
-      core.rotation.x = Math.sin(t * 0.1) * 0.2 + ty * 0.4;
+          {/* Main */}
 
-      coreWire.rotation.y = t * 0.05;
-      coreWire.rotation.z = t * 0.03;
+          <main
+            style={{
+              padding: '22px',
+              background: '#ffffff',
+            }}
+          >
 
-      rings.rotation.z = t * 0.04;
-      rings.rotation.y = t * 0.06;
-      rings.rotation.x = Math.sin(t * 0.12) * 0.25;
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '22px',
+              }}
+            >
 
-      beams.rotation.z = -t * 0.05;
-      bMat.opacity = 0.11 + Math.sin(t * 0.8) * 0.035;
+              <div>
+                <div
+                  style={{
+                    color: '#98a2b3',
+                    fontSize: '9px',
+                    marginBottom: '5px',
+                  }}
+                >
+                  PROJECT / REQUIREMENTS
+                </div>
 
-      // vertex particles breathe
-      const pAttr = vGeo.attributes.position;
-      for (let i = 0; i < vCount; i++) {
-        const s = 1 + Math.sin(t * 0.9 + vPhase[i]) * 0.05;
-        pAttr.array[i * 3] = vBase[i * 3] * s;
-        pAttr.array[i * 3 + 1] = vBase[i * 3 + 1] * s;
-        pAttr.array[i * 3 + 2] = vBase[i * 3 + 2] * s;
-      }
-      pAttr.needsUpdate = true;
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '19px',
+                    letterSpacing: '-0.025em',
+                    color: '#1d2939',
+                  }}
+                >
+                  College Event Management System
+                </h3>
+              </div>
 
-      // flecks drift
-      const fAttr = fGeo.attributes.position;
-      for (let i = 0; i < fCount; i++) {
-        const ang = t * fSpeed[i] + fPhase[i];
-        const s = 1 + Math.sin(ang) * 0.22;
-        fAttr.array[i * 3] = fBase[i * 3] * s;
-        fAttr.array[i * 3 + 1] = fBase[i * 3 + 1] * Math.cos(ang * 0.7);
-        fAttr.array[i * 3 + 2] = fBase[i * 3 + 2] * s;
-      }
-      fAttr.needsUpdate = true;
+              <span
+                style={{
+                  padding: '5px 9px',
+                  borderRadius: '999px',
+                  background: '#ecfdf3',
+                  color: '#027a48',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                }}
+              >
+                ACTIVE
+              </span>
 
-      // scroll parallax
-      camera.position.y = -scroll * 0.0016;
-      camera.position.z = 7.2 - scroll * 0.0012;
+            </div>
 
-      renderer.render(scene, camera);
-    };
+            {/* Stats */}
 
-    if (reduced) {
-      renderer.render(scene, camera); // single static frame
-    } else {
-      animate();
-    }
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(3, 1fr)',
+                gap: '10px',
+                marginBottom: '18px',
+              }}
+            >
 
-    /* ---------- intro (triggered by the preloader) ---------- */
-    const onReady = () => {
-      if (!introTween && !reduced) {
-        introTween = gsap.timeline({ defaults: { ease: 'power3.out' } })
-          .to(camera.position, { z: 7.2, duration: 2.4, ease: 'power2.out' }, 0)
-          .fromTo(core.scale, { x: 0.001, y: 0.001, z: 0.001 }, { x: 1, y: 1, z: 1, duration: 2.2, ease: 'expo.out' }, 0.1)
-          .fromTo(canvas, { opacity: 0 }, { opacity: 1, duration: 1.4 }, 0.2);
-      }
-    };
-    if (!reduced) {
-      camera.position.set(0, 0, 8.6);
-      window.addEventListener('landing:ready', onReady, { once: true });
-    } else {
-      canvas.style.opacity = '1';
-    }
+              {[
+                ['18', 'Requirements'],
+                ['14', 'Validated'],
+                ['92%', 'Quality score'],
+              ].map(([value, label]) => (
+                <div
+                  key={label}
+                  style={{
+                    padding: '13px',
+                    border: '1px solid #eaecf0',
+                    borderRadius: '9px',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '18px',
+                      fontWeight: 750,
+                      color: '#1d2939',
+                    }}
+                  >
+                    {value}
+                  </div>
 
-    /* ---------- cleanup ---------- */
-    return () => {
-      window.removeEventListener('pointermove', onPointer);
-      window.removeEventListener('landing:ready', onReady);
-      ro.disconnect();
-      cancelAnimationFrame(raf);
-      if (introTween) introTween.kill();
-      const dispose = (obj) => {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          mats.forEach((m) => m.dispose());
+                  <div
+                    style={{
+                      color: '#98a2b3',
+                      fontSize: '9px',
+                      marginTop: '3px',
+                    }}
+                  >
+                    {label}
+                  </div>
+                </div>
+              ))}
+
+            </div>
+
+            {/* Requirement panel */}
+
+            <div
+              style={{
+                border: '1px solid #eaecf0',
+                borderRadius: '10px',
+                overflow: 'hidden',
+              }}
+            >
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderBottom: '1px solid #eaecf0',
+                  background: '#fcfcfd',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#344054',
+                  }}
+                >
+                  Functional Requirements
+                </span>
+
+                <span
+                  style={{
+                    color: '#98a2b3',
+                    fontSize: '9px',
+                  }}
+                >
+                  3 of 18
+                </span>
+              </div>
+
+              {[
+                [
+                  'FR-001',
+                  'Students shall view available events.',
+                  'Validated',
+                ],
+                [
+                  'FR-002',
+                  'Students shall register for events.',
+                  'Validated',
+                ],
+                [
+                  'FR-003',
+                  'Administrators shall create events.',
+                  'Review',
+                ],
+              ].map(([id, text, status]) => (
+                <div
+                  key={id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      '55px 1fr 62px',
+                    gap: '10px',
+                    alignItems: 'center',
+                    padding: '12px 14px',
+                    borderBottom:
+                      '1px solid #f2f4f7',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: '#0f766e',
+                      fontSize: '9px',
+                      fontWeight: 750,
+                    }}
+                  >
+                    {id}
+                  </span>
+
+                  <span
+                    style={{
+                      color: '#475467',
+                      fontSize: '10px',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {text}
+                  </span>
+
+                  <span
+                    style={{
+                      textAlign: 'center',
+                      padding: '4px',
+                      borderRadius: '5px',
+                      background:
+                        status === 'Validated'
+                          ? '#ecfdf3'
+                          : '#fffaeb',
+                      color:
+                        status === 'Validated'
+                          ? '#027a48'
+                          : '#b54708',
+                      fontSize: '8px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {status}
+                  </span>
+                </div>
+              ))}
+
+            </div>
+
+            {/* Bottom status */}
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: '15px',
+              }}
+            >
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#667085',
+                  fontSize: '9px',
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: '#12b76a',
+                  }}
+                />
+                AI analysis complete
+              </div>
+
+              <div
+                style={{
+                  color: '#0f766e',
+                  fontSize: '9px',
+                  fontWeight: 650,
+                }}
+              >
+                View traceability →
+              </div>
+
+            </div>
+
+          </main>
+
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes heroFloat {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+
+          50% {
+            transform: translateY(-7px);
+          }
         }
-      };
-      [coreWire, particles, flecks, rings, core, scene].forEach((o) => {
-        if (!o) return;
-        o.traverse && o.traverse(dispose);
-        o.geometry && dispose(o);
-        o.material && dispose(o);
-      });
-      renderer.dispose();
-    };
-  }, []);
 
-  return <canvas id="hero-canvas" ref={canvasRef} aria-hidden="true" />;
+        @media (max-width: 650px) {
+          .hero-preview-sidebar {
+            display: none;
+          }
+        }
+      `}</style>
+    </div>
+  );
 }

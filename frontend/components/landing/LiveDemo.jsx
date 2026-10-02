@@ -1,44 +1,98 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import {
+  FiArrowLeft,
+  FiArrowRight,
+  FiCheck,
+  FiChevronRight,
+  FiFileText,
+  FiMessageSquare,
+  FiPause,
+  FiPlay,
+  FiSearch,
+  FiShield,
+  FiAlertTriangle,
+  FiGitBranch,
+} from 'react-icons/fi';
+import { FiLayers } from "react-icons/fi";
 
 const SCENE_TITLES = [
   'AI Requirement Interview',
   'Requirement Extraction',
   'Quality & Ambiguity Audit',
   'Requirement Validation',
-  'SRS Generation — v1.0',
-  'Change Control — v1.0 → v1.1',
+  'SRS Generation',
+  'Change Control',
 ];
 
 const INTERVIEW_SCRIPT = [
-  { from: 'ai', label: 'IntelliSDLC AI · Stage 2', text: 'Welcome! Tell me about the system you want to build.' },
-  { from: 'user', label: 'You · USER-MSG-014', text: 'A College Event Management System for students and administrators.' },
-  { from: 'ai', label: 'IntelliSDLC AI', text: 'Got it. What should students be able to do?' },
-  { from: 'user', label: 'You · USER-MSG-016', text: 'Students will view events and register for them.' },
-  { from: 'ai', label: 'IntelliSDLC AI', text: 'And the administrators?' },
-  { from: 'user', label: 'You · USER-MSG-018', text: 'Admins will create events. Only authenticated users can access protected functions.' },
-  { from: 'ai', label: 'IntelliSDLC AI', text: 'Understood. Any rules for event registration itself?' },
-  { from: 'user', label: 'You · USER-MSG-021', text: 'Event registration should require administrator approval.' },
-  { from: 'ai', label: 'IntelliSDLC AI', text: 'Excellent. That\u2019s 3 functional + 1 non-functional requirement extracted. I\u2019ll now run the quality audit.' },
+  {
+    from: 'ai',
+    label: 'IntelliSDLC AI',
+    text: 'Tell me about the system you want to build.',
+  },
+  {
+    from: 'user',
+    label: 'You',
+    text: 'A College Event Management System for students and administrators.',
+  },
+  {
+    from: 'ai',
+    label: 'IntelliSDLC AI',
+    text: 'What should students be able to do?',
+  },
+  {
+    from: 'user',
+    label: 'You',
+    text: 'Students will view events and register for them.',
+  },
+  {
+    from: 'ai',
+    label: 'IntelliSDLC AI',
+    text: 'What about administrators?',
+  },
+  {
+    from: 'user',
+    label: 'You',
+    text: 'Admins will create events and manage registrations.',
+  },
 ];
 
 const EXTRACT_ITEMS = [
-  { id: 'FR-001', cls: 'fr', text: 'Students shall view events.', conf: 98, delay: 400 },
-  { id: 'FR-002', cls: 'fr', text: 'Students shall register for events.', conf: 97, delay: 800 },
-  { id: 'FR-003', cls: 'fr', text: 'Administrators shall create events.', conf: 96, delay: 1200 },
-  { id: 'NFR-001', cls: 'nfr', text: 'Only authenticated users shall access protected functions.', conf: 95, delay: 1600 },
-  { id: 'FR-004', cls: 'fr', text: 'Students shall sign up for events.', conf: 91, delay: 2000 },
-  { id: 'CON-003', cls: 'nfr', text: 'Event registration shall require administrator approval.', conf: 93, delay: 2400 },
+  {
+    id: 'FR-001',
+    type: 'Functional',
+    text: 'Students shall view available events.',
+    confidence: 98,
+  },
+  {
+    id: 'FR-002',
+    type: 'Functional',
+    text: 'Students shall register for events.',
+    confidence: 97,
+  },
+  {
+    id: 'FR-003',
+    type: 'Functional',
+    text: 'Administrators shall create events.',
+    confidence: 96,
+  },
+  {
+    id: 'NFR-001',
+    type: 'Non-functional',
+    text: 'Protected functions shall require authentication.',
+    confidence: 95,
+  },
 ];
 
-const TAB_LABELS = [
-  '01 · Interview',
-  '02 · Extract',
-  '03 · Audit',
-  '04 · Validate',
-  '05 · SRS',
-  '06 · Change',
+const TABS = [
+  'Interview',
+  'Extraction',
+  'Quality Review',
+  'Validation',
+  'SRS',
+  'Change Control',
 ];
 
 export default function LiveDemo() {
@@ -46,17 +100,18 @@ export default function LiveDemo() {
   const [playing, setPlaying] = useState(false);
   const [messages, setMessages] = useState([]);
   const [extractCount, setExtractCount] = useState(0);
-  const [sim, setSim] = useState(0);
+  const [quality, setQuality] = useState(0);
+
   const timersRef = useRef([]);
-  const playingRef = useRef(playing);
   const sceneRef = useRef(scene);
+  const playingRef = useRef(playing);
   const feedRef = useRef(null);
 
-  playingRef.current = playing;
   sceneRef.current = scene;
+  playingRef.current = playing;
 
   const clearTimers = () => {
-    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
   };
 
@@ -64,295 +119,1642 @@ export default function LiveDemo() {
     timersRef.current.push(setTimeout(fn, ms));
   };
 
-  /* ---------------- scene director ---------------- */
-  const enterScene = (i) => {
+  const enterScene = (index) => {
     clearTimers();
-    setScene(i);
+
+    setScene(index);
     setMessages([]);
     setExtractCount(0);
-    setSim(0);
+    setQuality(0);
 
-    if (i === 0) {
-      INTERVIEW_SCRIPT.forEach((msg, idx) => {
-        later(() => setMessages((prev) => [...prev, msg]), 350 + idx * 600);
+    if (index === 0) {
+      INTERVIEW_SCRIPT.forEach((message, i) => {
+        later(
+          () => {
+            setMessages((prev) => [...prev, message]);
+          },
+          250 + i * 500
+        );
       });
-    } else if (i === 1) {
-      later(() => setExtractCount(1), 300);
-      later(() => setExtractCount(2), 900);
-      later(() => setExtractCount(3), 1500);
-      later(() => setExtractCount(4), 2100);
-      later(() => setExtractCount(5), 2700);
-      later(() => setExtractCount(6), 3300);
-    } else if (i === 2) {
-      let v = 0;
-      const step = () => {
-        v += 2;
-        setSim(Math.min(v, 92));
-        if (v < 92) later(step, 38);
+    }
+
+    if (index === 1) {
+      EXTRACT_ITEMS.forEach((_, i) => {
+        later(() => {
+          setExtractCount(i + 1);
+        }, 350 + i * 600);
+      });
+    }
+
+    if (index === 2) {
+      let value = 0;
+
+      const increase = () => {
+        value += 2;
+
+        setQuality(Math.min(value, 92));
+
+        if (value < 92) {
+          later(increase, 35);
+        }
       };
-      later(step, 400);
+
+      later(increase, 300);
     }
   };
 
   useEffect(() => {
     enterScene(0);
+
     return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------------- autoplay ---------------- */
   useEffect(() => {
     if (!playing) return undefined;
-    const iv = setInterval(() => {
-      const next = (sceneRef.current + 1) % 6;
-      setScene(next);
+
+    const interval = setInterval(() => {
+      const next =
+        (sceneRef.current + 1) % TABS.length;
+
       enterScene(next);
     }, 5200);
-    return () => clearInterval(iv);
+
+    return () => clearInterval(interval);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
 
   useEffect(() => {
-    const feed = feedRef.current;
-    if (feed) feed.scrollTop = feed.scrollHeight;
+    if (feedRef.current) {
+      feedRef.current.scrollTop =
+        feedRef.current.scrollHeight;
+    }
   }, [messages]);
 
-  const goTo = (i) => {
+  const goTo = (index) => {
     setPlaying(false);
-    enterScene(i);
+    enterScene(index);
   };
-  const prevScene = () => goTo((scene - 1 + 6) % 6);
-  const nextScene = () => goTo((scene + 1) % 6);
-  const togglePlay = () => setPlaying((p) => !p);
 
-  const progress = ((scene + 1) / 6) * 100;
+  const previous = () => {
+    goTo(
+      (scene - 1 + TABS.length) %
+        TABS.length
+    );
+  };
+
+  const next = () => {
+    goTo(
+      (scene + 1) %
+        TABS.length
+    );
+  };
 
   return (
-    <div className="demo-window" data-reveal>
-      <div className="demo-topbar">
-        <span className="tb-dots"><i /><i /><i /></span>
-        <span className="tb-title">IntelliSDLC AI — demo project: College Event Management System</span>
-        <span className="tb-live"><i /> LIVE</span>
-      </div>
+    <>
+      <div className="demo">
 
-      <div className="demo-tabs-row">
-        <div className="demo-tabs" role="tablist">
-          {TAB_LABELS.map((label, i) => (
+        {/* ================= TOP ================= */}
+
+        <div className="demo-header">
+
+          <div>
+            <div className="demo-title">
+              College Event Management System
+            </div>
+
+            <div className="demo-subtitle">
+              IntelliSDLC project walkthrough
+            </div>
+          </div>
+
+          <div className="demo-status">
+            <span />
+            Simulated workflow
+          </div>
+
+        </div>
+
+        {/* ================= TABS ================= */}
+
+        <div className="demo-tabs">
+
+          <div className="demo-tab-list">
+
+            {TABS.map((label, index) => (
+              <button
+                key={label}
+                className={
+                  scene === index
+                    ? 'demo-tab active'
+                    : 'demo-tab'
+                }
+                onClick={() => goTo(index)}
+              >
+                <span>
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+
+                {label}
+              </button>
+            ))}
+
+          </div>
+
+          <div className="demo-controls">
+
             <button
-              key={label}
-              className={`dt${scene === i ? ' active' : ''}`}
-              data-scene={i}
-              role="tab"
-              aria-selected={scene === i}
-              onClick={() => goTo(i)}
+              onClick={previous}
+              aria-label="Previous"
             >
-              {label}
+              <FiArrowLeft size={15} />
             </button>
-          ))}
-        </div>
-        <div className="demo-controls">
-          <button className="demo-arrow" onClick={prevScene} aria-label="Previous scene">
-            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-          <button className={`demo-play${playing ? ' playing' : ''}`} onClick={togglePlay} aria-label="Autoplay scenes">
-            <svg className="ico-play" viewBox="0 0 24 24" width="16" height="16"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg>
-            <svg className="ico-pause" viewBox="0 0 24 24" width="16" height="16"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z" fill="currentColor" /></svg>
-          </button>
-          <button className="demo-arrow" onClick={nextScene} aria-label="Next scene">
-            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-        </div>
-      </div>
 
-      <div className="demo-scenes">
-        {/* ────────── SCENE 0 : INTERVIEW ────────── */}
-        <div className={`scene${scene === 0 ? ' active' : ''}`} data-title={SCENE_TITLES[0]}>
-          <div className="scene-layout chat-layout">
-            <div className="chat-pane">
-              <div className="chat-head">
-                <span className="lang-tags"><i className="on">EN</i><i>हिंदी</i><i>Hinglish</i></span>
-                <span className="chat-stage">Stage 2 / 9 · Elicitation</span>
+            <button
+              onClick={() =>
+                setPlaying((value) => !value)
+              }
+              aria-label="Play"
+              className="play-button"
+            >
+              {playing ? (
+                <FiPause size={14} />
+              ) : (
+                <FiPlay size={14} />
+              )}
+            </button>
+
+            <button
+              onClick={next}
+              aria-label="Next"
+            >
+              <FiArrowRight size={15} />
+            </button>
+
+          </div>
+
+        </div>
+
+        {/* ================= CONTENT ================= */}
+
+        <div className="demo-content">
+
+          {/* INTERVIEW */}
+
+          {scene === 0 && (
+            <div className="demo-layout">
+
+              <div className="demo-panel">
+
+                <div className="panel-header">
+                  <div>
+                    <strong>
+                      Requirement Interview
+                    </strong>
+
+                    <span>
+                      Stage 2 · Elicitation
+                    </span>
+                  </div>
+
+                  <FiMessageSquare
+                    size={17}
+                  />
+                </div>
+
+                <div
+                  className="chat-feed"
+                  ref={feedRef}
+                >
+                  {messages.map(
+                    (message, index) => (
+                      <div
+                        key={index}
+                        className={
+                          message.from === 'ai'
+                            ? 'chat-message ai'
+                            : 'chat-message user'
+                        }
+                      >
+                        <div className="message-label">
+                          {message.label}
+                        </div>
+
+                        <div className="message-text">
+                          {message.text}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+
+                <div className="chat-footer">
+                  <span>English</span>
+                  <span>Hindi</span>
+                  <span>Hinglish</span>
+
+                  <button>
+                    Continue
+                    <FiArrowRight size={13} />
+                  </button>
+                </div>
+
               </div>
-              <div className="chat-feed" ref={feedRef} aria-live="polite">
-                {messages.map((m, idx) => (
-                  <div key={idx} className={`chat-msg from-${m.from}`}>
-                    <span className="cm-label">{m.label}</span>
-                    {m.text}
+
+              <div className="demo-side-panel">
+
+                <div className="side-icon">
+                  <FiShield />
+                </div>
+
+                <h4>
+                  Structured elicitation
+                </h4>
+
+                <p>
+                  The system gathers project context
+                  through focused questions instead of
+                  generating requirements without context.
+                </p>
+
+                <div className="side-check">
+                  <FiCheck />
+                  User-controlled responses
+                </div>
+
+                <div className="side-check">
+                  <FiCheck />
+                  Message-level traceability
+                </div>
+
+                <div className="side-check">
+                  <FiCheck />
+                  Stage-based workflow
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* EXTRACTION */}
+
+          {scene === 1 && (
+            <div className="demo-layout">
+
+              <div className="demo-panel source-panel">
+
+                <div className="panel-header">
+                  <div>
+                    <strong>
+                      Interview source
+                    </strong>
+
+                    <span>
+                      Original project information
+                    </span>
+                  </div>
+
+                  <FiMessageSquare />
+                </div>
+
+                <div className="source-message">
+                  <small>
+                    USER-MSG-018
+                  </small>
+
+                  <p>
+                    Students will view events
+                    and register for them.
+                    Only administrators create
+                    events.
+                  </p>
+                </div>
+
+                <div className="source-message">
+                  <small>
+                    USER-MSG-021
+                  </small>
+
+                  <p>
+                    Event registration should
+                    require administrator approval.
+                  </p>
+                </div>
+
+              </div>
+
+              <div className="demo-panel">
+
+                <div className="panel-header">
+                  <div>
+                    <strong>
+                      Extracted requirements
+                    </strong>
+
+                    <span>
+                      Atomic requirement candidates
+                    </span>
+                  </div>
+
+                  <FiLayers />
+                </div>
+
+                <div className="requirement-list">
+
+                  {EXTRACT_ITEMS
+                    .slice(0, extractCount)
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="requirement-row"
+                      >
+
+                        <div>
+                          <div className="req-top">
+                            <span>
+                              {item.id}
+                            </span>
+
+                            <em>
+                              {item.type}
+                            </em>
+                          </div>
+
+                          <p>
+                            {item.text}
+                          </p>
+                        </div>
+
+                        <div className="confidence">
+                          <strong>
+                            {item.confidence}%
+                          </strong>
+
+                          <span>
+                            confidence
+                          </span>
+                        </div>
+
+                      </div>
+                    ))}
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* QUALITY */}
+
+          {scene === 2 && (
+            <div className="demo-layout">
+
+              <div className="demo-panel">
+
+                <div className="panel-header">
+                  <div>
+                    <strong>
+                      Requirement Quality Review
+                    </strong>
+
+                    <span>
+                      Automated analysis
+                    </span>
+                  </div>
+
+                  <FiSearch />
+                </div>
+
+                <div className="quality-card">
+
+                  <div className="quality-heading">
+                    <span className="warning">
+                      <FiAlertTriangle />
+                      Potential duplicate
+                    </span>
+
+                    <strong>
+                      {quality}%
+                    </strong>
+                  </div>
+
+                  <div className="quality-bar">
+                    <span
+                      style={{
+                        width: `${quality}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="quality-compare">
+
+                    <div>
+                      <small>
+                        FR-002
+                      </small>
+
+                      <p>
+                        Students shall register
+                        for events.
+                      </p>
+                    </div>
+
+                    <div>
+                      <small>
+                        FR-004
+                      </small>
+
+                      <p>
+                        Students shall sign up
+                        for events.
+                      </p>
+                    </div>
+
+                  </div>
+
+                  <div className="review-actions">
+                    <button>
+                      Merge
+                    </button>
+
+                    <button>
+                      Keep both
+                    </button>
+
+                    <button>
+                      Edit
+                    </button>
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="demo-side-panel">
+
+                <div className="quality-score">
+                  <strong>
+                    92
+                  </strong>
+
+                  <span>
+                    quality score
+                  </span>
+                </div>
+
+                <div className="metric">
+                  <span>
+                    Clarity
+                  </span>
+
+                  <b>
+                    96
+                  </b>
+                </div>
+
+                <div className="metric">
+                  <span>
+                    Consistency
+                  </span>
+
+                  <b>
+                    94
+                  </b>
+                </div>
+
+                <div className="metric">
+                  <span>
+                    Testability
+                  </span>
+
+                  <b>
+                    88
+                  </b>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* VALIDATION */}
+
+          {scene === 3 && (
+            <div className="demo-layout">
+
+              <div className="demo-panel">
+
+                <div className="panel-header">
+                  <div>
+                    <strong>
+                      Requirement validation
+                    </strong>
+
+                    <span>
+                      Quality characteristics
+                    </span>
+                  </div>
+
+                  <FiShield />
+                </div>
+
+                <div className="validation-box">
+
+                  <div className="validation-label">
+                    NEEDS REVIEW
+                  </div>
+
+                  <h3>
+                    "The system should be fast."
+                  </h3>
+
+                  <p>
+                    The term
+                    <strong> "fast" </strong>
+                    is not measurable enough
+                    to become a testable requirement.
+                  </p>
+
+                  <div className="suggestion">
+                    <FiCheck />
+
+                    Specify an expected maximum
+                    response time.
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="demo-side-panel">
+
+                {[
+                  ['Clarity', 42],
+                  ['Consistency', 96],
+                  ['Testability', 38],
+                  ['Singularity', 88],
+                ].map(([label, value]) => (
+                  <div
+                    className="validation-score"
+                    key={label}
+                  >
+                    <div>
+                      <span>
+                        {label}
+                      </span>
+
+                      <b>
+                        {value}
+                      </b>
+                    </div>
+
+                    <div className="score-bar">
+                      <span
+                        style={{
+                          width: `${value}%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 ))}
-              </div>
-              <div className="chat-tools">
-                <span className="tool-chip">Answer</span>
-                <span className="tool-chip">Edit</span>
-                <span className="tool-chip">Skip</span>
-                <span className="tool-chip">Back</span>
-                <span className="tool-chip">Add Requirement</span>
-                <span className="tool-chip accent">Finish Interview</span>
-              </div>
-            </div>
-            <aside className="scene-aside">
-              <h4>What&rsquo;s happening</h4>
-              <p>Stage-gated interview with Context Guard. The AI asks focused questions — purpose, users, features, rules, constraints — never repeating, never inventing.</p>
-              <ul>
-                <li>Multilingual: English, Hindi, Hinglish</li>
-                <li>Every answer traceable to a message ID</li>
-                <li>Skip or finish anytime — you&rsquo;re in control</li>
-              </ul>
-            </aside>
-          </div>
-        </div>
 
-        {/* ────────── SCENE 1 : EXTRACTION ────────── */}
-        <div className={`scene${scene === 1 ? ' active' : ''}`} data-title={SCENE_TITLES[1]}>
-          <div className="scene-layout">
-            <div className="extract-left">
-              <div className="extract-src">
-                <span className="es-tag">USER-MSG-018</span>
-                <p>&ldquo;Students will view events and register for them. Only admins create events. Only logged-in users can access protected functions.&rdquo;</p>
-                <span className="es-tag">USER-MSG-021</span>
-                <p>&ldquo;Event registration should require administrator approval.&rdquo;</p>
               </div>
-              <div className="extract-flow"><span>text</span><i>→</i><span>atomic requirements</span><i>→</i><span>stable IDs</span></div>
+
             </div>
-            <div className="extract-right">
-              {EXTRACT_ITEMS.slice(0, extractCount).map((item) => (
-                <div key={item.id} className="extract-item">
-                  <span className={`ei-id ${item.cls}`}>{item.id}</span>
-                  <span className="ei-text">{item.text}</span>
-                  <span className="ei-conf"><i style={{ '--c': `${item.conf}%` }} />{item.conf}%</span>
+          )}
+
+          {/* SRS */}
+
+          {scene === 4 && (
+            <div className="demo-layout">
+
+              <div className="demo-panel">
+
+                <div className="panel-header">
+                  <div>
+                    <strong>
+                      Software Requirements Specification
+                    </strong>
+
+                    <span>
+                      Version 1.0
+                    </span>
+                  </div>
+
+                  <FiFileText />
                 </div>
-              ))}
-              {extractCount === 0 && <p className="audit-note">Extracting atomic requirements from interview messages…</p>}
+
+                <div className="srs-document">
+
+                  <h3>
+                    College Event Management System
+                  </h3>
+
+                  <div className="srs-line" />
+
+                  {[
+                    '1. Introduction',
+                    '2. Overall Description',
+                    '3. System Features',
+                    '3.1 Event Registration',
+                    '4. External Interface Requirements',
+                    '5. Nonfunctional Requirements',
+                    '6. Other Requirements',
+                  ].map((item, index) => (
+                    <div
+                      className={
+                        index === 3
+                          ? 'srs-item active'
+                          : 'srs-item'
+                      }
+                      key={item}
+                    >
+                      <span>
+                        {String(index + 1).padStart(
+                          2,
+                          '0'
+                        )}
+                      </span>
+
+                      {item}
+
+                      {index === 3 && (
+                        <FiChevronRight />
+                      )}
+                    </div>
+                  ))}
+
+                </div>
+
+              </div>
+
+              <div className="demo-side-panel">
+
+                <div className="trace-mini">
+
+                  <div>
+                    USER-MSG-018
+                  </div>
+
+                  <FiChevronRight />
+
+                  <div>
+                    FR-002
+                  </div>
+
+                  <FiChevronRight />
+
+                  <div>
+                    §3.1.3
+                  </div>
+
+                  <FiChevronRight />
+
+                  <div>
+                    SRS v1.0
+                  </div>
+
+                </div>
+
+                <div className="side-check">
+                  <FiCheck />
+                  Template structure preserved
+                </div>
+
+                <div className="side-check">
+                  <FiCheck />
+                  Requirement IDs preserved
+                </div>
+
+                <div className="side-check">
+                  <FiCheck />
+                  Source traceability available
+                </div>
+
+              </div>
+
             </div>
-          </div>
+          )}
+
+          {/* CHANGE CONTROL */}
+
+          {scene === 5 && (
+            <div className="demo-layout">
+
+              <div className="demo-panel">
+
+                <div className="panel-header">
+                  <div>
+                    <strong>
+                      Change Control
+                    </strong>
+
+                    <span>
+                      Version 1.0 → 1.1
+                    </span>
+                  </div>
+
+                  <FiGitBranch />
+                </div>
+
+                <div className="diff">
+
+                  <div className="diff-version">
+                    <span>
+                      v1.0
+                    </span>
+
+                    <FiArrowRight />
+
+                    <span className="new">
+                      v1.1
+                    </span>
+                  </div>
+
+                  <div className="diff-remove">
+                    − Students shall register
+                    for events.
+                  </div>
+
+                  <div className="diff-add">
+                    + Event registration requires
+                    administrator approval.
+                  </div>
+
+                  <div className="diff-context">
+                    Affected sections:
+                    §3.1 Event Registration ·
+                    §3.1.3 Functional Requirements
+                  </div>
+
+                </div>
+
+                <div className="review-actions">
+                  <button className="primary">
+                    Approve update
+                  </button>
+
+                  <button>
+                    Edit
+                  </button>
+
+                  <button>
+                    Reject
+                  </button>
+                </div>
+
+              </div>
+
+              <div className="demo-side-panel">
+
+                <h4>
+                  Revision history
+                </h4>
+
+                <div className="revision">
+                  <strong>
+                    v1.1
+                  </strong>
+
+                  <span>
+                    Added administrator approval
+                  </span>
+                </div>
+
+                <div className="revision">
+                  <strong>
+                    v1.0
+                  </strong>
+
+                  <span>
+                    Initial approved release
+                  </span>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
         </div>
 
-        {/* ────────── SCENE 2 : AUDIT ────────── */}
-        <div className={`scene${scene === 2 ? ' active' : ''}`} data-title={SCENE_TITLES[2]}>
-          <div className="scene-layout audit-layout">
-            <div className="audit-card dup-card">
-              <span className="audit-label warn">DUPLICATE DETECTED</span>
-              <div className="dup-rows">
-                <div className="dup-row"><span className="rid">FR-002</span> Students shall register for events.</div>
-                <div className="dup-row"><span className="rid">FR-004</span> Students shall sign up for events.</div>
-              </div>
-              <div className="sim-wrap">
-                <div className="sim-bar"><i style={{ width: `${sim}%` }} /></div>
-                <span className="sim-val"><b>{sim}</b>% similarity</span>
-              </div>
-              <p className="audit-note">Embeddings + cosine similarity. You decide — nothing is auto-deleted.</p>
-              <div className="audit-actions"><span>Merge</span><span>Keep Both</span><span>Edit</span><span>Ignore</span></div>
-            </div>
-            <div className="audit-card conflict-card">
-              <span className="audit-label danger">POTENTIAL CONFLICT</span>
-              <div className="dup-rows">
-                <div className="dup-row"><span className="rid">REQ-001</span> The system allows unlimited login attempts.</div>
-                <div className="dup-row"><span className="rid">REQ-002</span> The system locks the account after five failed attempts.</div>
-              </div>
-              <p className="audit-note">Both requirements shown. You resolve — the AI never deletes.</p>
-              <div className="audit-actions"><span>Resolve</span><span>Keep Both</span></div>
-            </div>
+        {/* ================= FOOTER ================= */}
+
+        <div className="demo-footer">
+
+          <span>
+            Step {scene + 1} of {TABS.length}
+          </span>
+
+          <div className="demo-progress">
+            <span
+              style={{
+                width: `${
+                  ((scene + 1) /
+                    TABS.length) *
+                  100
+                }%`,
+              }}
+            />
           </div>
+
+          <span>
+            {SCENE_TITLES[scene]}
+          </span>
+
         </div>
 
-        {/* ────────── SCENE 3 : VALIDATION ────────── */}
-        <div className={`scene${scene === 3 ? ' active' : ''}`} data-title={SCENE_TITLES[3]}>
-          <div className="scene-layout valid-layout">
-            <div className="valid-card">
-              <span className="audit-label warn">AMBIGUOUS</span>
-              <div className="valid-req">&ldquo;The system should be <mark>fast</mark>.&rdquo;</div>
-              <div className="valid-explain">
-                <b>Issue</b> &mdash; &ldquo;Fast&rdquo; is not measurable.
-                <b>Suggestion</b> &mdash; Specify the expected maximum response time.
-              </div>
-              <div className="valid-status"><span className="badge bad">NEEDS_REVIEW</span><span className="badge-dim">FR-009 · PERFORMANCE</span></div>
-            </div>
-            <div className="valid-scores">
-              <div className="vs-row"><span>Clarity</span><div className="vs-bar"><i style={{ '--v': '42%' }} /></div><b>42</b></div>
-              <div className="vs-row"><span>Consistency</span><div className="vs-bar"><i style={{ '--v': '96%' }} /></div><b>96</b></div>
-              <div className="vs-row"><span>Testability</span><div className="vs-bar"><i style={{ '--v': '38%' }} /></div><b>38</b></div>
-              <div className="vs-row"><span>Singularity</span><div className="vs-bar"><i style={{ '--v': '88%' }} /></div><b>88</b></div>
-              <div className="iso-badge">
-                <span className="iso-num">4.6<span>/5</span></span>
-                <span className="iso-txt">ISO 29148 completeness · consistency · singularity · testability</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ────────── SCENE 4 : SRS ────────── */}
-        <div className={`scene${scene === 4 ? ' active' : ''}`} data-title={SCENE_TITLES[4]}>
-          <div className="scene-layout srs-layout">
-            <div className="srs-doc">
-              <div className="srs-head">
-                <h4>Software Requirements Specification</h4>
-                <span className="srs-sub">for <b>College Event Management System</b> · Version 1.0 · 28 Aug 2026</span>
-              </div>
-              <div className="srs-toc">
-                <div className="toc-row"><b>1.</b> Introduction</div>
-                <div className="toc-sub"><span>1.1</span> Purpose · <span>1.2</span> Document Conventions · <span>1.3</span> Intended Audience · <span>1.4</span> Project Scope · <span>1.5</span> References</div>
-                <div className="toc-row"><b>2.</b> Overall Description</div>
-                <div className="toc-sub"><span>2.1</span> Product Perspective · <span>2.2</span> Product Features · <span>2.3</span> User Classes · <span>2.4</span> Operating Environment · <span>2.7</span> Assumptions</div>
-                <div className="toc-row"><b>3.</b> System Features</div>
-                <div className="toc-sub"><span>3.1</span> Event Registration — <span>3.1.1</span> Description · <span>3.1.2</span> Stimulus/Response · <span>3.1.3</span> Functional Requirements</div>
-                <div className="toc-row"><b>4.</b> External Interface Requirements</div>
-                <div className="toc-sub"><span>4.1</span> User Interfaces · <span>4.3</span> Software Interfaces · <span>4.4</span> Communications</div>
-                <div className="toc-row"><b>5.</b> Other Nonfunctional Requirements</div>
-                <div className="toc-row"><b>6.</b> Other Requirements</div>
-                <div className="toc-row app-row"><b>A.</b> Glossary · <b>B.</b> Analysis Models · <b>C.</b> Issues List</div>
-              </div>
-              <div className="srs-foot">
-                <span className="doc-btn">Generate</span><span className="doc-btn">Save</span><span className="doc-btn">Validate</span><span className="doc-btn accent">Approve</span><span className="doc-btn">PDF</span><span className="doc-btn">DOCX</span>
-              </div>
-            </div>
-            <aside className="scene-aside">
-              <h4>Traceability panel</h4>
-              <div className="trace-stack">
-                <span>USER-MSG-042</span><i>→</i><span>FR-007</span><i>→</i><span>3.1 Event Registration</span><i>→</i><span>3.1.3 Functional Reqs</span><i>→</i><span>SRS v1.0</span>
-              </div>
-              <h4>AI suggestions</h4>
-              <ul>
-                <li>§2.3 — add &ldquo;Faculty&rdquo; to user classes?</li>
-                <li>NFR-007 suggests performance target: <b>TBD — needs clarification</b></li>
-              </ul>
-              <h4>Template fidelity</h4>
-              <ul>
-                <li>Exact uploaded template · numbering preserved</li>
-                <li>No invented sections, no invented facts</li>
-              </ul>
-            </aside>
-          </div>
-        </div>
-
-        {/* ────────── SCENE 5 : CHANGE CONTROL ────────── */}
-        <div className={`scene${scene === 5 ? ' active' : ''}`} data-title={SCENE_TITLES[5]}>
-          <div className="scene-layout change-layout">
-            <div className="diff-card">
-              <div className="diff-head">
-                <span className="ver-chip old">v1.0</span>
-                <span className="diff-arrow">→</span>
-                <span className="ver-chip new">v1.1</span>
-                <span className="diff-title">FR-002 · semantic diff</span>
-              </div>
-              <div className="diff-body">
-                <div className="diff-line del"><span className="df-marker">−</span> Students shall register for events.</div>
-                <div className="diff-line add"><span className="df-marker">+</span> Event registration requires administrator approval.</div>
-                <div className="diff-line ctx"><span className="df-marker">&nbsp;</span> Affected: §3.1 Event Registration · §3.1.3 Functional Requirements · §4.1 User Interfaces</div>
-              </div>
-              <div className="diff-actions"><span className="doc-btn accent">Approve update</span><span className="doc-btn">Edit</span><span className="doc-btn">Reject</span></div>
-              <p className="diff-note">RAG retrieved context · change detected automatically · only affected sections update · v1.0 preserved forever.</p>
-            </div>
-            <div className="rev-card">
-              <h4>Revision History</h4>
-              <div className="rev-row"><b>v1.1</b><span>28 Aug 2026</span><em>Added administrator approval to FR-002</em></div>
-              <div className="rev-row"><b>v1.0</b><span>21 Aug 2026</span><em>Initial approved release</em></div>
-              <div className="rev-row rev-ghost"><b>v1.1</b><span>—</span><em>waiting for approval…</em></div>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <div className="demo-progress"><div id="demo-progress-fill" style={{ width: `${progress}%` }} /></div>
-    </div>
+      <style jsx>{`
+
+        .demo {
+          width: 100%;
+          overflow: hidden;
+          border: 1px solid #e4e7ec;
+          border-radius: 16px;
+          background: #fff;
+          box-shadow:
+            0 20px 50px rgba(16, 24, 40, 0.07);
+        }
+
+        .demo-header {
+          padding: 19px 22px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          border-bottom: 1px solid #eaecf0;
+        }
+
+        .demo-title {
+          color: #1d2939;
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+        .demo-subtitle {
+          margin-top: 4px;
+          color: #98a2b3;
+          font-size: 11px;
+        }
+
+        .demo-status {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 6px 9px;
+          border: 1px solid #d1fae5;
+          border-radius: 999px;
+          background: #f0fdf4;
+          color: #047857;
+          font-size: 10px;
+          font-weight: 650;
+          white-space: nowrap;
+        }
+
+        .demo-status span {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #10b981;
+        }
+
+        .demo-tabs {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0 14px;
+          border-bottom: 1px solid #eaecf0;
+          background: #fcfcfd;
+        }
+
+        .demo-tab-list {
+          display: flex;
+          min-width: 0;
+          overflow-x: auto;
+        }
+
+        .demo-tab {
+          position: relative;
+          padding: 14px 13px;
+          border: 0;
+          background: transparent;
+          color: #667085;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .demo-tab span {
+          color: #98a2b3;
+          margin-right: 5px;
+        }
+
+        .demo-tab::after {
+          content: "";
+          position: absolute;
+          left: 12px;
+          right: 12px;
+          bottom: -1px;
+          height: 2px;
+          background: transparent;
+        }
+
+        .demo-tab.active {
+          color: #0f766e;
+        }
+
+        .demo-tab.active::after {
+          background: #0f766e;
+        }
+
+        .demo-controls {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+
+        .demo-controls button {
+          width: 30px;
+          height: 30px;
+          display: grid;
+          place-items: center;
+          border: 1px solid #e4e7ec;
+          border-radius: 6px;
+          color: #667085;
+          background: white;
+          cursor: pointer;
+        }
+
+        .demo-controls button:hover {
+          color: #0f766e;
+          border-color: #b2dddb;
+        }
+
+        .demo-controls .play-button {
+          color: white;
+          background: #0f766e;
+          border-color: #0f766e;
+        }
+
+        .demo-content {
+          min-height: 390px;
+          padding: 22px;
+          background: #f8fafc;
+        }
+
+        .demo-layout {
+          display: grid;
+          grid-template-columns: 1fr 280px;
+          gap: 16px;
+        }
+
+        .demo-panel,
+        .demo-side-panel {
+          min-width: 0;
+          border: 1px solid #e4e7ec;
+          border-radius: 11px;
+          background: white;
+        }
+
+        .demo-panel {
+          overflow: hidden;
+        }
+
+        .demo-side-panel {
+          padding: 22px;
+          align-self: stretch;
+        }
+
+        .panel-header {
+          min-height: 62px;
+          padding: 13px 17px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid #eaecf0;
+          background: #fcfcfd;
+        }
+
+        .panel-header strong {
+          display: block;
+          color: #344054;
+          font-size: 13px;
+        }
+
+        .panel-header span {
+          display: block;
+          margin-top: 4px;
+          color: #98a2b3;
+          font-size: 10px;
+        }
+
+        .panel-header > svg {
+          color: #0f766e;
+        }
+
+        .chat-feed {
+          height: 265px;
+          overflow-y: auto;
+          padding: 17px;
+        }
+
+        .chat-message {
+          max-width: 82%;
+          margin-bottom: 12px;
+          padding: 10px 12px;
+          border-radius: 9px;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .chat-message.ai {
+          margin-right: auto;
+          color: #475467;
+          background: #f2f4f7;
+        }
+
+        .chat-message.user {
+          margin-left: auto;
+          color: #ffffff;
+          background: #0f766e;
+        }
+
+        .message-label {
+          margin-bottom: 4px;
+          font-size: 9px;
+          font-weight: 700;
+          opacity: 0.72;
+        }
+
+        .chat-footer {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 10px 13px;
+          border-top: 1px solid #eaecf0;
+        }
+
+        .chat-footer span {
+          padding: 4px 7px;
+          border-radius: 5px;
+          background: #f2f4f7;
+          color: #667085;
+          font-size: 9px;
+        }
+
+        .chat-footer button {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          border: 0;
+          border-radius: 6px;
+          padding: 7px 10px;
+          background: #0f766e;
+          color: white;
+          font-size: 9px;
+          font-weight: 650;
+        }
+
+        .side-icon {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border-radius: 9px;
+          background: #ecfdf5;
+          color: #0f766e;
+        }
+
+        .demo-side-panel h4 {
+          margin: 16px 0 7px;
+          color: #344054;
+          font-size: 13px;
+        }
+
+        .demo-side-panel > p {
+          margin: 0 0 17px;
+          color: #667085;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .side-check {
+          display: flex;
+          align-items: flex-start;
+          gap: 7px;
+          margin-top: 11px;
+          color: #475467;
+          font-size: 10px;
+          line-height: 1.45;
+        }
+
+        .side-check svg {
+          flex-shrink: 0;
+          color: #0f766e;
+          margin-top: 1px;
+        }
+
+        .source-panel {
+          padding-bottom: 16px;
+        }
+
+        .source-message {
+          margin: 15px;
+          padding: 13px;
+          border: 1px solid #eaecf0;
+          border-radius: 8px;
+          background: #fcfcfd;
+        }
+
+        .source-message small {
+          color: #0f766e;
+          font-size: 9px;
+          font-weight: 750;
+        }
+
+        .source-message p {
+          margin: 7px 0 0;
+          color: #475467;
+          font-size: 11px;
+          line-height: 1.55;
+        }
+
+        .requirement-list {
+          padding: 6px 15px;
+        }
+
+        .requirement-row {
+          display: grid;
+          grid-template-columns: 1fr 70px;
+          gap: 12px;
+          padding: 13px 2px;
+          border-bottom: 1px solid #f2f4f7;
+          animation: rowIn 350ms ease both;
+        }
+
+        .req-top {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .req-top span {
+          color: #0f766e;
+          font-size: 9px;
+          font-weight: 750;
+        }
+
+        .req-top em {
+          padding: 3px 5px;
+          border-radius: 4px;
+          background: #f2f4f7;
+          color: #667085;
+          font-size: 8px;
+          font-style: normal;
+        }
+
+        .requirement-row p {
+          margin: 6px 0 0;
+          color: #475467;
+          font-size: 10px;
+          line-height: 1.45;
+        }
+
+        .confidence {
+          text-align: right;
+        }
+
+        .confidence strong {
+          display: block;
+          color: #344054;
+          font-size: 13px;
+        }
+
+        .confidence span {
+          color: #98a2b3;
+          font-size: 8px;
+        }
+
+        .quality-card {
+          padding: 22px;
+        }
+
+        .quality-heading {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .warning {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: #b54708;
+          font-size: 11px;
+          font-weight: 650;
+        }
+
+        .quality-heading strong {
+          color: #344054;
+          font-size: 24px;
+        }
+
+        .quality-bar {
+          height: 7px;
+          margin: 15px 0 20px;
+          overflow: hidden;
+          border-radius: 999px;
+          background: #f2f4f7;
+        }
+
+        .quality-bar span {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: #0f766e;
+          transition: width 80ms linear;
+        }
+
+        .quality-compare {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .quality-compare > div {
+          padding: 13px;
+          border: 1px solid #eaecf0;
+          border-radius: 8px;
+        }
+
+        .quality-compare small {
+          color: #0f766e;
+          font-weight: 700;
+          font-size: 9px;
+        }
+
+        .quality-compare p {
+          margin: 7px 0 0;
+          color: #667085;
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        .review-actions {
+          display: flex;
+          gap: 7px;
+          margin-top: 18px;
+        }
+
+        .review-actions button {
+          padding: 7px 10px;
+          border: 1px solid #d0d5dd;
+          border-radius: 6px;
+          background: white;
+          color: #475467;
+          font-size: 9px;
+          font-weight: 650;
+          cursor: pointer;
+        }
+
+        .review-actions button.primary {
+          color: white;
+          border-color: #0f766e;
+          background: #0f766e;
+        }
+
+        .quality-score {
+          margin-bottom: 20px;
+        }
+
+        .quality-score strong {
+          display: block;
+          color: #0f766e;
+          font-size: 35px;
+          letter-spacing: -0.04em;
+        }
+
+        .quality-score span {
+          color: #98a2b3;
+          font-size: 10px;
+        }
+
+        .metric {
+          display: flex;
+          justify-content: space-between;
+          padding: 11px 0;
+          border-bottom: 1px solid #f2f4f7;
+          color: #667085;
+          font-size: 10px;
+        }
+
+        .metric b {
+          color: #344054;
+        }
+
+        .validation-box {
+          margin: 20px;
+          padding: 19px;
+          border: 1px solid #fedf89;
+          border-radius: 10px;
+          background: #fffcf5;
+        }
+
+        .validation-label {
+          display: inline-block;
+          padding: 4px 7px;
+          border-radius: 4px;
+          background: #fef0c7;
+          color: #b54708;
+          font-size: 8px;
+          font-weight: 750;
+        }
+
+        .validation-box h3 {
+          margin: 15px 0 8px;
+          color: #344054;
+          font-size: 16px;
+        }
+
+        .validation-box p {
+          margin: 0;
+          color: #667085;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .suggestion {
+          display: flex;
+          align-items: flex-start;
+          gap: 7px;
+          margin-top: 17px;
+          padding: 10px;
+          border-radius: 7px;
+          background: white;
+          color: #475467;
+          font-size: 10px;
+          line-height: 1.45;
+        }
+
+        .suggestion svg {
+          color: #0f766e;
+          flex-shrink: 0;
+        }
+
+        .validation-score {
+          margin-bottom: 18px;
+        }
+
+        .validation-score > div:first-child {
+          display: flex;
+          justify-content: space-between;
+          color: #667085;
+          font-size: 10px;
+        }
+
+        .validation-score b {
+          color: #344054;
+        }
+
+        .score-bar {
+          height: 6px;
+          margin-top: 7px;
+          border-radius: 999px;
+          background: #f2f4f7;
+          overflow: hidden;
+        }
+
+        .score-bar span {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: #0f766e;
+        }
+
+        .srs-document {
+          padding: 20px;
+        }
+
+        .srs-document h3 {
+          margin: 0 0 10px;
+          color: #344054;
+          font-size: 16px;
+        }
+
+        .srs-line {
+          height: 1px;
+          background: #eaecf0;
+          margin-bottom: 10px;
+        }
+
+        .srs-item {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 9px;
+          border-radius: 6px;
+          color: #667085;
+          font-size: 10px;
+        }
+
+        .srs-item span {
+          width: 22px;
+          color: #98a2b3;
+          font-size: 9px;
+        }
+
+        .srs-item.active {
+          color: #0f766e;
+          background: #ecfdf5;
+          font-weight: 650;
+        }
+
+        .srs-item svg {
+          margin-left: auto;
+        }
+
+        .trace-mini {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 20px;
+        }
+
+        .trace-mini div {
+          padding: 8px;
+          border: 1px solid #eaecf0;
+          border-radius: 6px;
+          color: #475467;
+          background: #fcfcfd;
+          font-size: 9px;
+        }
+
+        .trace-mini svg {
+          align-self: center;
+          color: #98a2b3;
+        }
+
+        .diff {
+          margin: 20px;
+          border: 1px solid #eaecf0;
+          border-radius: 9px;
+          overflow: hidden;
+        }
+
+        .diff-version {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 13px;
+          border-bottom: 1px solid #eaecf0;
+          background: #fcfcfd;
+          color: #667085;
+          font-size: 9px;
+        }
+
+        .diff-version span {
+          padding: 4px 6px;
+          border-radius: 4px;
+          background: #f2f4f7;
+        }
+
+        .diff-version span.new {
+          color: #047857;
+          background: #ecfdf3;
+        }
+
+        .diff-remove,
+        .diff-add,
+        .diff-context {
+          padding: 13px;
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        .diff-remove {
+          color: #b42318;
+          background: #fff5f5;
+        }
+
+        .diff-add {
+          color: #027a48;
+          background: #f0fdf4;
+        }
+
+        .diff-context {
+          color: #667085;
+          background: #fcfcfd;
+        }
+
+        .revision {
+          padding: 13px 0;
+          border-bottom: 1px solid #f2f4f7;
+        }
+
+        .revision strong {
+          display: block;
+          color: #0f766e;
+          font-size: 11px;
+        }
+
+        .revision span {
+          display: block;
+          margin-top: 4px;
+          color: #667085;
+          font-size: 10px;
+          line-height: 1.4;
+        }
+
+        .demo-footer {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          padding: 12px 18px;
+          border-top: 1px solid #eaecf0;
+          color: #98a2b3;
+          font-size: 9px;
+        }
+
+        .demo-progress {
+          flex: 1;
+          height: 4px;
+          overflow: hidden;
+          border-radius: 999px;
+          background: #eaecf0;
+        }
+
+        .demo-progress span {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: #0f766e;
+          transition: width 300ms ease;
+        }
+
+        @keyframes rowIn {
+          from {
+            opacity: 0;
+            transform: translateY(5px);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (max-width: 850px) {
+          .demo-layout {
+            grid-template-columns: 1fr;
+          }
+
+          .demo-side-panel {
+            min-height: auto;
+          }
+        }
+
+        @media (max-width: 650px) {
+          .demo-header {
+            align-items: flex-start;
+          }
+
+          .demo-status {
+            display: none;
+          }
+
+          .demo-tabs {
+            padding: 0 7px;
+          }
+
+          .demo-content {
+            padding: 12px;
+          }
+
+          .chat-footer span {
+            display: none;
+          }
+
+          .quality-compare {
+            grid-template-columns: 1fr;
+          }
+
+          .requirement-row {
+            grid-template-columns: 1fr;
+          }
+
+          .confidence {
+            text-align: left;
+          }
+        }
+
+      `}</style>
+    </>
   );
 }
