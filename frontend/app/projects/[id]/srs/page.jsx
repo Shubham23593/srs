@@ -480,7 +480,7 @@ export default function SRSWorkbenchPage() {
                 </div>
                 <h2 className="text-xl font-bold text-white tracking-tight">Incremental SRS Modification Flow</h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  When a requirement changes, IntelliSDLC AI detects affected requirements and sections, retrieves RAG context, updates only the affected specification parts, updates revision history, and increments the version to v1.1.
+                  When a requirement changes, Aether AI detects affected requirements and sections, retrieves RAG context, updates only the affected specification parts, updates revision history, and increments the version to v1.1.
                 </p>
               </div>
 

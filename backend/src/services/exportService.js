@@ -367,7 +367,7 @@ class ExportService {
 
     /* ════════════════════════ ASSEMBLE DOCUMENT ════════════════════════ */
     const doc = new Document({
-      creator: srsDoc.metadata?.organization || 'IntelliSDLC AI',
+      creator: srsDoc.metadata?.organization || 'Aether AI',
       title: `Software Requirements Specification for ${projectName}`,
       description: 'Software Requirements Specification structured after the Karl E. Wiegers template',
       features: { updateFields: true }, // Word refreshes the TOC page numbers on open

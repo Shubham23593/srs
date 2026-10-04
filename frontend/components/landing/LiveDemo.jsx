@@ -29,7 +29,7 @@ const SCENE_TITLES = [
 const INTERVIEW_SCRIPT = [
   {
     from: 'ai',
-    label: 'IntelliSDLC AI',
+    label: 'Aether AI',
     text: 'Tell me about the system you want to build.',
   },
   {
@@ -39,7 +39,7 @@ const INTERVIEW_SCRIPT = [
   },
   {
     from: 'ai',
-    label: 'IntelliSDLC AI',
+    label: 'Aether AI',
     text: 'What should students be able to do?',
   },
   {
@@ -49,7 +49,7 @@ const INTERVIEW_SCRIPT = [
   },
   {
     from: 'ai',
-    label: 'IntelliSDLC AI',
+    label: 'Aether AI',
     text: 'What about administrators?',
   },
   {
@@ -225,7 +225,7 @@ export default function LiveDemo() {
             </div>
 
             <div className="demo-subtitle">
-              IntelliSDLC project walkthrough
+              Aether project walkthrough
             </div>
           </div>
 
@@ -336,12 +336,25 @@ export default function LiveDemo() {
                             ? 'chat-message ai'
                             : 'chat-message user'
                         }
+                        style={{
+                          background: message.from === 'ai' ? '#f1f5f9' : '#a7e3fa',
+                          color: '#0f172a',
+                        }}
                       >
-                        <div className="message-label">
+                        <div
+                          className="message-label"
+                          style={{
+                            color: message.from === 'ai' ? '#0284c7' : '#0369a1',
+                            fontWeight: 700,
+                          }}
+                        >
                           {message.label}
                         </div>
 
-                        <div className="message-text">
+                        <div
+                          className="message-text"
+                          style={{ color: '#0f172a', fontWeight: 500 }}
+                        >
                           {message.text}
                         </div>
                       </div>
@@ -943,9 +956,9 @@ export default function LiveDemo() {
 
         {/* ================= FOOTER ================= */}
 
-        <div className="demo-footer">
+        {/* <div className="demo-footer" style={{ color: '#334155', fontWeight: 600 }}>
 
-          <span>
+          <span style={{ color: '#1e293b', fontWeight: 700 }}>
             Step {scene + 1} of {TABS.length}
           </span>
 
@@ -961,11 +974,11 @@ export default function LiveDemo() {
             />
           </div>
 
-          <span>
+          <span style={{ color: '#1e293b', fontWeight: 700 }}>
             {SCENE_TITLES[scene]}
           </span>
 
-        </div>
+        </div> */}
 
       </div>
 
@@ -991,15 +1004,16 @@ export default function LiveDemo() {
         }
 
         .demo-title {
-          color: #1d2939;
+          color: #0f172a !important;
           font-size: 14px;
           font-weight: 700;
         }
 
         .demo-subtitle {
           margin-top: 4px;
-          color: #98a2b3;
+          color: #475569 !important;
           font-size: 11px;
+          font-weight: 500;
         }
 
         .demo-status {
@@ -1007,10 +1021,10 @@ export default function LiveDemo() {
           align-items: center;
           gap: 7px;
           padding: 6px 9px;
-          border: 1px solid #d1fae5;
+          border: 1px solid #bae6fd;
           border-radius: 999px;
-          background: #f0fdf4;
-          color: #047857;
+          background: #f0f9ff;
+          color: #0369a1 !important;
           font-size: 10px;
           font-weight: 650;
           white-space: nowrap;
@@ -1020,7 +1034,7 @@ export default function LiveDemo() {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #10b981;
+          background: #0284c7;
         }
 
         .demo-tabs {
@@ -1043,7 +1057,7 @@ export default function LiveDemo() {
           padding: 14px 13px;
           border: 0;
           background: transparent;
-          color: #667085;
+          color: #475569 !important;
           font-size: 11px;
           font-weight: 600;
           cursor: pointer;
@@ -1051,8 +1065,9 @@ export default function LiveDemo() {
         }
 
         .demo-tab span {
-          color: #98a2b3;
+          color: #64748b !important;
           margin-right: 5px;
+          font-weight: 600;
         }
 
         .demo-tab::after {
@@ -1066,11 +1081,12 @@ export default function LiveDemo() {
         }
 
         .demo-tab.active {
-          color: #0f766e;
+          color: #0284c7 !important;
+          font-weight: 700;
         }
 
         .demo-tab.active::after {
-          background: #0f766e;
+          background: #0284c7;
         }
 
         .demo-controls {
@@ -1086,20 +1102,20 @@ export default function LiveDemo() {
           place-items: center;
           border: 1px solid #e4e7ec;
           border-radius: 6px;
-          color: #667085;
+          color: #334155 !important;
           background: white;
           cursor: pointer;
         }
 
         .demo-controls button:hover {
-          color: #0f766e;
-          border-color: #b2dddb;
+          color: #0284c7 !important;
+          border-color: #bae6fd;
         }
 
         .demo-controls .play-button {
-          color: white;
-          background: #0f766e;
-          border-color: #0f766e;
+          color: white !important;
+          background: #0284c7 !important;
+          border-color: #0284c7 !important;
         }
 
         .demo-content {
@@ -1143,19 +1159,20 @@ export default function LiveDemo() {
 
         .panel-header strong {
           display: block;
-          color: #344054;
+          color: #0f172a !important;
           font-size: 13px;
+          font-weight: 700;
         }
 
         .panel-header span {
           display: block;
           margin-top: 4px;
-          color: #98a2b3;
+          color: #475569 !important;
           font-size: 10px;
         }
 
         .panel-header > svg {
-          color: #0f766e;
+          color: #0284c7 !important;
         }
 
         .chat-feed {
@@ -1175,21 +1192,41 @@ export default function LiveDemo() {
 
         .chat-message.ai {
           margin-right: auto;
-          color: #475467;
-          background: #f2f4f7;
+          color: #0f172a !important;
+          background: #f1f5f9;
+          font-weight: 500;
+        }
+
+        .chat-message.ai .message-label {
+          color: #0284c7 !important;
+          font-weight: 700;
+        }
+
+        .chat-message.ai .message-text {
+          color: #0f172a !important;
         }
 
         .chat-message.user {
           margin-left: auto;
-          color: #ffffff;
-          background: #0f766e;
+          color: #0f172a !important;
+          background: #a7e3fa !important;
+          font-weight: 500;
+        }
+
+        .chat-message.user .message-label {
+          color: #0369a1 !important;
+          font-weight: 700;
+        }
+
+        .chat-message.user .message-text {
+          color: #0f172a !important;
         }
 
         .message-label {
           margin-bottom: 4px;
           font-size: 9px;
           font-weight: 700;
-          opacity: 0.72;
+          color: #334155 !important;
         }
 
         .chat-footer {
@@ -1204,8 +1241,9 @@ export default function LiveDemo() {
           padding: 4px 7px;
           border-radius: 5px;
           background: #f2f4f7;
-          color: #667085;
+          color: #334155 !important;
           font-size: 9px;
+          font-weight: 600;
         }
 
         .chat-footer button {
@@ -1216,8 +1254,8 @@ export default function LiveDemo() {
           border: 0;
           border-radius: 6px;
           padding: 7px 10px;
-          background: #0f766e;
-          color: white;
+          background: #0284c7;
+          color: white !important;
           font-size: 9px;
           font-weight: 650;
         }
@@ -1228,21 +1266,23 @@ export default function LiveDemo() {
           display: grid;
           place-items: center;
           border-radius: 9px;
-          background: #ecfdf5;
-          color: #0f766e;
+          background: #f0f9ff;
+          color: #0284c7 !important;
         }
 
         .demo-side-panel h4 {
           margin: 16px 0 7px;
-          color: #344054;
+          color: #0f172a !important;
           font-size: 13px;
+          font-weight: 700;
         }
 
         .demo-side-panel > p {
           margin: 0 0 17px;
-          color: #667085;
+          color: #334155 !important;
           font-size: 11px;
           line-height: 1.6;
+          font-weight: 500;
         }
 
         .side-check {
@@ -1250,14 +1290,15 @@ export default function LiveDemo() {
           align-items: flex-start;
           gap: 7px;
           margin-top: 11px;
-          color: #475467;
+          color: #0f172a !important;
           font-size: 10px;
           line-height: 1.45;
+          font-weight: 600;
         }
 
         .side-check svg {
           flex-shrink: 0;
-          color: #0f766e;
+          color: #0284c7 !important;
           margin-top: 1px;
         }
 
@@ -1274,7 +1315,7 @@ export default function LiveDemo() {
         }
 
         .source-message small {
-          color: #0f766e;
+          color: #0284c7;
           font-size: 9px;
           font-weight: 750;
         }
@@ -1306,7 +1347,7 @@ export default function LiveDemo() {
         }
 
         .req-top span {
-          color: #0f766e;
+          color: #0284c7;
           font-size: 9px;
           font-weight: 750;
         }
@@ -1378,7 +1419,7 @@ export default function LiveDemo() {
           display: block;
           height: 100%;
           border-radius: inherit;
-          background: #0f766e;
+          background: #0284c7;
           transition: width 80ms linear;
         }
 
@@ -1395,10 +1436,10 @@ export default function LiveDemo() {
         }
 
         .quality-compare small {
-          color: #0f766e;
+          color: #0284c7;
           font-weight: 700;
           font-size: 9px;
-        }
+        }        }
 
         .quality-compare p {
           margin: 7px 0 0;
@@ -1422,12 +1463,10 @@ export default function LiveDemo() {
           font-size: 9px;
           font-weight: 650;
           cursor: pointer;
-        }
-
-        .review-actions button.primary {
+            .review-actions button.primary {
           color: white;
-          border-color: #0f766e;
-          background: #0f766e;
+          border-color: #0284c7;
+          background: #0284c7;
         }
 
         .quality-score {
@@ -1436,7 +1475,7 @@ export default function LiveDemo() {
 
         .quality-score strong {
           display: block;
-          color: #0f766e;
+          color: #0284c7;
           font-size: 35px;
           letter-spacing: -0.04em;
         }
@@ -1504,7 +1543,7 @@ export default function LiveDemo() {
         }
 
         .suggestion svg {
-          color: #0f766e;
+          color: #0284c7;
           flex-shrink: 0;
         }
 
@@ -1535,7 +1574,7 @@ export default function LiveDemo() {
           display: block;
           height: 100%;
           border-radius: inherit;
-          background: #0f766e;
+          background: #0284c7;
         }
 
         .srs-document {
@@ -1571,8 +1610,8 @@ export default function LiveDemo() {
         }
 
         .srs-item.active {
-          color: #0f766e;
-          background: #ecfdf5;
+          color: #0284c7;
+          background: #f0f9ff;
           font-weight: 650;
         }
 
@@ -1626,8 +1665,8 @@ export default function LiveDemo() {
         }
 
         .diff-version span.new {
-          color: #047857;
-          background: #ecfdf3;
+          color: #0369a1;
+          background: #f0f9ff;
         }
 
         .diff-remove,
@@ -1644,8 +1683,8 @@ export default function LiveDemo() {
         }
 
         .diff-add {
-          color: #027a48;
-          background: #f0fdf4;
+          color: #0369a1;
+          background: #f0f9ff;
         }
 
         .diff-context {
@@ -1660,7 +1699,7 @@ export default function LiveDemo() {
 
         .revision strong {
           display: block;
-          color: #0f766e;
+          color: #0284c7;
           font-size: 11px;
         }
 
@@ -1678,8 +1717,14 @@ export default function LiveDemo() {
           gap: 15px;
           padding: 12px 18px;
           border-top: 1px solid #eaecf0;
-          color: #98a2b3;
-          font-size: 9px;
+          color: #334155 !important;
+          font-size: 10px;
+          font-weight: 600;
+        }
+
+        .demo-footer span {
+          color: #334155 !important;
+          font-weight: 650;
         }
 
         .demo-progress {
@@ -1694,9 +1739,9 @@ export default function LiveDemo() {
           display: block;
           height: 100%;
           border-radius: inherit;
-          background: #0f766e;
+          background: #0284c7;
           transition: width 300ms ease;
-        }
+        }        }
 
         @keyframes rowIn {
           from {

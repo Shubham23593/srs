@@ -84,7 +84,7 @@ export default function Hero3D() {
               fontSize: '10px',
             }}
           >
-            app.intellisdlc.ai / project / requirements
+            app.aether.ai / project / requirements
           </div>
 
           <FiMoreHorizontal
@@ -143,11 +143,11 @@ export default function Hero3D() {
                   marginBottom: '3px',
                   color:
                     index === 2
-                      ? '#0f766e'
+                      ? '#0284c7'
                       : '#667085',
                   background:
                     index === 2
-                      ? '#ecfdf5'
+                      ? '#f0f9ff'
                       : 'transparent',
                   fontSize: '11px',
                   fontWeight:
@@ -184,13 +184,13 @@ export default function Hero3D() {
                 margin: '10px 8px',
                 padding: '9px',
                 borderRadius: '7px',
-                border: '1px solid #d1fae5',
-                background: '#f0fdf4',
+                border: '1px solid #bae6fd',
+                background: '#f0f9ff',
               }}
             >
               <div
                 style={{
-                  color: '#047857',
+                  color: '#0369a1',
                   fontSize: '10px',
                   fontWeight: 700,
                 }}
@@ -256,8 +256,8 @@ export default function Hero3D() {
                 style={{
                   padding: '5px 9px',
                   borderRadius: '999px',
-                  background: '#ecfdf3',
-                  color: '#027a48',
+                  background: '#f0f9ff',
+                  color: '#0369a1',
                   fontSize: '9px',
                   fontWeight: 700,
                 }}
@@ -388,7 +388,7 @@ export default function Hero3D() {
                 >
                   <span
                     style={{
-                      color: '#0f766e',
+                      color: '#0284c7',
                       fontSize: '9px',
                       fontWeight: 750,
                     }}
@@ -413,11 +413,11 @@ export default function Hero3D() {
                       borderRadius: '5px',
                       background:
                         status === 'Validated'
-                          ? '#ecfdf3'
+                          ? '#f0f9ff'
                           : '#fffaeb',
                       color:
                         status === 'Validated'
-                          ? '#027a48'
+                          ? '#0369a1'
                           : '#b54708',
                       fontSize: '8px',
                       fontWeight: 700,
@@ -455,7 +455,7 @@ export default function Hero3D() {
                     width: '6px',
                     height: '6px',
                     borderRadius: '50%',
-                    background: '#12b76a',
+                    background: '#0284c7',
                   }}
                 />
                 AI analysis complete
@@ -463,7 +463,7 @@ export default function Hero3D() {
 
               <div
                 style={{
-                  color: '#0f766e',
+                  color: '#0284c7',
                   fontSize: '9px',
                   fontWeight: 650,
                 }}

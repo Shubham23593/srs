@@ -16,11 +16,11 @@ class DemoSeedService {
     // 1. Ensure Demo User exists
     let demoUser = user;
     if (!demoUser) {
-      demoUser = await User.findOne({ email: 'demo@intellisdlc.ai' });
+      demoUser = await User.findOne({ email: 'demo@aether.ai' });
       if (!demoUser) {
         demoUser = new User({
           name: 'Shubham Dalvi',
-          email: 'demo@intellisdlc.ai',
+          email: 'demo@aether.ai',
           password: 'password123',
           organization: 'Software Engineering Laboratory'
         });

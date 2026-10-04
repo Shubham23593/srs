@@ -428,7 +428,7 @@ Return ONLY a valid JSON object matching this schema:
           const response = await ai.generateCompletion(systemPrompt, {
             temperature: 0.3,
             maxTokens: 300,
-            timeout: 25000,
+            timeout: 60000,
             retries: 0
           });
 

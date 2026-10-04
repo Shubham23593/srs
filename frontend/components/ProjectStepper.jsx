@@ -42,14 +42,14 @@ export default function ProjectStepper({ projectId, currentStatus = 'DRAFT' }) {
               <Link
                 href={step.href}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-xl font-semibold transition-all select-none",
+                  "flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs transition-all select-none border",
                   isActive
-                    ? "bg-gradient-to-r from-brand-500 to-emerald-400 text-slate-950 shadow-md shadow-brand-500/20"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/80"
+                    ? "bg-[#0284c7] text-white border-[#0284c7] shadow-md shadow-blue-500/20"
+                    : "bg-slate-100 text-slate-900 border-slate-300 hover:bg-slate-200"
                 )}
               >
-                <Icon className={cn("w-3.5 h-3.5", isActive ? "text-slate-950" : "text-emerald-400")} />
-                <span>{step.label}</span>
+                <Icon className={cn("w-3.5 h-3.5", isActive ? "text-white" : "text-emerald-600")} />
+                <span className={isActive ? "text-white font-bold" : "text-slate-900 font-bold"}>{step.label}</span>
               </Link>
 
               {index < steps.length - 1 && (

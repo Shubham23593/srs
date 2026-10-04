@@ -27,14 +27,14 @@ const definition = {
     metadata: {
       title: { type: String, required: true, default: 'Software Requirements Specification' },
       preparedBy: { type: String, default: 'Requirements Engineering Team' },
-      organization: { type: String, default: 'IntelliSDLC AI Platform' },
+      organization: { type: String, default: 'Aether AI Platform' },
       date: { type: String, default: () => new Date().toISOString().split('T')[0] }
     },
     revisionHistory: {
       type: [{
         version: { type: String, required: true },
         date: { type: String, required: true },
-        author: { type: String, default: 'IntelliSDLC AI & Reviewer' },
+        author: { type: String, default: 'Aether AI & Reviewer' },
         reasonForChanges: { type: String, required: true }
       }],
       default: []

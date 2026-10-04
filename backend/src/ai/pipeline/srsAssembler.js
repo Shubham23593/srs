@@ -137,11 +137,11 @@ function assembleSRS(project, requirements, issues = [], clusters = []) {
     metadata: {
       title: `Software Requirements Specification for ${project.projectName}`,
       preparedBy: 'Requirements Engineering Team',
-      organization: 'IntelliSDLC AI Platform',
+      organization: 'Aether AI Platform',
       date: today
     },
     revisionHistory: [
-      { version: '1.0', date: today, author: 'IntelliSDLC AI Requirements Pipeline', reasonForChanges: 'Initial baseline generated from validated, normalized requirements.' }
+      { version: '1.0', date: today, author: 'Aether AI Requirements Pipeline', reasonForChanges: 'Initial baseline generated from validated, normalized requirements.' }
     ],
     section1_introduction: {
       purpose: `This document specifies the software requirements for ${project.projectName}. It defines functional behavior, quality attributes, interfaces, and constraints in conformance with ISO/IEC/IEEE 29148:2018. Each requirement is atomic, uniquely identified, testable, and traceable to structured elicitation evidence.`,

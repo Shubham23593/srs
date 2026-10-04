@@ -71,9 +71,9 @@ export default function LandingPage() {
     <>
       <style jsx global>{`
         :root {
-          --brand: #0f766e;
-          --brand-dark: #115e59;
-          --brand-light: #ecfdf5;
+          --brand: #0284c7;
+          --brand-dark: #0369a1;
+          --brand-light: #f0f9ff;
           --blue: #2563eb;
           --text: #172033;
           --muted: #667085;
@@ -279,10 +279,10 @@ export default function LandingPage() {
           align-items: center;
           gap: 8px;
           padding: 7px 11px;
-          border: 1px solid #d1fae5;
+          border: 1px solid #bae6fd;
           border-radius: 999px;
           color: var(--brand-dark);
-          background: #f0fdf4;
+          background: #f0f9ff;
           font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.045em;
@@ -293,7 +293,7 @@ export default function LandingPage() {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #10b981;
+          background: #0284c7;
         }
 
         .lp-hero h1 {
@@ -488,7 +488,7 @@ export default function LandingPage() {
           display: grid;
           place-items: center;
           color: var(--brand);
-          background: #f0fdf4;
+          background: #f0f9ff;
           margin-bottom: 18px;
         }
 
@@ -639,20 +639,24 @@ export default function LandingPage() {
           padding: 24px;
           border: 1px solid var(--border);
           border-radius: 12px;
-          background: white;
+          background: #ffffff !important;
+          color: #0f172a !important;
         }
 
         .lp-standard-card strong {
           display: block;
           font-size: 14px;
           margin-bottom: 8px;
+          color: #0f172a !important;
+          font-weight: 700 !important;
         }
 
         .lp-standard-card p {
           margin: 0;
-          color: #667085;
+          color: #334155 !important;
           font-size: 13px;
           line-height: 1.6;
+          font-weight: 500 !important;
         }
 
         /* =========================
@@ -661,7 +665,7 @@ export default function LandingPage() {
 
         .lp-cta-section {
           padding: 100px 20px;
-          background: #123f3b;
+          background: #0f172a;
         }
 
         .lp-cta-inner {
@@ -671,7 +675,7 @@ export default function LandingPage() {
         }
 
         .lp-cta-inner .lp-section-kicker {
-          color: #6ee7b7;
+          color: #38bdf8;
         }
 
         .lp-cta-inner h2 {
@@ -684,18 +688,18 @@ export default function LandingPage() {
         .lp-cta-inner p {
           max-width: 650px;
           margin: 17px auto 28px;
-          color: #c9d9d7;
+          color: #94a3b8;
           line-height: 1.7;
         }
 
         .lp-cta-inner .lp-btn-primary {
-          color: #123f3b;
+          color: #0f172a;
           background: white;
           box-shadow: none;
         }
 
         .lp-cta-inner .lp-btn-primary:hover {
-          background: #f0fdf4;
+          background: #f8fafc;
         }
 
         /* =========================
@@ -1019,7 +1023,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="lp-hero-description">
-                IntelliSDLC AI helps teams elicit, extract, validate,
+                Aether AI helps teams elicit, extract, validate,
                 classify, trace and generate software requirements —
                 while keeping human review at the center of the process.
               </p>
@@ -1093,7 +1097,7 @@ export default function LandingPage() {
               data-reveal
             >
               <div className="lp-section-kicker">
-                Why IntelliSDLC
+                Why Aether
               </div>
 
               <h2 className="lp-section-title">
@@ -1183,7 +1187,7 @@ export default function LandingPage() {
               </h2>
 
               <p className="lp-section-description">
-                IntelliSDLC organizes the requirements lifecycle into
+                Aether organizes the requirements lifecycle into
                 practical stages that teams can inspect and review.
               </p>
             </div>
@@ -1267,7 +1271,7 @@ export default function LandingPage() {
               </h2>
 
               <p className="lp-section-description">
-                Explore a simulated IntelliSDLC project and see how
+                Explore a simulated Aether project and see how
                 interview responses become requirements, quality
                 findings and an SRS.
               </p>
@@ -1491,11 +1495,11 @@ export default function LandingPage() {
                 className="lp-standard-card"
                 data-reveal
               >
-                <strong>
+                <strong style={{ color: '#0f172a' }}>
                   ISO/IEC/IEEE 29148:2018
                 </strong>
 
-                <p>
+                <p style={{ color: '#334155' }}>
                   Requirements engineering processes,
                   characteristics and documentation practices.
                 </p>
@@ -1505,11 +1509,11 @@ export default function LandingPage() {
                 className="lp-standard-card"
                 data-reveal
               >
-                <strong>
+                <strong style={{ color: '#0f172a' }}>
                   IEEE 830
                 </strong>
 
-                <p>
+                <p style={{ color: '#334155' }}>
                   Software requirements specification structure
                   and documentation principles.
                 </p>
@@ -1519,11 +1523,11 @@ export default function LandingPage() {
                 className="lp-standard-card"
                 data-reveal
               >
-                <strong>
+                <strong style={{ color: '#0f172a' }}>
                   Human review
                 </strong>
 
-                <p>
+                <p style={{ color: '#334155' }}>
                   AI assists the engineering workflow while people
                   retain control over requirement decisions.
                 </p>

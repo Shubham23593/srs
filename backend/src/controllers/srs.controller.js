@@ -182,7 +182,7 @@ exports.incrementalSRSUpdate = async (req, res, next) => {
     regenerated.revisionHistory.push({
       version: versionStr,
       date: new Date().toISOString().split('T')[0],
-      author: req.user?.name || 'IntelliSDLC AI Requirements Pipeline',
+      author: req.user?.name || 'Aether AI Requirements Pipeline',
       reasonForChanges: reason || `Incremental requirement change (${changedIds.join(', ') || 'normalization sync'})`
     });
     regenerated.status = 'DRAFT';

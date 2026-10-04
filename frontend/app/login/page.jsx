@@ -114,7 +114,7 @@ function LoginForm() {
 
   const handleFillDemo = () => {
 
-    setEmail('demo@intellisdlc.ai');
+    setEmail('demo@aether.ai');
     setPassword('password123');
 
   };

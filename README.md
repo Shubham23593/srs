@@ -1,6 +1,4 @@
-# srs
-
-# IntelliSDLC AI — Software Requirements Engineering Platform
+# Aether AI — Software Requirements Engineering Platform
 
 An enterprise AI-powered Software Requirements Engineering platform adhering strictly to **ISO/IEC/IEEE 29148:2018** and **IEEE 830-1998** standards.
 

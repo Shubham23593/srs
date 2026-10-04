@@ -75,7 +75,7 @@ router.get('/health', async (req, res) => {
 
   res.json({
     status: 'OK',
-    service: 'IntelliSDLC AI Requirements Engineering Platform',
+    service: 'Aether AI Requirements Engineering Platform',
     timestamp: new Date().toISOString(),
     ai: aiHealth,
     ollama: aiHealth,

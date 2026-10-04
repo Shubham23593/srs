@@ -46,7 +46,7 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`====================================================`);
-      console.log(` IntelliSDLC AI Requirements Engineering Platform `);
+      console.log(` Aether AI Requirements Engineering Platform `);
       console.log(` Backend Server running on port: ${PORT}`);
       console.log(` Environment: ${env.nodeEnv}`);
       console.log(` AI Provider: ${env.ai.provider} (${env.ai.ollamaModel})`);

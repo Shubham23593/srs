@@ -1,7 +1,7 @@
 {
-  "name": "intellisdlc-ai-backend",
+  "name": "aether-ai-backend",
   "version": "1.0.0",
-  "description": "Backend API for IntelliSDLC AI - Software Requirements Engineering Platform",
+  "description": "Backend API for Aether AI - Software Requirements Engineering Platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

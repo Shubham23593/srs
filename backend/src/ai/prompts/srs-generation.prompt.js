@@ -27,7 +27,7 @@ Return complete JSON matching the exact template structure:
   "metadata": {
     "title": "Software Requirements Specification for ${project.projectName}",
     "preparedBy": "Requirements Engineering Team",
-    "organization": "IntelliSDLC AI Platform",
+    "organization": "Aether AI Platform",
     "date": "${new Date().toISOString().split('T')[0]}"
   },
   "section1_introduction": {

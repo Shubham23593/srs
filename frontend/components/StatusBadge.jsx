@@ -6,26 +6,26 @@ import { cn } from '../lib/utils';
 export default function StatusBadge({ status, size = 'sm' }) {
   const s = (status || '').toUpperCase();
 
-  let colorClasses = 'bg-slate-800 text-slate-300 border-slate-700';
+  let colorClasses = 'bg-slate-100 text-slate-900 border-slate-300 font-bold';
 
   if (['VALID', 'APPROVED', 'RESOLVED', 'COMPLETED', 'LOCKED'].includes(s)) {
-    colorClasses = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    colorClasses = 'bg-emerald-100 text-emerald-950 border-emerald-300 font-bold';
   } else if (['NEEDS_REVIEW', 'PROPOSED', 'IN_PROGRESS', 'DRAFT', 'MODIFIED', 'AWAITING_CONFIRMATION'].includes(s)) {
-    colorClasses = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+    colorClasses = 'bg-amber-100 text-amber-950 border-amber-300 font-bold';
   } else if (['INVALID', 'HIGH', 'CONFLICT', 'REJECTED'].includes(s)) {
-    colorClasses = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+    colorClasses = 'bg-rose-100 text-rose-950 border-rose-300 font-bold';
   } else if (['FUNCTIONAL', 'CORE'].includes(s)) {
-    colorClasses = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    colorClasses = 'bg-blue-100 text-blue-950 border-blue-300 font-bold';
   } else if (['NON_FUNCTIONAL', 'NFR', 'SECURITY'].includes(s)) {
-    colorClasses = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+    colorClasses = 'bg-purple-100 text-purple-950 border-purple-300 font-bold';
   } else if (['CONSTRAINT'].includes(s)) {
-    colorClasses = 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+    colorClasses = 'bg-orange-100 text-orange-950 border-orange-300 font-bold';
   } else if (['ASSUMPTION'].includes(s)) {
-    colorClasses = 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+    colorClasses = 'bg-cyan-100 text-cyan-950 border-cyan-300 font-bold';
   } else if (['INTERFACE'].includes(s)) {
-    colorClasses = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+    colorClasses = 'bg-indigo-100 text-indigo-950 border-indigo-300 font-bold';
   } else if (['STAKEHOLDER'].includes(s)) {
-    colorClasses = 'bg-teal-500/10 text-teal-400 border-teal-500/20';
+    colorClasses = 'bg-teal-100 text-teal-950 border-teal-300 font-bold';
   }
 
 

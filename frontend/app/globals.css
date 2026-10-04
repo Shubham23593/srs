@@ -89,17 +89,24 @@ body:has(.auth-page) ::-webkit-scrollbar-thumb {
   background-color: #f1f5f9 !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-white"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-100"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-200"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-300"] {
-  color: #111827 !important;
+/* Workspace light mode text overrides (scoped exclusively to main content area so .app-sidebar stays dark & bright) */
+body:has(.app-sidebar) main [class~="text-white"],
+body:has(.app-sidebar) main [class~="text-slate-100"],
+body:has(.app-sidebar) main [class~="text-slate-200"],
+body:has(.app-sidebar) main [class~="text-slate-300"],
+body:has(.app-sidebar) main [class~="text-slate-700"],
+body:has(.app-sidebar) main [class~="text-slate-800"],
+body:has(.app-sidebar) main [class~="text-slate-900"],
+body:has(.auth-page) [class~="text-slate-900"] {
+  color: #0f172a !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-400"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-500"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class~="text-slate-600"] {
-  color: #64748b !important;
+body:has(.app-sidebar) main [class~="text-slate-400"],
+body:has(.app-sidebar) main [class~="text-slate-500"],
+body:has(.app-sidebar) main [class~="text-slate-600"],
+body:has(.auth-page) [class~="text-slate-500"] {
+  color: #334155 !important;
+  font-weight: 500;
 }
 
 :is(body:has(.app-sidebar), body:has(.auth-page)) [class~="border-slate-950"],
@@ -129,8 +136,18 @@ body:has(.auth-page) ::-webkit-scrollbar-thumb {
   background-image: none !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="from-brand-"] {
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="from-brand-"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-brand-"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-blue-600"],
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-emerald-600"] {
   background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="from-brand-"] *,
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-brand-"] *,
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-blue-600"] *,
+:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-emerald-600"] * {
   color: #ffffff !important;
 }
 
@@ -153,37 +170,41 @@ body:has(.app-sidebar) [class~="bg-slate-900"]:hover {
 }
 
 .app-sidebar {
-  background-color: #172033 !important;
-  border-color: #26344d !important;
-  box-shadow: 12px 0 28px rgba(15, 23, 42, 0.08);
+  background-color: #0b1220 !important;
+  border-color: #1e293b !important;
+  box-shadow: 12px 0 28px rgba(15, 23, 42, 0.15);
 }
 
 .app-sidebar [class~="bg-slate-950"],
 .app-sidebar [class*="bg-slate-950/"] {
-  background-color: #111827 !important;
+  background-color: #080e19 !important;
 }
 
 .app-sidebar [class~="bg-slate-800"],
 .app-sidebar [class*="bg-slate-800/"] {
-  background-color: #26344d !important;
+  background-color: #1e293b !important;
 }
 
 .app-sidebar [class~="text-white"],
 .app-sidebar [class~="text-slate-100"],
-.app-sidebar [class~="text-slate-200"],
-.app-sidebar [class~="text-slate-300"] {
-  color: #f8fafc !important;
+.app-sidebar [class~="text-slate-200"] {
+  color: #ffffff !important;
 }
 
-.app-sidebar [class~="text-slate-400"],
-.app-sidebar [class~="text-slate-500"] {
-  color: #aab8ce !important;
+.app-sidebar [class~="text-slate-300"],
+.app-sidebar [class~="text-slate-400"] {
+  color: #cbd5e1 !important;
+}
+
+.app-sidebar [class~="text-slate-500"],
+.app-sidebar [class~="text-slate-600"] {
+  color: #94a3b8 !important;
 }
 
 .app-sidebar [class~="border-slate-200"],
 .app-sidebar [class~="border-slate-800"],
 .app-sidebar [class*="border-slate-800/"] {
-  border-color: #26344d !important;
+  border-color: #1e293b !important;
 }
 
 .app-sidebar a,
@@ -198,4 +219,47 @@ body:has(.app-sidebar) [class~="bg-slate-900"]:hover {
 
 .app-sidebar [class*="bg-brand-500/"] {
   box-shadow: inset 3px 0 0 #38bdf8, 0 4px 14px rgba(2, 132, 199, 0.12);
+}
+
+/* Sidebar icons & text high-contrast enforcement */
+.app-sidebar svg {
+  color: #38bdf8 !important; /* Bright sky blue icons that POP on dark sidebar */
+}
+
+.app-sidebar [class*="bg-[#F8FAFC]"] svg,
+.app-sidebar [class*="bg-white"] svg {
+  color: #0f172a !important; /* Dark icon on white active nav pill */
+}
+
+.app-sidebar a:hover svg,
+.app-sidebar button:hover svg {
+  color: #ffffff !important;
+}
+
+/* Badge pills contrast enforcement across workspace boxes */
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-emerald-"]:not([class*="bg-emerald-600"]) {
+  color: #064e3b !important;
+  font-weight: 700 !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-rose-"]:not([class*="bg-rose-600"]),
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-red-"]:not([class*="bg-red-600"]) {
+  color: #881337 !important;
+  font-weight: 700 !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-amber-"]:not([class*="bg-amber-600"]) {
+  color: #78350f !important;
+  font-weight: 700 !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-blue-"]:not([class*="bg-blue-600"]),
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-sky-"]:not([class*="bg-sky-600"]) {
+  color: #0369a1 !important;
+  font-weight: 700 !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-purple-"]:not([class*="bg-purple-600"]) {
+  color: #581c87 !important;
+  font-weight: 700 !important;
 }

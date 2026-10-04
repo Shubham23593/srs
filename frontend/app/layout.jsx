@@ -3,7 +3,7 @@ import './landing.css';
 import { AuthProvider } from '../context/AuthContext';
 
 export const metadata = {
-  title: 'IntelliSDLC AI | AI-Powered Requirements Engineering Platform',
+  title: 'Aether AI | AI-Powered Requirements Engineering Platform',
   description: 'Enterprise AI platform for requirements elicitation, extraction, analysis, exact-template SRS generation, traceability, and continuous version control.',
 };
 

@@ -29,7 +29,7 @@ const protect = async (req, res, next) => {
       if (!defaultUser) {
         defaultUser = await User.create({
           name: 'Demo Architect',
-          email: 'architect@intellisdlc.ai',
+          email: 'architect@aether.ai',
           password: 'password123',
           organization: 'Software Engineering Laboratory'
         });
@@ -37,7 +37,7 @@ const protect = async (req, res, next) => {
       req.user = defaultUser;
       return next();
     } catch (e) {
-      req.user = { _id: '64f000000000000000000001', name: 'Demo Architect', email: 'architect@intellisdlc.ai' };
+      req.user = { _id: '64f000000000000000000001', name: 'Demo Architect', email: 'architect@aether.ai' };
       return next();
     }
   }

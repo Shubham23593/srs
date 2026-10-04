@@ -101,7 +101,7 @@ export default function AuthLayout({
                     leading-none
                   "
                 >
-                  IntelliSDLC AI
+                  Aether AI
                 </h1>
 
                 <p
@@ -375,7 +375,7 @@ export default function AuthLayout({
 
                 <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
 
-                <span className="w-2.5 h-2.5 rounded-full bg-[#21c48c]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0284c7]" />
 
               </div>
 
@@ -542,7 +542,7 @@ export default function AuthLayout({
                             absolute
                             inset-0
                             rounded-full
-                            bg-[conic-gradient(#1478f5_0deg_225deg,#2fc5a4_225deg_290deg,#f8b735_290deg_335deg,#8255e8_335deg_360deg)]
+                            bg-[conic-gradient(#1478f5_0deg_225deg,#0284c7_225deg_290deg,#f8b735_290deg_335deg,#8255e8_335deg_360deg)]
                           "
                         />
 
@@ -566,8 +566,8 @@ export default function AuthLayout({
                         </div>
 
                         <div className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                          <span className="h-1.5 w-6 rounded bg-emerald-100" />
+                          <span className="w-2 h-2 rounded-full bg-sky-400" />
+                          <span className="h-1.5 w-6 rounded bg-sky-100" />
                         </div>
 
                         <div className="flex items-center gap-1">
@@ -616,9 +616,9 @@ export default function AuthLayout({
 
                         <div className="flex items-center gap-2">
 
-                          <span className="w-3.5 h-3.5 rounded-full bg-emerald-400" />
+                          <span className="w-3.5 h-3.5 rounded-full bg-sky-400" />
 
-                          <div className="h-2 w-14 rounded-full bg-emerald-100" />
+                          <div className="h-2 w-14 rounded-full bg-sky-100" />
 
                         </div>
 
@@ -722,13 +722,13 @@ export default function AuthLayout({
                   w-8
                   h-8
                   rounded-full
-                  bg-emerald-100
+                  bg-sky-100
                   flex
                   items-center
                   justify-center
                 "
               >
-                <Check className="w-5 h-5 text-emerald-500" />
+                <Check className="w-5 h-5 text-sky-600" />
               </div>
 
               <div className="space-y-1.5">

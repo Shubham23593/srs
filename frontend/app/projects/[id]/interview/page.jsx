@@ -257,10 +257,10 @@ export default function InterviewPage() {
                 <button
                   onClick={() => handleSendMessage('SKIP_SECTION')}
                   disabled={loading}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold rounded-lg border border-slate-300 shadow-sm transition-all flex items-center gap-1.5"
                 >
-                  <SkipForward className="w-3.5 h-3.5" />
-                  Next Section
+                  <SkipForward className="w-4 h-4 text-slate-700" />
+                  <span>Next Section</span>
                 </button>
               )}
             </div>
@@ -295,7 +295,7 @@ export default function InterviewPage() {
 
             {/* Section Checklist */}
             <div className="space-y-1">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">
+              <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider px-2 py-1 mb-1">
                 Requirements Lifecycle Flow
               </div>
 
@@ -339,21 +339,21 @@ export default function InterviewPage() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-emerald-300' : isDone ? 'text-slate-200' : isSkipped ? 'text-slate-400' : 'text-slate-400'}`}>
+                        <span className={`text-xs font-bold truncate ${isCurrent ? 'text-blue-700' : isDone ? 'text-slate-900' : isSkipped ? 'text-slate-700' : 'text-slate-700'}`}>
                           {sec.stepIndex}. {sec.name}
                         </span>
                         {isDone && (
-                          <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                          <span className="text-[9px] font-mono text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-300 font-bold">
                             Done
                           </span>
                         )}
                         {isSkipped && (
-                          <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                          <span className="text-[9px] font-mono text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded border border-amber-300 font-bold">
                             Skipped
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">{sec.description}</p>
+                      <p className="text-[10px] text-slate-600 font-medium truncate mt-0.5">{sec.description}</p>
                     </div>
                   </div>
                 );
@@ -411,12 +411,12 @@ export default function InterviewPage() {
 
                     <div className={`max-w-xl rounded-2xl p-4 text-xs leading-relaxed ${isAI
                         ? isOutOfScopeAlert
-                          ? 'bg-amber-950/20 border border-amber-500/30 text-amber-200 shadow-md'
-                          : 'bg-slate-900 border border-slate-800 text-slate-200 shadow-md'
-                        : 'bg-brand-600 text-slate-950 font-medium'
+                          ? 'bg-amber-100 border border-amber-300 text-slate-950 shadow-md'
+                          : 'bg-slate-900 border border-slate-800 text-slate-900 shadow-md'
+                        : 'bg-[#a7e3fa] text-slate-950 font-medium border border-sky-300 shadow-sm'
                       }`}>
-                      <div className="flex items-center justify-between gap-4 mb-1.5 text-[10px] opacity-75">
-                        <span className="font-bold">
+                      <div className="flex items-center justify-between gap-4 mb-1.5 text-[10px]">
+                        <span className={`font-bold ${isAI ? (isOutOfScopeAlert ? 'text-amber-950 font-extrabold' : 'text-slate-900 font-extrabold') : 'text-slate-950 font-extrabold'}`}>
                           {isAI ? (isOutOfScopeAlert ? 'Context Guard Warning' : 'AI Requirements Engineer') : `${user?.name || 'You'} (Requirements Analyst)`}
                         </span>
                         <div className="flex items-center gap-2">
@@ -425,11 +425,11 @@ export default function InterviewPage() {
                               {msg.languageDetected}
                             </span>
                           )}
-                          {msg.topic && <span>#{msg.topic}</span>}
+                          {msg.topic && <span className={isAI && isOutOfScopeAlert ? 'text-amber-900 font-bold' : !isAI ? 'text-sky-900 font-bold' : 'text-slate-700 font-bold'}>#{msg.topic}</span>}
                         </div>
                       </div>
 
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <p className={`whitespace-pre-wrap ${isAI ? (isOutOfScopeAlert ? 'text-slate-950 font-medium' : 'text-slate-900 font-medium') : 'text-slate-950 font-medium'}`}>{msg.content}</p>
 
                       {msg.extractedRequirementIds?.length > 0 && (
                         <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5">
@@ -457,8 +457,8 @@ export default function InterviewPage() {
                       <FileCheck2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-white">Stage 9: Requirements Elicitation Summary</h4>
-                      <p className="text-xs text-slate-400">All required sections complete. Ready for locking and ISO/IEC/IEEE 29148 SRS generation.</p>
+                      <h4 className="text-sm font-bold text-slate-900">Stage 9: Requirements Elicitation Summary</h4>
+                      <p className="text-xs text-slate-700 font-medium">All required sections complete. Ready for locking and ISO/IEC/IEEE 29148 SRS generation.</p>
                     </div>
                   </div>
 
@@ -507,17 +507,17 @@ export default function InterviewPage() {
                   <div className="flex items-center gap-3">
                     <Lock className="w-5 h-5 text-emerald-400" />
                     <div>
-                      <div className="font-bold text-white">Interview Session Completed & Requirements Locked</div>
-                      <div className="text-slate-400">Requirements are locked for baseline SRS v1.0. You can unlock to refine specifications.</div>
+                      <div className="font-bold text-slate-900 text-sm">Interview Session Completed & Requirements Locked</div>
+                      <div className="text-slate-700 font-medium">Requirements are locked for baseline SRS v1.0. You can unlock to refine specifications.</div>
                     </div>
                   </div>
 
                   <button
                     onClick={handleReopenInterview}
-                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5 shrink-0"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold rounded-lg border border-slate-300 shadow-sm transition-all flex items-center gap-1.5 shrink-0"
                   >
-                    <Unlock className="w-3.5 h-3.5 text-amber-400" />
-                    Reopen for Refinement
+                    <Unlock className="w-4 h-4 text-amber-600" />
+                    <span className="text-slate-900 font-bold">Reopen for Refinement</span>
                   </button>
                 </div>
               )}

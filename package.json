@@ -1,7 +1,7 @@
 {
-  "name": "intellisdlc-ai-platform",
+  "name": "aether-ai-platform",
   "version": "1.0.0",
-  "description": "IntelliSDLC AI - Software Requirements Engineering Platform",
+  "description": "Aether AI - Software Requirements Engineering Platform",
   "scripts": {
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",

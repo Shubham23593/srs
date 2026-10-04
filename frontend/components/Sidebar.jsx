@@ -73,7 +73,7 @@ export default function Sidebar() {
             <span className="font-bold text-[17px] tracking-tight !text-white block">
               Aether
             </span>
-            <span className="mt-1 text-[10px] !text-slate-400 uppercase tracking-[0.16em] font-medium block">
+            <span className="mt-1 text-[10px] uppercase tracking-[0.16em] font-medium block style={{ color: '#cbd5e1' }}">
               Requirements Workspace
             </span>
           </div>
@@ -84,7 +84,7 @@ export default function Sidebar() {
           {/* Workspace */}
           <div className="mb-6">
             <div className="hidden md:flex px-3 mb-2 items-center">
-              <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-slate-600">
+              <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-slate-400">
                 Workspace
               </span>
             </div>
@@ -103,8 +103,8 @@ export default function Sidebar() {
                   className={cn(
                     'w-[17px] h-[17px] shrink-0 transition-colors',
                     pathname === '/dashboard' || pathname === '/'
-                      ? 'text-slate-800'
-                      : 'text-slate-500 group-hover:text-white'
+                      ? 'text-slate-900'
+                      : 'text-slate-300 group-hover:text-white'
                   )}
                 />
                 <span className="hidden md:inline">Dashboard</span>
@@ -123,8 +123,8 @@ export default function Sidebar() {
                   className={cn(
                     'w-[17px] h-[17px] shrink-0 transition-colors',
                     pathname === '/projects'
-                      ? 'text-slate-800'
-                      : 'text-slate-500 group-hover:text-white'
+                      ? 'text-slate-900'
+                      : 'text-slate-300 group-hover:text-white'
                   )}
                 />
                 <span className="hidden md:inline">Projects</span>
@@ -173,7 +173,7 @@ export default function Sidebar() {
           {projectId ? (
             <div className="hidden md:block pt-5 border-t border-white/[0.07]">
               <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-slate-600">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-slate-400">
                   Current Project
                 </span>
               </div>
@@ -309,8 +309,8 @@ export default function Sidebar() {
                   className={cn(
                     'w-[17px] h-[17px] shrink-0 transition-colors',
                     pathname === `/projects/${projectId}/settings`
-                      ? 'text-slate-800'
-                      : 'text-slate-500 group-hover:text-white'
+                      ? 'text-slate-900'
+                      : 'text-slate-300 group-hover:text-white'
                   )}
                 />
                 <span className="hidden md:inline">Settings</span>
