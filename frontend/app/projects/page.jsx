@@ -104,31 +104,31 @@ export default function ProjectsPage() {
           actions={
             <Link
               href="/projects/new"
-              className="px-4 py-2 bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-brand-500/20 transition-all flex items-center gap-1.5"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
             >
-              <Plus className="w-4 h-4" />
-              <span>Create New Project</span>
+              <Plus className="w-4 h-4 text-white" />
+              <span className="text-white font-bold">Create New Project</span>
             </Link>
           }
         />
 
         <main className="flex-1 p-8 space-y-6 overflow-y-auto custom-scrollbar">
           {/* Top Control Bar: Search & Status Filter */}
-          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shadow-xl">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shadow-sm">
             {/* Search Input */}
             <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search projects by name, ID, or domain..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none shadow-sm"
               />
             </div>
 
             {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800 text-xs font-semibold overflow-x-auto">
+            <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200 text-xs font-semibold overflow-x-auto">
               {[
                 { id: 'ALL', label: 'All', count: counts.all },
                 { id: 'INTERVIEWING', label: 'Interviewing', count: counts.interviewing },
@@ -140,12 +140,12 @@ export default function ProjectsPage() {
                   key={f.id}
                   onClick={() => setStatusFilter(f.id)}
                   className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0 ${statusFilter === f.id
-                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                     }`}
                 >
                   <span>{f.label}</span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${statusFilter === f.id ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-800 text-slate-500'
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${statusFilter === f.id ? 'bg-blue-800 text-white font-bold' : 'bg-slate-200 text-slate-700'
                     }`}>
                     {f.count}
                   </span>
@@ -155,15 +155,15 @@ export default function ProjectsPage() {
           </div>
 
           {/* Project List / Grid */}
-          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-white tracking-tight">Active Project Specifications</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">Active Project Specifications</h3>
+                <p className="text-xs text-slate-500 font-medium">
                   Showing {filteredProjects.length} of {projects.length} total software specifications
                 </p>
               </div>
-              <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-xl border border-emerald-500/20">
+              <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-xl border border-emerald-300">
                 {counts.approved} Approved SRS
               </span>
             </div>
@@ -179,44 +179,44 @@ export default function ProjectsPage() {
                 </p>
                 <Link
                   href="/projects/new"
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-brand-500/20 transition-all"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
                 >
-                  <Plus className="w-4 h-4" />
-                  Create First Project
+                  <Plus className="w-4 h-4 text-white" />
+                  <span className="text-white font-bold">Create First Project</span>
                 </Link>
               </div>
             ) : (
-              <div className="divide-y divide-slate-800/80">
+              <div className="divide-y divide-slate-100">
                 {filteredProjects.map((proj) => (
                   <div
                     key={proj._id}
-                    className="p-6 hover:bg-slate-800/40 transition-colors flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 group"
+                    className="p-6 hover:bg-slate-50 transition-colors flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 group"
                   >
                     <div className="space-y-1.5 max-w-3xl flex-1">
                       <div className="flex items-center gap-3 flex-wrap">
                         <Link
                           href={`/projects/${proj._id}`}
-                          className="font-bold text-base text-white group-hover:text-brand-400 transition-colors flex items-center gap-1.5"
+                          className="font-bold text-base text-slate-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5"
                         >
                           <span>{proj.projectName}</span>
-                          <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-brand-400" />
+                          <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-600" />
                         </Link>
-                        <span className="font-mono text-xs px-2 py-0.5 rounded-lg bg-slate-950 text-slate-400 border border-slate-800">
+                        <span className="font-mono text-xs px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 font-semibold">
                           {proj.projectId}
                         </span>
                         <StatusBadge status={proj.status} size="xs" />
                       </div>
 
-                      <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
+                      <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
                         {proj.description || proj.scope || 'No description provided.'}
                       </p>
 
-                      <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-1 flex-wrap">
-                        <span className="flex items-center gap-1 text-slate-400">
-                          <Tag className="w-3 h-3 text-emerald-400" />
+                      <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-1 flex-wrap font-medium">
+                        <span className="flex items-center gap-1 text-slate-700">
+                          <Tag className="w-3 h-3 text-emerald-600" />
                           <span>Domain: {proj.domain || 'Software Platform'}</span>
                         </span>
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-slate-500">
                           <Calendar className="w-3 h-3" />
                           <span>Created: {formatDate(proj.createdAt)}</span>
                         </span>
@@ -227,24 +227,24 @@ export default function ProjectsPage() {
                     <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0">
                       <Link
                         href={`/projects/${proj._id}`}
-                        className="px-3 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-semibold text-slate-300 transition-colors"
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-xs font-semibold text-slate-700 hover:text-slate-900 shadow-sm transition-colors"
                       >
                         Step 1 (Info)
                       </Link>
                       <Link
                         href={`/projects/${proj._id}/interview`}
-                        className="px-3 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-semibold text-slate-300 transition-colors flex items-center gap-1"
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-xs font-semibold text-slate-700 hover:text-slate-900 shadow-sm transition-colors flex items-center gap-1"
                       >
-                        <MessageSquareCode className="w-3.5 h-3.5 text-blue-400" />
+                        <MessageSquareCode className="w-3.5 h-3.5 text-blue-600" />
                         <span>Step 2 (Interview)</span>
                       </Link>
                       <Link
                         href={`/projects/${proj._id}/srs`}
-                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-brand-500/15 to-emerald-500/15 hover:from-brand-500/25 hover:to-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                        className="px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
                       >
-                        <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                        <FileText className="w-3.5 h-3.5 text-blue-600" />
                         <span>SRS Workbench</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
                       </Link>
                     </div>
                   </div>

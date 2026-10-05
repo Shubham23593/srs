@@ -125,17 +125,17 @@ export default function AnalysisPage() {
               <button
                 onClick={handleRunAnalysis}
                 disabled={analyzing}
-                className="px-4 py-2 bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-slate-950 font-bold text-xs rounded-lg shadow-lg shadow-brand-500/20 transition-all flex items-center gap-1.5"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5"
               >
-                <Sparkles className="w-4 h-4" />
-                {analyzing ? 'Analyzing Semantics...' : 'Run Quality Audit'}
+                <Sparkles className="w-4 h-4 text-white" />
+                <span className="text-white font-bold">{analyzing ? 'Analyzing Semantics...' : 'Run Quality Audit'}</span>
               </button>
               <Link
                 href={`/projects/${projectId}/validation`}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5"
               >
-                <span>Next: Step 5 (Validation)</span>
-                <ArrowRight className="w-4 h-4" />
+                <span className="text-white font-bold">Next: Step 5 (Validation)</span>
+                <ArrowRight className="w-4 h-4 text-white" />
               </Link>
             </div>
           }

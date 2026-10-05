@@ -309,10 +309,10 @@ export default function DashboardPage() {
 
               <Link
                 href="/projects/new"
-                className="px-4 py-2 rounded-lg bg-blue-800 hover:bg-blue-900 !text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5"
               >
-                <Plus className="w-4 h-4" />
-                New Project
+                <Plus className="w-4 h-4 text-white" />
+                <span className="text-white font-semibold">New Project</span>
               </Link>
             </div>
           }

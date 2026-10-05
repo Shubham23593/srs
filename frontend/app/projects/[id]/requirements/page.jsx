@@ -261,25 +261,25 @@ export default function RequirementsPage() {
           actions={
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsExtractModalOpen(true)}
-                className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-lg shadow-lg shadow-purple-500/20 transition-all flex items-center gap-1.5"
+                onClick={() => setIsExtractOpen(true)}
+                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI NLP Bulk Extract</span>
+                <Sparkles className="w-3.5 h-3.5 text-white" />
+                <span className="text-white font-bold">AI NLP Bulk Extract</span>
               </button>
               <button
                 onClick={() => setIsAddOpen(true)}
-                className="px-3.5 py-2 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs rounded-lg shadow-lg shadow-brand-500/20 transition-all flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Requirement</span>
+                <Plus className="w-3.5 h-3.5 text-white" />
+                <span className="text-white font-bold">Add Requirement</span>
               </button>
               <Link
                 href={`/projects/${projectId}/analysis`}
-                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs rounded-lg border border-slate-300 shadow-sm transition-colors flex items-center gap-1.5"
               >
-                <span>Next: Step 4 (Analysis)</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <span className="text-slate-800 font-bold">Next: Step 4 (Analysis)</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-700" />
               </Link>
             </div>
           }
@@ -290,52 +290,52 @@ export default function RequirementsPage() {
 
         <main className="flex-1 p-8 space-y-6 overflow-y-auto max-w-7xl mx-auto w-full custom-scrollbar">
           {/* Controls & Filter Bar */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setFilterType('ALL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'ALL' ? 'bg-brand-500/10 text-brand-300 border border-brand-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === 'ALL' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}`}
               >
                 All ({requirements.length})
               </button>
               <button
                 onClick={() => setFilterType('FUNCTIONAL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'FUNCTIONAL' ? 'bg-blue-500/10 text-blue-300 border border-blue-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === 'FUNCTIONAL' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}`}
               >
                 FR ({frCount})
               </button>
               <button
                 onClick={() => setFilterType('NON_FUNCTIONAL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'NON_FUNCTIONAL' ? 'bg-purple-500/10 text-purple-300 border border-purple-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === 'NON_FUNCTIONAL' ? 'bg-purple-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}`}
               >
                 NFR ({nfrCount})
               </button>
               <button
                 onClick={() => setFilterType('CONSTRAINT')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterType === 'CONSTRAINT' ? 'bg-orange-500/10 text-orange-300 border border-orange-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === 'CONSTRAINT' ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}`}
               >
                 Constraints ({requirements.filter(r => r.type === 'CONSTRAINT').length})
               </button>
 
-              <label className="flex items-center gap-1.5 text-xs text-slate-400 ml-3 cursor-pointer select-none">
+              <label className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold ml-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={showArchived}
                   onChange={(e) => setShowArchived(e.target.checked)}
-                  className="rounded bg-slate-950 border-slate-700 text-brand-500 focus:ring-0"
+                  className="rounded bg-white border-slate-300 text-blue-600 focus:ring-0"
                 />
                 Show Archived
               </label>
             </div>
 
             <div className="relative w-full md:w-64">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
                 placeholder="Search by ID, keyword..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder:text-slate-500 focus:border-brand-500 focus:outline-none"
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none shadow-sm"
               />
             </div>
           </div>

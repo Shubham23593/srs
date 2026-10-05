@@ -40,13 +40,13 @@ export default function Sidebar() {
     'relative z-20 !text-slate-900 bg-[#F8FAFC] border border-[#F8FAFC] rounded-l-xl rounded-r-none shadow-[0_2px_10px_rgba(15,23,42,0.06)]';
 
   const inactiveNavClass =
-    '!text-slate-300 hover:!text-white hover:bg-white/[0.055] border border-transparent';
+    '!text-slate-200 hover:!text-white hover:bg-white/[0.07] border border-transparent font-medium';
 
   const activeChildClass =
     'relative !text-slate-900 bg-[#F8FAFC] font-semibold border border-[#F8FAFC] rounded-lg shadow-sm';
 
   const inactiveChildClass =
-    '!text-slate-300 hover:!text-white hover:bg-white/[0.045] border border-transparent';
+    '!text-slate-200 hover:!text-white hover:bg-white/[0.06] border border-transparent font-medium';
 
   return (
     <>
@@ -73,7 +73,7 @@ export default function Sidebar() {
             <span className="font-bold text-[17px] tracking-tight !text-white block">
               Aether
             </span>
-            <span className="mt-1 text-[10px] uppercase tracking-[0.16em] font-medium block style={{ color: '#cbd5e1' }}">
+            <span className="sidebar-sub-title mt-1 text-[10px] uppercase tracking-[0.16em] font-semibold block text-slate-400">
               Requirements Workspace
             </span>
           </div>
@@ -84,7 +84,7 @@ export default function Sidebar() {
           {/* Workspace */}
           <div className="mb-6">
             <div className="hidden md:flex px-3 mb-2 items-center">
-              <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-slate-400">
+              <span className="sidebar-section-title text-[10px] uppercase tracking-[0.16em] font-bold text-slate-300">
                 Workspace
               </span>
             </div>
@@ -103,8 +103,8 @@ export default function Sidebar() {
                   className={cn(
                     'w-[17px] h-[17px] shrink-0 transition-colors',
                     pathname === '/dashboard' || pathname === '/'
-                      ? 'text-slate-900'
-                      : 'text-slate-300 group-hover:text-white'
+                      ? '!text-slate-900'
+                      : 'text-sky-400 group-hover:text-white'
                   )}
                 />
                 <span className="hidden md:inline">Dashboard</span>
@@ -123,8 +123,8 @@ export default function Sidebar() {
                   className={cn(
                     'w-[17px] h-[17px] shrink-0 transition-colors',
                     pathname === '/projects'
-                      ? 'text-slate-900'
-                      : 'text-slate-300 group-hover:text-white'
+                      ? '!text-slate-900'
+                      : 'text-sky-400 group-hover:text-white'
                   )}
                 />
                 <span className="hidden md:inline">Projects</span>
@@ -173,7 +173,7 @@ export default function Sidebar() {
           {projectId ? (
             <div className="hidden md:block pt-5 border-t border-white/[0.07]">
               <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-slate-400">
+                <span className="sidebar-section-title text-[10px] uppercase tracking-[0.16em] font-bold text-slate-300">
                   Current Project
                 </span>
               </div>
@@ -218,8 +218,8 @@ export default function Sidebar() {
                         : inactiveChildClass
                     )}
                   >
-                    <FileText className="w-3.5 h-3.5" />
-                    Project Overview
+                    <FileText className="w-3.5 h-3.5 shrink-0 text-sky-400/90 group-hover:text-white" />
+                    <span>Project Overview</span>
                   </Link>
 
                   <Link
@@ -231,8 +231,8 @@ export default function Sidebar() {
                         : inactiveChildClass
                     )}
                   >
-                    <MessageSquareCode className="w-3.5 h-3.5" />
-                    AI Interview
+                    <MessageSquareCode className="w-3.5 h-3.5 shrink-0 text-sky-400/90 group-hover:text-white" />
+                    <span>AI Interview</span>
                   </Link>
 
                   <Link
@@ -244,8 +244,8 @@ export default function Sidebar() {
                         : inactiveChildClass
                     )}
                   >
-                    <ListFilter className="w-3.5 h-3.5" />
-                    Requirements
+                    <ListFilter className="w-3.5 h-3.5 shrink-0 text-sky-400/90 group-hover:text-white" />
+                    <span>Requirements</span>
                   </Link>
 
                   <Link
@@ -257,8 +257,8 @@ export default function Sidebar() {
                         : inactiveChildClass
                     )}
                   >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Requirement Analysis
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-sky-400/90 group-hover:text-white" />
+                    <span>Requirement Analysis</span>
                   </Link>
 
                   <Link
@@ -270,8 +270,8 @@ export default function Sidebar() {
                         : inactiveChildClass
                     )}
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Validation
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-sky-400/90 group-hover:text-white" />
+                    <span>Validation</span>
                   </Link>
 
                   <Link
@@ -285,8 +285,8 @@ export default function Sidebar() {
                         : inactiveChildClass
                     )}
                   >
-                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                    SRS Workbench
+                    <FileText className="w-3.5 h-3.5 shrink-0 text-emerald-400 group-hover:text-white" />
+                    <span>SRS Workbench</span>
                   </Link>
                 </div>
               )}
@@ -309,8 +309,8 @@ export default function Sidebar() {
                   className={cn(
                     'w-[17px] h-[17px] shrink-0 transition-colors',
                     pathname === `/projects/${projectId}/settings`
-                      ? 'text-slate-900'
-                      : 'text-slate-300 group-hover:text-white'
+                      ? '!text-slate-900'
+                      : 'text-sky-400 group-hover:text-white'
                   )}
                 />
                 <span className="hidden md:inline">Settings</span>
@@ -345,7 +345,7 @@ export default function Sidebar() {
                   <span className="truncate">{user?.name || 'Engineer'}</span>
                   <Edit2 className="w-2.5 h-2.5 text-slate-600 group-hover:text-sky-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </div>
-                <div className="text-[10px] !text-slate-400 truncate">
+                <div className="text-[10px] truncate font-medium text-slate-300" style={{ color: '#94a3b8' }}>
                   {user?.organization || 'Engineering Lab'}
                 </div>
               </div>

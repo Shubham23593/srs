@@ -89,24 +89,93 @@ body:has(.auth-page) ::-webkit-scrollbar-thumb {
   background-color: #f1f5f9 !important;
 }
 
-/* Workspace light mode text overrides (scoped exclusively to main content area so .app-sidebar stays dark & bright) */
-body:has(.app-sidebar) main [class~="text-white"],
-body:has(.app-sidebar) main [class~="text-slate-100"],
-body:has(.app-sidebar) main [class~="text-slate-200"],
-body:has(.app-sidebar) main [class~="text-slate-300"],
-body:has(.app-sidebar) main [class~="text-slate-700"],
-body:has(.app-sidebar) main [class~="text-slate-800"],
-body:has(.app-sidebar) main [class~="text-slate-900"],
-body:has(.auth-page) [class~="text-slate-900"] {
+/* Secondary buttons / links styled with bg-slate-800 get high-contrast text and border */
+body:has(.app-sidebar) main :is(button, a)[class*="bg-slate-800"],
+body:has(.auth-page) :is(button, a)[class*="bg-slate-800"] {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+
+body:has(.app-sidebar) main :is(button, a)[class*="bg-slate-800"] *,
+body:has(.auth-page) :is(button, a)[class*="bg-slate-800"] * {
+  color: #1e293b !important;
+}
+
+body:has(.app-sidebar) main :is(button, a)[class*="bg-slate-800"]:hover,
+body:has(.auth-page) :is(button, a)[class*="bg-slate-800"]:hover {
+  background-color: #f1f5f9 !important;
   color: #0f172a !important;
 }
 
-body:has(.app-sidebar) main [class~="text-slate-400"],
-body:has(.app-sidebar) main [class~="text-slate-500"],
-body:has(.app-sidebar) main [class~="text-slate-600"],
-body:has(.auth-page) [class~="text-slate-500"] {
+body:has(.app-sidebar) main :is(button, a)[class*="bg-slate-800"]:hover *,
+body:has(.auth-page) :is(button, a)[class*="bg-slate-800"]:hover * {
+  color: #0f172a !important;
+}
+
+/* Workspace text contrast: headings, body copy, and descriptive labels strictly inside main */
+body:has(.app-sidebar) main :is(
+  h1[class*="text-white"],
+  h2[class*="text-white"],
+  h3[class*="text-white"],
+  h4[class*="text-white"],
+  p[class*="text-white"],
+  div[class~="text-white"]:not(button *):not(a *):not([class*="bg-blue-"] *):not([class*="bg-emerald-"] *):not([class*="bg-purple-"] *):not([class*="bg-indigo-"] *):not([class*="bg-rose-"] *):not([class*="bg-red-"] *),
+  span[class~="text-white"]:not(button *):not(a *):not([class*="bg-blue-"] *):not([class*="bg-emerald-"] *):not([class*="bg-purple-"] *):not([class*="bg-indigo-"] *):not([class*="bg-rose-"] *):not([class*="bg-red-"] *),
+  [class~="text-slate-100"]:not(button *):not(a *),
+  [class~="text-slate-200"]:not(button *):not(a *),
+  [class~="text-slate-300"]:not(button *):not(a *)
+) {
+  color: #0f172a !important;
+}
+
+body:has(.app-sidebar) main :is(
+  [class~="text-slate-400"]:not(button *):not(a *),
+  [class~="text-slate-500"]:not(button *):not(a *)
+) {
   color: #334155 !important;
   font-weight: 500;
+}
+
+/* Colored buttons must always keep crisp white text and white icons */
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) :is(
+  [class*="bg-blue-600"],
+  [class*="bg-blue-700"],
+  [class*="bg-blue-800"],
+  [class*="bg-blue-900"],
+  [class*="bg-emerald-600"],
+  [class*="bg-emerald-700"],
+  [class*="bg-purple-600"],
+  [class*="bg-purple-700"],
+  [class*="bg-indigo-600"],
+  [class*="bg-indigo-700"],
+  [class*="bg-rose-600"],
+  [class*="bg-red-600"],
+  [class*="bg-brand-500"],
+  [class*="bg-brand-600"],
+  [class*="bg-brand-700"]
+) {
+  color: #ffffff !important;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) :is(
+  [class*="bg-blue-600"],
+  [class*="bg-blue-700"],
+  [class*="bg-blue-800"],
+  [class*="bg-blue-900"],
+  [class*="bg-emerald-600"],
+  [class*="bg-emerald-700"],
+  [class*="bg-purple-600"],
+  [class*="bg-purple-700"],
+  [class*="bg-indigo-600"],
+  [class*="bg-indigo-700"],
+  [class*="bg-rose-600"],
+  [class*="bg-red-600"],
+  [class*="bg-brand-500"],
+  [class*="bg-brand-600"],
+  [class*="bg-brand-700"]
+) * {
+  color: #ffffff !important;
 }
 
 :is(body:has(.app-sidebar), body:has(.auth-page)) [class~="border-slate-950"],
@@ -132,27 +201,15 @@ body:has(.auth-page) [class~="text-slate-500"] {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-gradient-to-"] {
-  background-image: none !important;
-}
-
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="from-brand-"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-brand-"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-blue-600"],
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-emerald-600"] {
-  background-color: #0284c7 !important;
-  color: #ffffff !important;
-}
-
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="from-brand-"] *,
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-brand-"] *,
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-blue-600"] *,
-:is(body:has(.app-sidebar), body:has(.auth-page)) [class*="bg-emerald-600"] * {
-  color: #ffffff !important;
-}
-
-:is(body:has(.app-sidebar), body:has(.auth-page)) :is(input, textarea, select) {
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) :is(input, textarea) {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
   color-scheme: light;
+}
+
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) :is(input, textarea)::placeholder {
+  color: #64748b !important;
 }
 
 /* A dark navigation rail gives the light workspace a clear visual boundary. */
@@ -224,11 +281,7 @@ body:has(.app-sidebar) [class~="bg-slate-900"]:hover {
 /* Sidebar icons & text high-contrast enforcement */
 .app-sidebar svg {
   color: #38bdf8 !important; /* Bright sky blue icons that POP on dark sidebar */
-}
-
-.app-sidebar [class*="bg-[#F8FAFC]"] svg,
-.app-sidebar [class*="bg-white"] svg {
-  color: #0f172a !important; /* Dark icon on white active nav pill */
+  stroke: currentColor;
 }
 
 .app-sidebar a:hover svg,
@@ -236,30 +289,70 @@ body:has(.app-sidebar) [class~="bg-slate-900"]:hover {
   color: #ffffff !important;
 }
 
+/* ONLY the active nav tab that has the solid #F8FAFC background gets a dark icon */
+.app-sidebar a[class~="bg-[#F8FAFC]"] svg,
+.app-sidebar button[class~="bg-[#F8FAFC]"] svg {
+  color: #0f172a !important;
+}
+
+/* Section titles and brand in sidebar */
+.app-sidebar .sidebar-sub-title {
+  color: #94a3b8 !important;
+}
+
+.app-sidebar .sidebar-section-title {
+  color: #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+
 /* Badge pills contrast enforcement across workspace boxes */
-:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-emerald-"]:not([class*="bg-emerald-600"]) {
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar):not(button):not(a) :is(
+  [class*="bg-emerald-50"],
+  [class*="bg-emerald-100"],
+  [class*="bg-emerald-500/"]
+) {
   color: #064e3b !important;
   font-weight: 700 !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-rose-"]:not([class*="bg-rose-600"]),
-:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-red-"]:not([class*="bg-red-600"]) {
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar):not(button):not(a) :is(
+  [class*="bg-rose-50"],
+  [class*="bg-rose-100"],
+  [class*="bg-rose-500/"],
+  [class*="bg-red-50"],
+  [class*="bg-red-100"],
+  [class*="bg-red-500/"]
+) {
   color: #881337 !important;
   font-weight: 700 !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-amber-"]:not([class*="bg-amber-600"]) {
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar):not(button):not(a) :is(
+  [class*="bg-amber-50"],
+  [class*="bg-amber-100"],
+  [class*="bg-amber-500/"]
+) {
   color: #78350f !important;
   font-weight: 700 !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-blue-"]:not([class*="bg-blue-600"]),
-:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-sky-"]:not([class*="bg-sky-600"]) {
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar):not(button):not(a) :is(
+  [class*="bg-blue-50"],
+  [class*="bg-blue-100"],
+  [class*="bg-blue-500/"],
+  [class*="bg-sky-50"],
+  [class*="bg-sky-100"],
+  [class*="bg-sky-500/"]
+) {
   color: #0369a1 !important;
   font-weight: 700 !important;
 }
 
-:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar) [class*="bg-purple-"]:not([class*="bg-purple-600"]) {
+:is(body:has(.app-sidebar), body:has(.auth-page)) :not(.app-sidebar):not(button):not(a) :is(
+  [class*="bg-purple-50"],
+  [class*="bg-purple-100"],
+  [class*="bg-purple-500/"]
+) {
   color: #581c87 !important;
   font-weight: 700 !important;
 }

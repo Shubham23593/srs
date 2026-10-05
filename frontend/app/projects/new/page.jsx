@@ -76,134 +76,134 @@ export default function NewProjectPage() {
         />
 
         <main className="flex-1 p-8 max-w-4xl mx-auto w-full overflow-y-auto">
-          <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-6 shadow-2xl">
-            <div className="border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                <FolderPlus className="w-5 h-5 text-brand-400" />
+          <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-8 space-y-6 shadow-sm">
+            <div className="border-b border-slate-200 pb-4">
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <FolderPlus className="w-5 h-5 text-blue-600" />
                 Project Specification Foundation
               </h2>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Provide foundational context to seed the AI interview and RAG vector knowledge base.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5 md:col-span-2">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Project Name *</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Project Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Smart Campus Navigation Platform"
                   value={formData.projectName}
                   onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5 md:col-span-2">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Project Description</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Project Description</label>
                 <textarea
                   rows={3}
                   placeholder="Briefly explain the high-level business goal and user value proposition..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5 md:col-span-2">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Project Scope</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Project Scope</label>
                 <textarea
                   rows={2}
                   placeholder="Specify system boundaries (what is IN scope vs OUT of scope)..."
                   value={formData.scope}
                   onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Domain / Industry</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Domain / Industry</label>
                 <input
                   type="text"
                   placeholder="e.g. Healthcare, Education, FinTech"
                   value={formData.domain}
                   onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Target Users (comma-separated)</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Target Users (comma-separated)</label>
                 <input
                   type="text"
                   placeholder="e.g. Students, Faculty, Administrators"
                   value={formData.targetUsers}
                   onChange={(e) => setFormData({ ...formData, targetUsers: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Stakeholders (comma-separated)</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Stakeholders (comma-separated)</label>
                 <input
                   type="text"
                   placeholder="e.g. Dean of Students, Campus Security, IT Dept"
                   value={formData.stakeholders}
                   onChange={(e) => setFormData({ ...formData, stakeholders: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Objectives (comma-separated)</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Objectives (comma-separated)</label>
                 <input
                   type="text"
                   placeholder="e.g. Reduce wait times, Automate scheduling"
                   value={formData.objectives}
                   onChange={(e) => setFormData({ ...formData, objectives: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Design & Tech Constraints</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Design & Tech Constraints</label>
                 <input
                   type="text"
                   placeholder="e.g. Must run in modern browsers, GDPR compliant"
                   value={formData.constraints}
                   onChange={(e) => setFormData({ ...formData, constraints: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Assumptions & Dependencies</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Assumptions & Dependencies</label>
                 <input
                   type="text"
                   placeholder="e.g. University LDAP active, 99.9% network availability"
                   value={formData.assumptions}
                   onChange={(e) => setFormData({ ...formData, assumptions: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400 shadow-sm"
                 />
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+            <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+                className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-semibold shadow-sm transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2"
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-2"
               >
-                <Sparkles className="w-4 h-4" />
-                {loading ? 'Creating Project...' : 'Create & Launch AI Interview'}
+                <Sparkles className="w-4 h-4 text-white" />
+                <span className="text-white font-bold">{loading ? 'Creating Project...' : 'Create & Launch AI Interview'}</span>
               </button>
             </div>
           </form>

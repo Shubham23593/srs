@@ -546,7 +546,9 @@ export default function LandingPage() {
 
         .lp-cap-card h3 {
           margin: 0 0 8px;
-          font-size: 17px;
+          font-size: 18px;
+          font-weight: 700;
+          color: #0f172a !important;
         }
 
         .lp-cap-card p {
@@ -1310,7 +1312,7 @@ export default function LandingPage() {
                 </div>
 
                 <div>
-                  <h3>AI-assisted elicitation</h3>
+                  <h3 style={{ color: '#0f172a', fontWeight: 700 }}>AI-assisted elicitation</h3>
 
                   <p>
                     Guided conversations help capture project context,
@@ -1332,7 +1334,7 @@ export default function LandingPage() {
                 </div>
 
                 <div>
-                  <h3>Requirement quality analysis</h3>
+                  <h3 style={{ color: '#0f172a', fontWeight: 700 }}>Requirement quality analysis</h3>
 
                   <p>
                     Surface ambiguity, duplication, conflicts and
@@ -1354,7 +1356,7 @@ export default function LandingPage() {
                 </div>
 
                 <div>
-                  <h3>Context retrieval</h3>
+                  <h3 style={{ color: '#0f172a', fontWeight: 700 }}>Context retrieval</h3>
 
                   <p>
                     Retrieve relevant project context when requirements
@@ -1376,7 +1378,7 @@ export default function LandingPage() {
                 </div>
 
                 <div>
-                  <h3>SRS generation & revision</h3>
+                  <h3 style={{ color: '#0f172a', fontWeight: 700 }}>SRS generation & revision</h3>
 
                   <p>
                     Generate structured requirements documentation,

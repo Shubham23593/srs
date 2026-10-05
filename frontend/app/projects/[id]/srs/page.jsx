@@ -212,37 +212,37 @@ export default function SRSWorkbenchPage() {
               <button
                 onClick={handleSyncSRS}
                 disabled={syncing || generating}
-                className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/40 transition-all flex items-center gap-1.5 shadow-sm"
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
                 title="Sync and rebuild SRS from latest requirements and Quality Audit"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Syncing SRS...' : 'Sync & Regenerate SRS'}
+                <RefreshCw className={`w-3.5 h-3.5 text-white ${syncing ? 'animate-spin' : ''}`} />
+                <span className="text-white font-semibold">{syncing ? 'Syncing SRS...' : 'Sync & Regenerate SRS'}</span>
               </button>
               <a
                 href={srsAPI.getExportPDFUrl(projectId)}
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5"
+                className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 shadow-sm transition-colors flex items-center gap-1.5"
               >
-                <Download className="w-3.5 h-3.5 text-rose-400" />
-                Export PDF
+                <Download className="w-3.5 h-3.5 text-rose-500" />
+                <span className="text-slate-700 font-semibold">Export PDF</span>
               </a>
               <a
                 href={srsAPI.getExportDOCXUrl(projectId)}
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5"
+                className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 shadow-sm transition-colors flex items-center gap-1.5"
               >
-                <Download className="w-3.5 h-3.5 text-blue-400" />
-                Export DOCX
+                <Download className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-slate-700 font-semibold">Export DOCX</span>
               </a>
               {srs && srs.status !== 'APPROVED' && (
                 <button
                   onClick={handleApproveSRS}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Approve SRS v{srs.currentVersion}
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span className="text-white font-bold">Approve SRS v{srs.currentVersion}</span>
                 </button>
               )}
             </div>
@@ -253,34 +253,34 @@ export default function SRSWorkbenchPage() {
         <ProjectStepper projectId={projectId} currentStatus={project?.status} />
 
         {/* Workbench Tabs Navigation */}
-        <div className="px-8 border-b border-slate-800 bg-slate-900/40 flex items-center justify-between">
+        <div className="px-8 border-b border-slate-200 bg-white flex items-center justify-between">
           <div className="flex gap-6 text-xs font-semibold">
             <button
               onClick={() => setActiveTab('document')}
-              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'document' ? 'border-brand-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'document' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
             >
               <FileText className="w-4 h-4" />
               SRS Document
             </button>
             <button
               onClick={() => setActiveTab('traceability')}
-              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'traceability' ? 'border-brand-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'traceability' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
             >
               <Layers className="w-4 h-4" />
               Traceability Matrix ({traceabilityData.length})
             </button>
             <button
               onClick={() => setActiveTab('versions')}
-              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'versions' ? 'border-brand-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'versions' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
             >
               <GitBranch className="w-4 h-4" />
               Version History & Diff ({versionsList.length})
             </button>
             <button
               onClick={() => setActiveTab('update')}
-              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'update' ? 'border-brand-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+              className={`py-3.5 border-b-2 transition-all flex items-center gap-2 ${activeTab === 'update' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
             >
-              <RefreshCw className="w-4 h-4 text-brand-400" />
+              <RefreshCw className="w-4 h-4 text-blue-600" />
               Incremental SRS Update
             </button>
           </div>
@@ -291,17 +291,17 @@ export default function SRSWorkbenchPage() {
                 <button
                   onClick={handleSyncSRS}
                   disabled={syncing || generating}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold hover:bg-emerald-500/20 transition-all flex items-center gap-1.5"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold hover:bg-blue-100 transition-all flex items-center gap-1.5 shadow-sm"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${syncing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${syncing ? 'animate-spin' : ''}`} />
                   {syncing ? 'Syncing...' : 'Sync & Regenerate SRS'}
                 </button>
                 <button
                   onClick={handleReviewSRS}
                   disabled={reviewing}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 font-semibold hover:bg-purple-500/20 transition-all flex items-center gap-1.5"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 font-semibold hover:bg-purple-100 transition-all flex items-center gap-1.5 shadow-sm"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
                   {reviewing ? 'Auditing...' : 'Run ISO/IEEE Compliance Audit'}
                 </button>
               </>
@@ -309,9 +309,9 @@ export default function SRSWorkbenchPage() {
               <button
                 onClick={handleGenerateSRS}
                 disabled={generating}
-                className="text-xs px-4 py-1.5 rounded-lg bg-brand-500 text-slate-950 font-bold hover:bg-brand-400 transition-all flex items-center gap-1.5"
+                className="text-xs px-4 py-1.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all flex items-center gap-1.5 shadow-sm"
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="w-3.5 h-3.5 text-white" />
                 {generating ? 'Drafting with Ollama...' : 'Generate Baseline SRS'}
               </button>
             )}
@@ -322,8 +322,8 @@ export default function SRSWorkbenchPage() {
         {activeTab === 'document' && (
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
             {/* Left Column: Section Outline Navigator */}
-            <div className="w-full md:w-64 border-r border-slate-800 bg-slate-950/60 p-4 space-y-1 overflow-y-auto shrink-0 select-none text-xs custom-scrollbar">
-              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">
+            <div className="w-full md:w-64 border-r border-slate-200 bg-white p-4 space-y-1 overflow-y-auto shrink-0 select-none text-xs custom-scrollbar">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-2 py-1 mb-1">
                 Template Sections
               </div>
               {[
@@ -342,7 +342,7 @@ export default function SRSWorkbenchPage() {
                 <button
                   key={sec.id}
                   onClick={() => setActiveSection(sec.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors ${activeSection === sec.id ? 'bg-brand-500/10 text-emerald-400 border border-brand-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
+                  className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors ${activeSection === sec.id ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'}`}
                 >
                   {sec.label}
                 </button>
@@ -350,7 +350,7 @@ export default function SRSWorkbenchPage() {
             </div>
 
             {/* Center Column: Exact Template SRS Document */}
-            <div className="flex-1 p-8 overflow-y-auto min-w-0 bg-slate-950 custom-scrollbar scroll-smooth">
+            <div className="flex-1 p-8 overflow-y-auto min-w-0 bg-slate-50 custom-scrollbar scroll-smooth">
               <div className="max-w-4xl mx-auto">
                 <SRSViewer
                   srs={srs}
@@ -360,59 +360,59 @@ export default function SRSWorkbenchPage() {
             </div>
 
             {/* Right Column: AI Assistant & Quality Inspector */}
-            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 bg-slate-900/40 p-5 space-y-6 overflow-y-auto shrink-0 custom-scrollbar">
+            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-200 bg-white p-5 space-y-6 overflow-y-auto shrink-0 custom-scrollbar">
               <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   Standard Compliance
                 </h3>
-                <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2 text-xs">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Current Version:</span>
-                    <span className="font-mono text-emerald-400 font-bold">v{srs?.currentVersion || '1.0'}</span>
+                    <span className="text-slate-600 font-medium">Current Version:</span>
+                    <span className="font-mono text-emerald-700 font-bold">v{srs?.currentVersion || '1.0'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Status:</span>
+                    <span className="text-slate-600 font-medium">Status:</span>
                     <StatusBadge status={srs?.status || 'DRAFT'} size="xs" />
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Template Fidelity:</span>
-                    <span className="text-emerald-400 font-medium">100% Compliant</span>
+                    <span className="text-slate-600 font-medium">Template Fidelity:</span>
+                    <span className="text-emerald-700 font-bold">100% Compliant</span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-brand-400" />
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
                   Anti-Hallucination Guard
                 </h3>
-                <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 space-y-1.5 leading-relaxed">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1.5 leading-relaxed font-medium">
                   <p>• Only validated, user-confirmed requirements are mapped to Section 3.</p>
-                  <p>• Missing technical details are formatted as <strong className="text-slate-200">TBD</strong> placeholders and indexed in Appendix C.</p>
+                  <p>• Missing technical details are formatted as <strong className="text-slate-900 font-bold">TBD</strong> placeholders and indexed in Appendix C.</p>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Export Specifications</h3>
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Export Specifications</h3>
                 <div className="space-y-2">
                   <a
                     href={srsAPI.getExportPDFUrl(projectId)}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-2 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg border border-slate-300 shadow-sm flex items-center justify-center gap-2 transition-colors"
                   >
-                    <Download className="w-3.5 h-3.5 text-rose-400" />
-                    Download Standard PDF
+                    <Download className="w-3.5 h-3.5 text-rose-500" />
+                    <span className="text-slate-800 font-semibold">Download Standard PDF</span>
                   </a>
                   <a
                     href={srsAPI.getExportDOCXUrl(projectId)}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-2 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg border border-slate-300 shadow-sm flex items-center justify-center gap-2 transition-colors"
                   >
-                    <Download className="w-3.5 h-3.5 text-blue-400" />
-                    Download Editable DOCX
+                    <Download className="w-3.5 h-3.5 text-blue-600" />
+                    <span className="text-slate-800 font-semibold">Download Editable DOCX</span>
                   </a>
                 </div>
               </div>
